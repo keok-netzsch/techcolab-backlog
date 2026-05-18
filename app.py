@@ -1107,6 +1107,8 @@ elif page == "📖 Tutorial":
     st.header("📖 Installation Tutorial")
     st.caption("Complete guide to install and configure TechColab Backlog on a new machine.")
 
+    st.info("**Source code:** [github.com/keok-netzsch/techcolab-backlog](https://github.com/keok-netzsch/techcolab-backlog)", icon="📦")
+
     st.markdown("""
 ## Prerequisites
 
@@ -1115,7 +1117,7 @@ elif page == "📖 Tutorial":
 | Python | 3.10 | python.org/downloads |
 | Ollama | Any recent | ollama.com/download |
 | Obsidian | Any recent | obsidian.md |
-| Git (optional) | Any recent | git-scm.com |
+| Git | Any recent | git-scm.com |
 
 > **Tip:** When installing Python on Windows, check the **"Add Python to PATH"** option before clicking Install Now.
 
@@ -1123,13 +1125,20 @@ elif page == "📖 Tutorial":
 
 ## Installation
 
-### Option 1 — Automatic script (recommended)
+### Step 1 — Clone the repository
 
-1. Open the project folder in Explorer
-2. Double-click **`install.bat`**
-3. Wait for dependencies to install
+```bat
+git clone https://github.com/keok-netzsch/techcolab-backlog.git
+cd techcolab-backlog
+```
 
-### Option 2 — Manual
+### Step 2 — Install dependencies
+
+**Option A — Automatic script (recommended)**
+
+Double-click **`install.bat`** in the project folder.
+
+**Option B — Manual**
 
 ```bat
 python -m venv .venv
@@ -1145,6 +1154,12 @@ Open **`config.py`** and set `VAULT_ROOT` to your Obsidian vault path:
 
 ```python
 VAULT_ROOT = r"C:\\Users\\YourUser\\Documents\\MyVault"
+```
+
+Or set the environment variable `TECHCOLAB_VAULT` (takes precedence over `config.py`):
+
+```bat
+set TECHCOLAB_VAULT=C:\\Users\\YourUser\\Documents\\MyVault
 ```
 
 **How to find the path:** Obsidian → Settings → About → Vault path.
@@ -1208,6 +1223,7 @@ backlog → under review → approved → waiting → in development → in vali
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "📚 Documentation":
     st.header("📚 Documentation & Context")
+    st.info("**Repository:** [github.com/keok-netzsch/techcolab-backlog](https://github.com/keok-netzsch/techcolab-backlog)", icon="📦")
 
     st.markdown("## Overview")
     st.markdown("""
