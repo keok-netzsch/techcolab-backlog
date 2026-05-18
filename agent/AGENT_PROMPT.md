@@ -16,7 +16,8 @@ daily report and checked the actions they approved. Your job is to implement the
 
 1. Read today's report: `agent-reports/report-YYYY-MM-DD.md`
 2. Find all checked checkboxes (`- [x]`) in the **Proposed actions** section
-3. Implement only those — do not act on unchecked items
+3. Each checkbox is a specific to-do from a backlog idea — the parent idea is shown above the group
+4. Implement only the checked to-dos — do not act on unchecked items
 
 ## Rules
 

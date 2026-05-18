@@ -228,14 +228,22 @@ def build_report(tests: dict, data: dict) -> str:
         lines.append("")
         for i in a["candidates"]:
             pico = PRIORITY_ICON.get(i.priority, "⭐")
-            effort = i.esforco or "unknown effort"
-            pending = sum(1 for t in i.todos if not t.get("done"))
-            todo_hint = f", {pending} pending to-do(s)" if pending else ""
-            lines.append(
-                f"- [ ] **`{i.id}`** — {pico} {i.title} "
-                f"_(status: {STATUS_LABEL.get(i.status, i.status)}, effort: {effort}{todo_hint})_"
-            )
-        lines += [""]
+            effort = i.esforco or "?"
+            status_en = STATUS_LABEL.get(i.status, i.status)
+            pending_todos = [t for t in i.todos if not t.get("done")]
+            if pending_todos:
+                # One checkbox per pending to-do, grouped under the idea
+                lines.append(f"**`{i.id}`** {pico} _{i.title}_ — {status_en}, effort: {effort}")
+                for t in pending_todos:
+                    due = f" _(due {t['due_date']})_" if t.get("due_date") else ""
+                    lines.append(f"- [ ] {t['text']}{due}")
+            else:
+                # Idea has no to-dos — propose advancing status
+                lines.append(
+                    f"- [ ] **`{i.id}`** {pico} {i.title} — move to next status"
+                    f" _(currently: {status_en}, effort: {effort})_"
+                )
+            lines.append("")
 
     if not tests["ok"]:
         lines += [
