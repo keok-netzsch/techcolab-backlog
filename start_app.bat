@@ -7,4 +7,4 @@ if "%TECHCOLAB_VAULT%"=="" (
 )
 
 call .venv\Scripts\activate.bat
-streamlit run app.py --server.headless true >> "%~dp0streamlit.log" 2>&1
+streamlit run app.py --server.port 8501 >> "%~dp0streamlit.log" 2>&1
