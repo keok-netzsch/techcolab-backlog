@@ -733,13 +733,18 @@ if page == "📋 Backlog":
                             else:
                                 st.caption("No events recorded yet.")
 
-                        h_chk, h_txt, h_date = st.columns([1, 6, 2])
+                        h_chk, h_txt, h_date, h_del = st.columns([1, 6, 2, 0.5])
                         h_txt.markdown("**To-dos**")
                         h_date.caption("📅 Prazo")
                         updated_todos = []
+                        deleted_idx_key = f"deleted_todo_idx_{idea.id}"
+                        if deleted_idx_key not in st.session_state:
+                            st.session_state[deleted_idx_key] = set()
 
                         for idx, todo in enumerate(idea.todos):
-                            c_chk, c_txt, c_date = st.columns([1, 6, 2])
+                            if idx in st.session_state[deleted_idx_key]:
+                                continue
+                            c_chk, c_txt, c_date, c_del = st.columns([1, 6, 2, 0.5])
                             with c_chk:
                                 done = st.checkbox(
                                     "", value=todo["done"],
@@ -764,6 +769,11 @@ if page == "📋 Backlog":
                                     format="DD/MM/YYYY",
                                     label_visibility="collapsed",
                                 )
+                            with c_del:
+                                if st.button("🗑️", key=f"del_todo_{idea.id}_{idx}",
+                                             help="Remove this to-do"):
+                                    st.session_state[deleted_idx_key].add(idx)
+                                    st.rerun()
                             updated_todos.append({
                                 "text": text,
                                 "done": done,
@@ -845,6 +855,7 @@ if page == "📋 Backlog":
                                 idea.claude_tips = st.session_state.get(tips_key) or idea.claude_tips
                                 idea.agente_autorizado = new_agente_autorizado
                                 store.save(idea)
+                                st.session_state.pop(f"deleted_todo_idx_{idea.id}", None)
                                 _rebuild_index(store)
                                 if new_status == "concluído":
                                     log_entry("concluida", idea)
