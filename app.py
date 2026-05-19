@@ -826,14 +826,14 @@ if page == "📋 Backlog":
                             st.session_state[staged_key] = []
 
                         for _si, _stgd in enumerate(st.session_state[staged_key]):
-                            _sc1, _sc2, _sc3 = st.columns([0.5, 7, 0.5])
+                            _sc1, _sc2, _sc3, _sc4 = st.columns([0.5, 6.5, 0.5, 0.5])
                             _sc1.markdown("➕")
-                            _sc2.caption(_stgd["text"])
+                            _sc2.caption(("🤖 " if _stgd.get("agente_autorizado") else "") + _stgd["text"])
                             if _sc3.button("✕", key=f"rm_staged_{idea.id}_{_si}", help="Remove"):
                                 st.session_state[staged_key].pop(_si)
                                 st.rerun()
 
-                        c_new_txt, c_new_date, c_add = st.columns([5, 2, 1])
+                        c_new_txt, c_new_date, c_new_auto, c_add = st.columns([4.5, 2, 0.6, 0.9])
                         with c_new_txt:
                             new_todo_text = st.text_input(
                                 "", placeholder="+ New to-do...",
@@ -847,6 +847,12 @@ if page == "📋 Backlog":
                                 format="DD/MM/YYYY",
                                 label_visibility="collapsed",
                             )
+                        with c_new_auto:
+                            new_todo_auto = st.checkbox(
+                                "🤖", value=False,
+                                key=f"bl_new_auto_{idea.id}",
+                                help="Autorizar agente a executar esta tarefa",
+                            )
                         with c_add:
                             if st.button("➕", key=f"add_todo_btn_{idea.id}",
                                          disabled=not new_todo_text.strip(),
@@ -855,9 +861,11 @@ if page == "📋 Backlog":
                                     "text": new_todo_text.strip(),
                                     "done": False,
                                     "due_date": str(new_todo_due) if new_todo_due else None,
+                                    "agente_autorizado": new_todo_auto,
                                 })
                                 st.session_state.pop(f"bl_new_txt_{idea.id}", None)
                                 st.session_state.pop(f"bl_new_due_{idea.id}", None)
+                                st.session_state.pop(f"bl_new_auto_{idea.id}", None)
                                 st.rerun()
 
                         for _stgd in st.session_state.get(staged_key, []):
@@ -867,6 +875,7 @@ if page == "📋 Backlog":
                                 "text": new_todo_text.strip(),
                                 "done": False,
                                 "due_date": str(new_todo_due) if new_todo_due else None,
+                                "agente_autorizado": new_todo_auto,
                             })
 
                         if current_tips:
