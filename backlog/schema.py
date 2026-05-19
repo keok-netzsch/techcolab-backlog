@@ -9,6 +9,19 @@ from typing import Optional
 
 VALID_IMPACTS = ["alta", "média", "baixa"]
 VALID_EFFORTS = ["alto", "médio", "baixo"]
+VALID_AREAS = [
+    "produto",
+    "dados",
+    "automação",
+    "desenvolvimento",
+    "gestão",
+    "comunicação",
+    "governança",
+    "planejamento",
+    "negócio",
+    "infraestrutura",
+    "IA",
+]
 
 VALID_STATUSES = [
     "backlog",

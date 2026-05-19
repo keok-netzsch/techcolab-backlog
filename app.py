@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from config import BACKLOG_DIR, BACKLOG_ARCHIVE_DIR, VAULT_ROOT, EXTRACTION_MODEL, OLLAMA_BASE_URL
 from backlog.store import BacklogStore
-from backlog.schema import VALID_STATUSES, VALID_PRIORITIES, VALID_IMPACTS, VALID_EFFORTS
+from backlog.schema import VALID_STATUSES, VALID_PRIORITIES, VALID_IMPACTS, VALID_EFFORTS, VALID_AREAS
 from backlog.daily_log import log_entry
 
 # ── Page config ────────────────────────────────────────────────────────────────
@@ -371,7 +371,8 @@ if page == "📋 Backlog":
                     )
             ni_col1, ni_col2 = st.columns(2)
             with ni_col1:
-                ni_area = st.text_input("Area", placeholder="E.g.: data, product, team", key="ni_area")
+                ni_area = st.selectbox("Area", [""] + VALID_AREAS, index=0, key="ni_area",
+                                       format_func=lambda x: x if x else "— selecione —")
                 ni_priority = st.selectbox("Priority", VALID_PRIORITIES, index=1, key="ni_priority",
                                            format_func=lambda x: PRIORITY_LABEL.get(x, x))
             with ni_col2:
@@ -609,7 +610,14 @@ if page == "📋 Backlog":
                                 key=f"priority_{idea.id}",
                                 format_func=lambda x: PRIORITY_LABEL.get(x, x),
                             )
-                            new_area = st.text_input("Area", value=idea.area or "", key=f"area_{idea.id}")
+                            _area_opts = [""] + VALID_AREAS
+                            _area_cur = idea.area or ""
+                            if _area_cur and _area_cur not in _area_opts:
+                                _area_opts = [""] + [_area_cur] + VALID_AREAS
+                            new_area = st.selectbox("Area", _area_opts,
+                                                    index=_area_opts.index(_area_cur) if _area_cur in _area_opts else 0,
+                                                    key=f"area_{idea.id}",
+                                                    format_func=lambda x: x if x else "— selecione —")
                             new_due = st.date_input(
                                 "Due date",
                                 value=idea.due_date,
