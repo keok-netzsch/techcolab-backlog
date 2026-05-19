@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import BACKLOG_DIR, VAULT_ROOT, EXTRACTION_MODEL, CLAUDE_PRO_REPORT_DIR, CLAUDE_PRO_START_DATE
+from config import BACKLOG_DIR, VAULT_ROOT, EXTRACTION_MODEL, CLAUDE_PRO_REPORT_HTML, CLAUDE_PRO_START_DATE
 from backlog.store import BacklogStore
 from backlog.schema import VALID_STATUSES
 
@@ -281,17 +281,13 @@ def build_report(tests: dict, data: dict) -> str:
 
 def _update_claude_pro_report() -> bool:
     """
-    Update date fields in the Claude Pro Report HTML and push to GitHub.
+    Update date fields in the Claude Pro Report HTML (local file inside the project).
+    The file is committed to the techcolab-backlog repo — no separate external repo needed.
     Returns True on success, False on any error (non-fatal — agent continues).
     """
-    report_dir = CLAUDE_PRO_REPORT_DIR
-    if not report_dir.exists():
-        print(f"[agent] Claude Pro Report dir not found: {report_dir} — skipping")
-        return False
-
-    html_path = report_dir / "index.html"
+    html_path = CLAUDE_PRO_REPORT_HTML
     if not html_path.exists():
-        print(f"[agent] index.html not found in {report_dir} — skipping")
+        print(f"[agent] Claude Pro Report HTML not found: {html_path} — skipping")
         return False
 
     try:
@@ -325,28 +321,24 @@ def _update_claude_pro_report() -> bool:
             html,
         )
 
-        # Also update the clone: claude-pro-report.html mirrors index.html
         html_path.write_text(html, encoding="utf-8")
-        clone_path = report_dir / "claude-pro-report.html"
-        clone_path.write_text(html, encoding="utf-8")
 
-        # Git commit and push
-        git_env = {"PATH": subprocess.os.environ.get("PATH", "")}
-        subprocess.run(["git", "add", "-A"], cwd=str(report_dir), check=True)
+        # Git commit and push from the project root (reports/ is inside techcolab-backlog)
+        project_root = html_path.parent.parent  # reports/ → project root
+        subprocess.run(["git", "add", str(html_path)], cwd=str(project_root), check=True)
         result = subprocess.run(
             ["git", "diff", "--cached", "--quiet"],
-            cwd=str(report_dir),
+            cwd=str(project_root),
         )
         if result.returncode != 0:
-            # There are staged changes
             subprocess.run(
-                ["git", "commit", "-m", f"chore: auto-update report date to {TODAY}"],
-                cwd=str(report_dir), check=True,
+                ["git", "commit", "-m", f"chore: auto-update claude pro report to {TODAY}"],
+                cwd=str(project_root), check=True,
             )
-            subprocess.run(["git", "push"], cwd=str(report_dir), check=True)
+            subprocess.run(["git", "push"], cwd=str(project_root), check=True)
             print(f"[agent] Claude Pro Report updated and pushed ({today_br}, {days_since} days)")
         else:
-            print(f"[agent] Claude Pro Report: no date changes to push")
+            print(f"[agent] Claude Pro Report: no date changes needed")
 
         return True
 

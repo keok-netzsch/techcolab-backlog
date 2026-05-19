@@ -1357,17 +1357,16 @@ Anotações livres.
 
 elif page == "📈 Claude Pro":
     import streamlit.components.v1 as components
+    from config import CLAUDE_PRO_REPORT_HTML
     st.markdown('<h1 style="margin-bottom:0.2rem">Claude Pro Report</h1>',
                 unsafe_allow_html=True)
     st.caption("Relatório vivo de uso do Claude Pro · NBS D&A · Techco.lab — "
-               "atualizado automaticamente via GitHub Pages")
-    st.markdown(
-        '<a href="https://keok-netzsch.github.io/claude-pro-report/" target="_blank" '
-        'style="font-size:0.8rem;color:rgba(76,77,88,0.5)">Abrir em nova aba ↗</a>',
-        unsafe_allow_html=True,
-    )
-    components.iframe(
-        "https://keok-netzsch.github.io/claude-pro-report/",
-        height=900,
-        scrolling=True,
-    )
+               "atualizado automaticamente pelo agente diário")
+    if CLAUDE_PRO_REPORT_HTML.exists():
+        _report_html = CLAUDE_PRO_REPORT_HTML.read_text(encoding="utf-8")
+        components.html(_report_html, height=900, scrolling=True)
+    else:
+        st.warning(
+            f"Relatório não encontrado em `{CLAUDE_PRO_REPORT_HTML}`. "
+            "Execute o agente diário para gerar o arquivo."
+        )
