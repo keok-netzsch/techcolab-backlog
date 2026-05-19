@@ -973,7 +973,7 @@ elif page == "✅ To-Do List":
             areas = sorted(set(t["area"] for t in all_todos if t["area"] != "—"))
             filter_area = st.selectbox("Area", ["All"] + areas)
         with col_c:
-            group_by = st.radio("Group by", ["Priority", "Idea", "Area", "Date"], horizontal=True)
+            group_by = st.radio("Group by", ["Priority", "Idea", "Area", "Date"], index=3, horizontal=True)
 
         filtered_todos = all_todos
         if show_filter == "Pending":
@@ -1038,7 +1038,7 @@ elif page == "✅ To-Do List":
 
         def get_group_key(t):
             if group_by == "Priority":
-                return f"{PRIORITY_ICON.get(t['priority'], '⚪')} {PRIORITY_LABEL.get(t['priority'], t['priority'].title())}"
+                return f"{PRIORITY_LABEL.get(t['priority'], t['priority'].title())}"
             elif group_by == "Idea":
                 return f"💡 {t['idea_id']} — {t['idea_title']}"
             elif group_by == "Date":
@@ -1076,7 +1076,7 @@ elif page == "✅ To-Do List":
 
         for group_label, group_items in groupby(filtered_todos, key=get_group_key):
             items = list(group_items)
-            st.markdown(f"#### {group_label}")
+            st.markdown(f"#### {group_label}", unsafe_allow_html=True)
             for item in items:
                 idea = store.load_by_id(item["idea_id"])
                 if not idea:
@@ -1084,14 +1084,14 @@ elif page == "✅ To-Do List":
 
                 c_id, c_prio, c_status, c_chk, c_text, c_info = st.columns([0.06, 0.07, 0.05, 0.05, 0.59, 0.18])
 
-                short = item["idea_id"].replace("idea-", "")
+                short = str(int(item["idea_id"].replace("idea-", "")))
                 if c_id.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
                                help=f"Abrir {item['idea_id']} no Backlog"):
                     st.session_state["page"] = "📋 Backlog"
                     st.session_state[f"exp_{item['idea_id']}"] = True
                     st.rerun()
 
-                c_prio.markdown(PRIORITY_ICON.get(item["priority"], "⚪"))
+                c_prio.markdown(PRIORITY_NUM.get(item["priority"], "⚪"), unsafe_allow_html=True)
                 c_status.markdown(STATUS_COLOR.get(item["status"], _sdot("backlog")), unsafe_allow_html=True)
 
                 _TDL_STATE_ICON = {"open": "⬜", "in_progress": "🔄", "done": "✅"}
