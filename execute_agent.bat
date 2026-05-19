@@ -32,4 +32,4 @@ echo confirm with you, then implement and run the tests.
 echo.
 pause
 
-start "TechColab Agent" cmd /k "cd /d "%~dp0" && "%USERPROFILE%\.local\bin\claude.exe""
+powershell -NoProfile -Command "$claude = \"$env:USERPROFILE\.local\bin\claude.exe\"; Start-Process 'cmd' -ArgumentList '/k', \"`\"$claude`\"\" -WorkingDirectory '%~dp0'"
