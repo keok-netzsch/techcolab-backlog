@@ -32,4 +32,4 @@ echo confirm with you, then implement and run the tests.
 echo.
 pause
 
-claude
+"%USERPROFILE%\.local\bin\claude.exe"
