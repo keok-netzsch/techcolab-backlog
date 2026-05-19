@@ -32,4 +32,4 @@ echo confirm with you, then implement and run the tests.
 echo.
 pause
 
-"%USERPROFILE%\.local\bin\claude.exe"
+start "TechColab Agent" cmd /k "cd /d "%~dp0" && "%USERPROFILE%\.local\bin\claude.exe""
