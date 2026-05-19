@@ -38,31 +38,38 @@ from backlog.schema import Idea, VALID_STATUSES, VALID_IMPACTS, VALID_EFFORTS
 
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
-# Matches: - [ ] text @YYYY-MM-DD ~YYYY-MM-DD {auto}
-# @due_date, ~completed_at, {auto} are all optional suffixes (in that order)
+# Markers: [ ] = open, [>] = in progress, [x] = done
+# Optional suffixes (in order): @YYYY-MM-DD (due), ~YYYY-MM-DD (completed_at), {auto} (agent-authorised)
 _TODO_RE = re.compile(
-    r"^- \[(x| )\] (.+?)(?:\s+@(\d{4}-\d{2}-\d{2}))?(?:\s+~(\d{4}-\d{2}-\d{2}))?(?:\s+(\{auto\}))?$",
+    r"^- \[(x|>| )\] (.+?)(?:\s+@(\d{4}-\d{2}-\d{2}))?(?:\s+~(\d{4}-\d{2}-\d{2}))?(?:\s+(\{auto\}))?$",
     re.MULTILINE,
 )
 
 
 def _parse_todos(text: str) -> list[dict]:
-    return [
-        {
-            "done": m.group(1) == "x",
+    results = []
+    for m in _TODO_RE.finditer(text):
+        marker = m.group(1)
+        results.append({
+            "done": marker == "x",
+            "in_progress": marker == ">",
             "text": m.group(2).strip(),
             "due_date": m.group(3),
             "completed_at": m.group(4),
             "agente_autorizado": m.group(5) is not None,
-        }
-        for m in _TODO_RE.finditer(text)
-    ]
+        })
+    return results
 
 
 def _render_todos(todos: list[dict]) -> str:
     lines = []
     for t in todos:
-        mark = "x" if t["done"] else " "
+        if t.get("done"):
+            mark = "x"
+        elif t.get("in_progress"):
+            mark = ">"
+        else:
+            mark = " "
         line = f"- [{mark}] {t['text']}"
         if t.get("due_date"):
             line += f" @{t['due_date']}"

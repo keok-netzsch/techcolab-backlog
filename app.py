@@ -731,7 +731,9 @@ if page == "📋 Backlog":
                             "</style>",
                             unsafe_allow_html=True,
                         )
-                        h_chk, h_txt, h_date, h_auto, h_del = st.columns([1, 6, 2, 0.5, 0.5])
+                        _TODO_STATE_OPTS = ["⬜ Open", "🔄 In progress", "✅ Done"]
+                        h_state, h_txt, h_date, h_auto, h_del = st.columns([1.5, 6, 2, 0.5, 0.5])
+                        h_state.caption("Estado")
                         h_txt.markdown("**To-dos**")
                         h_date.caption("📅 Prazo")
                         h_auto.caption("🤖")
@@ -743,12 +745,21 @@ if page == "📋 Backlog":
                         for idx, todo in enumerate(idea.todos):
                             if idx in st.session_state[deleted_idx_key]:
                                 continue
-                            c_chk, c_txt, c_date, c_auto, c_del = st.columns([1, 6, 2, 0.5, 0.5])
-                            with c_chk:
-                                done = st.checkbox(
-                                    "", value=todo["done"],
-                                    key=f"bl_chk_{idea.id}_{idx}",
+                            c_state, c_txt, c_date, c_auto, c_del = st.columns([1.5, 6, 2, 0.5, 0.5])
+                            with c_state:
+                                if todo.get("done"):
+                                    cur_idx = 2
+                                elif todo.get("in_progress"):
+                                    cur_idx = 1
+                                else:
+                                    cur_idx = 0
+                                state_sel = st.selectbox(
+                                    "", _TODO_STATE_OPTS, index=cur_idx,
+                                    key=f"bl_state_{idea.id}_{idx}",
+                                    label_visibility="collapsed",
                                 )
+                                done = state_sel == "✅ Done"
+                                in_progress = state_sel == "🔄 In progress"
                             with c_txt:
                                 text = st.text_input(
                                     "", value=todo["text"],
@@ -779,11 +790,17 @@ if page == "📋 Backlog":
                                     st.session_state[deleted_idx_key].add(idx)
                                     st.rerun()
                                 st.markdown('</div>', unsafe_allow_html=True)
+                            completed_at = todo.get("completed_at")
+                            if done and not completed_at:
+                                completed_at = date.today().isoformat()
+                            elif not done:
+                                completed_at = None
                             updated_todos.append({
                                 "text": text,
                                 "done": done,
+                                "in_progress": in_progress,
                                 "due_date": str(todo_due) if todo_due else None,
-                                "completed_at": todo.get("completed_at"),
+                                "completed_at": completed_at,
                                 "agente_autorizado": auto,
                             })
 
@@ -924,6 +941,7 @@ elif page == "✅ To-Do List":
                 "todo_idx": idx,
                 "text": todo["text"],
                 "done": todo["done"],
+                "in_progress": todo.get("in_progress", False),
                 "due_date": todo.get("due_date"),
                 "completed_at": todo.get("completed_at"),
             })
@@ -952,8 +970,19 @@ elif page == "✅ To-Do List":
         filtered_todos.sort(key=lambda t: (prio_order.get(t["priority"], 9), t["idea_id"]))
 
         pending_count = sum(1 for t in filtered_todos if not t["done"])
+        in_progress_count = sum(1 for t in filtered_todos if not t["done"] and t.get("in_progress"))
         done_count = sum(1 for t in filtered_todos if t["done"])
-        st.markdown(f"**{pending_count} pending** · {done_count} done out of {len(filtered_todos)} shown")
+        ip_badge = f" · **{in_progress_count} 🔄 in progress**" if in_progress_count else ""
+        st.markdown(f"**{pending_count} pending**{ip_badge} · {done_count} done out of {len(filtered_todos)} shown")
+        st.markdown(
+            "<style>"
+            ".tdl-state button { padding:0 2px!important; min-height:22px!important; line-height:1!important;"
+            " background:transparent!important; border:none!important; box-shadow:none!important;"
+            " font-size:1rem!important; }"
+            ".tdl-state button:hover { opacity:0.7!important; }"
+            "</style>",
+            unsafe_allow_html=True,
+        )
         st.divider()
 
         _GROUP_DATA_ORDER = {"🔴 Overdue": 0, "📅 This week": 1, "📆 This month": 2, "🗓️ Upcoming": 3, "📭 No due date": 4}
@@ -1048,16 +1077,25 @@ elif page == "✅ To-Do List":
                 c_prio.markdown(PRIORITY_ICON.get(item["priority"], "⚪"))
                 c_status.markdown(STATUS_COLOR.get(item["status"], _sdot("backlog")), unsafe_allow_html=True)
 
+                _TDL_STATE_ICON = {"open": "⬜", "in_progress": "🔄", "done": "✅"}
+                _TDL_STATE_NEXT = {"open": "in_progress", "in_progress": "done", "done": "open"}
+                cur_state = "done" if item["done"] else ("in_progress" if item.get("in_progress") else "open")
+
                 with c_chk:
-                    checked = st.checkbox(
-                        "",
-                        value=item["done"],
-                        key=f"tdl_{item['idea_id']}_{item['todo_idx']}",
-                        label_visibility="collapsed",
+                    st.markdown('<div class="tdl-state">', unsafe_allow_html=True)
+                    state_clicked = st.button(
+                        _TDL_STATE_ICON[cur_state],
+                        key=f"tdl_state_{item['idea_id']}_{item['todo_idx']}",
                     )
+                    st.markdown('</div>', unsafe_allow_html=True)
 
                 with c_text:
-                    text_md = f"~~{item['text']}~~" if checked else item["text"]
+                    if item["done"]:
+                        text_md = f"~~{item['text']}~~"
+                    elif item.get("in_progress"):
+                        text_md = f"*{item['text']}*"
+                    else:
+                        text_md = item["text"]
                     st.markdown(text_md)
                     st.caption(f"`{item['idea_id']}` {item['idea_title'][:45]}")
 
@@ -1066,13 +1104,10 @@ elif page == "✅ To-Do List":
                     if item.get("due_date"):
                         try:
                             due = date.fromisoformat(item["due_date"])
-                            if checked:
+                            if item["done"]:
                                 completed_raw = item.get("completed_at")
                                 ref = date.fromisoformat(completed_raw) if completed_raw else due
-                                if ref > due:
-                                    due_str = f"🔴 {due.strftime('%d/%m')}"
-                                else:
-                                    due_str = f"✅ {due.strftime('%d/%m')}"
+                                due_str = f"🔴 {due.strftime('%d/%m')}" if ref > due else f"✅ {due.strftime('%d/%m')}"
                             else:
                                 if due < today:
                                     due_str = f"🔴 {due.strftime('%d/%m')}"
@@ -1084,16 +1119,15 @@ elif page == "✅ To-Do List":
                             pass
                     st.caption(due_str)
 
-                if checked != item["done"]:
-                    idea.todos[item["todo_idx"]]["done"] = checked
-                    if checked:
-                        idea.todos[item["todo_idx"]]["completed_at"] = today.isoformat()
-                    else:
-                        idea.todos[item["todo_idx"]]["completed_at"] = None
+                if state_clicked:
+                    next_state = _TDL_STATE_NEXT[cur_state]
+                    todo_entry = idea.todos[item["todo_idx"]]
+                    todo_entry["done"] = next_state == "done"
+                    todo_entry["in_progress"] = next_state == "in_progress"
+                    todo_entry["completed_at"] = today.isoformat() if next_state == "done" else None
                     store.save(idea)
-                    if checked:
+                    if next_state == "done":
                         log_entry("todo_concluido", idea, item["text"])
-                    # Sem st.rerun(): item fica visível com risco até próximo carregamento
             st.markdown("")
 
 
@@ -1420,7 +1454,45 @@ Execute the approved items from today's agent report
 | pip install error | Activate `.venv` first: `.venv\\Scripts\\activate` |
 | Agent report not found | Run `run_agent.bat` manually to generate it |
 | `TECHCOLAB_VAULT` error in app | Restart the app — the env var is set but needs a new process |
+
+---
+
+## Claude Pro Report
+
+The **Claude Pro Report** (`📈 Claude Pro` tab) is a live HTML report that tracks Claude Pro usage and adoption metrics for the NBS D&A team.
+
+It is stored as an HTML file inside the project repository (`reports/claude-pro-report.html`) and published automatically via GitHub Pages.
+
+### What gets updated automatically
+
+Every morning when the daily agent runs, it updates three values in the HTML file:
+
+| Field | Example |
+|---|---|
+| "Atualizado em" (header meta) | 19/05/2026 |
+| "Dias desde adoção" (stat counter) | 47 |
+| Footer date | 19/05/2026 |
+
+After updating, the agent commits the file to the repository and pushes it — GitHub Pages then serves the new version within ~1 minute.
+
+### Manual update
+
+If you want to update the report outside the agent schedule, click the button below:
 """)
+
+    from config import CLAUDE_PRO_REPORT_HTML
+    if CLAUDE_PRO_REPORT_HTML.exists():
+        if st.button("🔄 Atualizar Claude Pro Report agora", type="primary"):
+            from agent.daily_report import _update_claude_pro_report
+            with st.spinner("Atualizando e enviando para o GitHub..."):
+                ok = _update_claude_pro_report()
+            if ok:
+                st.success("✅ Relatório atualizado e publicado.")
+            else:
+                st.error("❌ Falha ao atualizar. Verifique se o Git está configurado e o repositório está acessível.")
+    else:
+        st.warning(f"Arquivo do relatório não encontrado: `{CLAUDE_PRO_REPORT_HTML}`")
+
 
 
 # ══════════════════════════════════════════════════════════════════════════════
