@@ -59,26 +59,30 @@ if errorlevel 1 (
 echo [OK] Dependencias instaladas com sucesso.
 echo.
 
-REM ── Criar atalho na Area de Trabalho ────────────────────────
-echo [INFO] Criando atalho na Area de Trabalho ...
+REM ── Criar atalhos na Area de Trabalho ───────────────────────
+echo [INFO] Criando atalhos na Area de Trabalho ...
 set "SCRIPT_DIR=%~dp0"
 
 powershell -NoProfile -Command ^
-  "$desktop = [System.Environment]::GetFolderPath('Desktop'); ^
+  "$d = [System.Environment]::GetFolderPath('Desktop'); ^
    $ws = New-Object -ComObject WScript.Shell; ^
-   $s = $ws.CreateShortcut(\"$desktop\TechColab Backlog.lnk\"); ^
+   $ico = '%SCRIPT_DIR%assets\techcolab.ico'; ^
+   $s = $ws.CreateShortcut(\"$d\TechColab Backlog.lnk\"); ^
    $s.TargetPath = 'wscript.exe'; ^
    $s.Arguments = \"\"\"%SCRIPT_DIR%start_silent.vbs\"\"\"; ^
    $s.WorkingDirectory = '%SCRIPT_DIR%'; ^
    $s.Description = 'Iniciar TechColab Backlog'; ^
-   $s.IconLocation = 'shell32.dll,13'; ^
-   $s.Save()"
-
-powershell -NoProfile -Command ^
-  "$desktop = [System.Environment]::GetFolderPath('Desktop'); ^
-   $lnk = \"$desktop\TechColab Backlog.lnk\"; ^
-   if (Test-Path $lnk) { Write-Host '[OK] Atalho criado: ' + $lnk } ^
-   else { Write-Host '[AVISO] Atalho nao criado - use start_app.bat diretamente' }"
+   $s.IconLocation = if (Test-Path $ico) { $ico + ',0' } else { 'shell32.dll,13' }; ^
+   $s.Save(); ^
+   $t = $ws.CreateShortcut(\"$d\Fechar TechColab.lnk\"); ^
+   $t.TargetPath = 'wscript.exe'; ^
+   $t.Arguments = \"\"\"%SCRIPT_DIR%stop_app.vbs\"\"\"; ^
+   $t.WorkingDirectory = '%SCRIPT_DIR%'; ^
+   $t.Description = 'Fechar TechColab Backlog'; ^
+   $ico2 = '%SCRIPT_DIR%assets\techcolab_stop.ico'; ^
+   $t.IconLocation = if (Test-Path $ico2) { $ico2 + ',0' } else { 'shell32.dll,131' }; ^
+   $t.Save(); ^
+   Write-Host '[OK] Atalhos criados em: ' $d"
 echo.
 
 REM ── Mensagem final ───────────────────────────────────────────
