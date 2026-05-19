@@ -62,23 +62,23 @@ echo.
 REM ── Criar atalho na Area de Trabalho ────────────────────────
 echo [INFO] Criando atalho na Area de Trabalho ...
 set "SCRIPT_DIR=%~dp0"
-set "SHORTCUT=%USERPROFILE%\Desktop\TechColab Backlog.lnk"
-set "TARGET=%SCRIPT_DIR%start_app.bat"
 
 powershell -NoProfile -Command ^
-  "$ws = New-Object -ComObject WScript.Shell; ^
-   $s = $ws.CreateShortcut('%SHORTCUT%'); ^
-   $s.TargetPath = '%TARGET%'; ^
+  "$desktop = [System.Environment]::GetFolderPath('Desktop'); ^
+   $ws = New-Object -ComObject WScript.Shell; ^
+   $s = $ws.CreateShortcut(\"$desktop\TechColab Backlog.lnk\"); ^
+   $s.TargetPath = 'wscript.exe'; ^
+   $s.Arguments = \"\"\"%SCRIPT_DIR%start_silent.vbs\"\"\"; ^
    $s.WorkingDirectory = '%SCRIPT_DIR%'; ^
    $s.Description = 'Iniciar TechColab Backlog'; ^
+   $s.IconLocation = 'shell32.dll,13'; ^
    $s.Save()"
 
-if exist "%SHORTCUT%" (
-    echo [OK] Atalho criado na Area de Trabalho: "TechColab Backlog"
-) else (
-    echo [AVISO] Nao foi possivel criar o atalho automaticamente.
-    echo         Use start_app.bat diretamente para iniciar o aplicativo.
-)
+powershell -NoProfile -Command ^
+  "$desktop = [System.Environment]::GetFolderPath('Desktop'); ^
+   $lnk = \"$desktop\TechColab Backlog.lnk\"; ^
+   if (Test-Path $lnk) { Write-Host '[OK] Atalho criado: ' + $lnk } ^
+   else { Write-Host '[AVISO] Atalho nao criado - use start_app.bat diretamente' }"
 echo.
 
 REM ── Mensagem final ───────────────────────────────────────────
