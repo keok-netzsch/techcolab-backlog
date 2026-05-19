@@ -1294,6 +1294,45 @@ elif page == "📊 Dashboard":
     if st.button("📋 Generate period report"):
         _report_dialog()
 
+    st.divider()
+    st.subheader("🪙 Estimativa de Tokens")
+    st.caption("Estime o consumo de tokens e o aproveitamento do contexto de 200K do Claude.")
+
+    with st.expander("Abrir calculadora", expanded=False):
+        col_tc_a, col_tc_b = st.columns([1, 1])
+        with col_tc_a:
+            msgs_day = st.slider("Mensagens/dia ao Claude", 1, 100, 20, key="tk_msgs")
+            conv_type = st.radio(
+                "Tipo de conversa predominante",
+                ["Curta (~1.5K tokens)", "Média (~8K)", "Longa (~30K)", "Projeto (~80K)"],
+                horizontal=True, key="tk_type",
+            )
+        _token_map = {
+            "Curta (~1.5K tokens)": 1_500,
+            "Média (~8K)": 8_000,
+            "Longa (~30K)": 30_000,
+            "Projeto (~80K)": 80_000,
+        }
+        tokens_per_msg = _token_map[conv_type]
+        day_tokens = msgs_day * tokens_per_msg
+        month_tokens = day_tokens * 22
+        ctx_pct = min(99.0, tokens_per_msg / 200_000 * 100)
+
+        with col_tc_b:
+            r1, r2, r3 = st.columns(3)
+            r1.metric("Tokens/dia", f"{day_tokens/1000:.0f}K" if day_tokens >= 1000 else str(day_tokens))
+            r2.metric("Tokens/mês", f"{month_tokens/1_000_000:.1f}M" if month_tokens >= 1_000_000 else f"{month_tokens/1000:.0f}K")
+            r3.metric("% do contexto por msg", f"{ctx_pct:.1f}%")
+
+        st.progress(ctx_pct / 100)
+
+        if tokens_per_msg < 5_000:
+            st.info("💡 Conversas curtas usam pouco do contexto de 200K. Agrupe tarefas relacionadas em uma única sessão para maximizar cada interação.")
+        elif tokens_per_msg < 20_000:
+            st.success("✅ Bom uso do contexto. Adicionar arquivos e histórico completo deixa as respostas mais precisas.")
+        else:
+            st.success("🚀 Aproveitamento avançado — uso do contexto extenso maximiza o valor do Claude Pro por interação.")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 4 — TUTORIAL

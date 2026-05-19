@@ -122,6 +122,29 @@
   .completed-section { display: none; flex-direction: column; gap: 2px; margin-top: 2px; }
   .completed-section.open { display: flex; }
 
+  /* ── Calculadoras ───────────────────────────────────────────────── */
+  .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:start}
+  .calc-inputs{display:flex;flex-direction:column;gap:24px}
+  .calc-field{display:flex;flex-direction:column;gap:8px}
+  .calc-field label{font-size:13px;color:var(--body);font-weight:400}
+  .calc-field label em{font-style:italic;color:var(--accent);font-weight:500}
+  .calc-range-row{display:flex;align-items:center;gap:12px}
+  .calc-range-row input[type=range]{flex:1;-webkit-appearance:none;height:4px;border-radius:2px;background:var(--border);outline:none;cursor:pointer}
+  .calc-range-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer}
+  .calc-val{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);font-weight:500;min-width:60px;text-align:right}
+  .calc-results{display:grid;grid-template-columns:1fr 1fr;gap:2px}
+  .result-item{background:white;border:1px solid var(--border);border-radius:4px;padding:20px 24px;display:flex;flex-direction:column;gap:4px}
+  .result-number{font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1;background:linear-gradient(135deg,var(--accent-dark),var(--accent-soft));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .result-label{font-size:12px;color:var(--mid)}
+  .toggle-group{display:flex;gap:4px}
+  .tgl{flex:1;padding:8px 4px;background:white;border:1px solid var(--border);border-radius:4px;font-family:'DM Sans',sans-serif;font-size:12px;color:var(--mid);cursor:pointer;text-align:center;line-height:1.4;transition:all .15s}
+  .tgl.active{background:var(--green-bg);border-color:var(--accent);color:var(--accent-dark);font-weight:500}
+  .tgl small{display:block;font-family:'DM Mono',monospace;font-size:10px;opacity:.7}
+  .gauge-bar{width:100%;height:8px;background:var(--border);border-radius:4px;overflow:hidden;margin-top:4px}
+  .gauge-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent-dark),var(--accent-light));transition:width .4s ease;width:0%}
+  .calc-tip{margin-top:20px;padding:14px 18px;background:var(--exec-bg);border-left:3px solid var(--accent);border-radius:0 4px 4px 0;font-size:13px;color:var(--body);line-height:1.6}
+  @media(max-width:768px){.calc-grid,.calc-results{grid-template-columns:1fr}}
+
   /* ── Timeline scroll ─────────────────────────────────────────────── */
   .timeline-scroll { max-height: 680px; overflow-y: auto; padding-right: 10px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
   .timeline-scroll::-webkit-scrollbar { width: 4px; }
@@ -366,6 +389,81 @@
     </table>
   </section>
 
+  <!-- ── Calculadora de Tempo ──────────────────────────────────────── -->
+  <section>
+    <div class="section-label">Calculadora</div>
+    <h2>ROI de Tempo com Claude</h2>
+    <p class="section-desc">Estime as horas economizadas usando o Claude em tarefas recorrentes.</p>
+    <div class="calc-grid">
+      <div class="calc-inputs">
+        <div class="calc-field">
+          <label>Tarefas automatizadas por semana</label>
+          <div class="calc-range-row">
+            <input type="range" id="t-tasks" min="1" max="50" value="10" oninput="calcTime()">
+            <span class="calc-val" id="t-tasks-val">10</span>
+          </div>
+        </div>
+        <div class="calc-field">
+          <label>Tempo médio por tarefa <em>sem</em> Claude</label>
+          <div class="calc-range-row">
+            <input type="range" id="t-manual" min="5" max="240" value="30" oninput="calcTime()">
+            <span class="calc-val" id="t-manual-val">30 min</span>
+          </div>
+        </div>
+        <div class="calc-field">
+          <label>Tempo médio por tarefa <em>com</em> Claude</label>
+          <div class="calc-range-row">
+            <input type="range" id="t-claude" min="1" max="120" value="8" oninput="calcTime()">
+            <span class="calc-val" id="t-claude-val">8 min</span>
+          </div>
+        </div>
+      </div>
+      <div class="calc-results">
+        <div class="result-item"><span class="result-number" id="res-week">—</span><span class="result-label">horas poupadas/semana</span></div>
+        <div class="result-item"><span class="result-number" id="res-month">—</span><span class="result-label">horas poupadas/mês</span></div>
+        <div class="result-item"><span class="result-number" id="res-year">—</span><span class="result-label">dias poupados/ano</span></div>
+        <div class="result-item"><span class="result-number" id="res-mult">—</span><span class="result-label">× mais rápido</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Calculadora de Tokens ──────────────────────────────────────── -->
+  <section>
+    <div class="section-label">Calculadora</div>
+    <h2>Tokens e Aproveitamento de Contexto</h2>
+    <p class="section-desc">Estime o consumo e o aproveitamento do contexto de 200K por tipo de uso.</p>
+    <div class="calc-grid">
+      <div class="calc-inputs">
+        <div class="calc-field">
+          <label>Mensagens enviadas por dia</label>
+          <div class="calc-range-row">
+            <input type="range" id="tk-msgs" min="1" max="100" value="20" oninput="calcTokens()">
+            <span class="calc-val" id="tk-msgs-val">20</span>
+          </div>
+        </div>
+        <div class="calc-field">
+          <label>Tipo de conversa predominante</label>
+          <div class="toggle-group" id="tk-type">
+            <button class="tgl active" data-val="1500" onclick="setType(this)">Curta<small>~1.5K tk</small></button>
+            <button class="tgl" data-val="8000" onclick="setType(this)">Média<small>~8K tk</small></button>
+            <button class="tgl" data-val="30000" onclick="setType(this)">Longa<small>~30K tk</small></button>
+            <button class="tgl" data-val="80000" onclick="setType(this)">Projeto<small>~80K tk</small></button>
+          </div>
+        </div>
+      </div>
+      <div class="calc-results">
+        <div class="result-item"><span class="result-number" id="res-day-tk">—</span><span class="result-label">tokens/dia estimados</span></div>
+        <div class="result-item"><span class="result-number" id="res-month-tk">—</span><span class="result-label">tokens/mês estimados</span></div>
+        <div class="result-item" style="grid-column:1/-1">
+          <span class="result-label">% aproveitamento do contexto por mensagem</span>
+          <span class="result-number" id="res-ctx-pct">—</span>
+          <div class="gauge-bar"><div class="gauge-fill" id="gauge-fill"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="calc-tip" id="token-tip"></div>
+  </section>
+
 </main>
 
 <footer>
@@ -381,6 +479,56 @@
     document.getElementById('completed-section').classList.toggle('open');
     document.getElementById('completed-toggle').classList.toggle('open');
   }
+
+  // ── Calculadora de Tempo ──────────────────────────────────────────
+  function calcTime() {
+    const tasks  = +document.getElementById('t-tasks').value;
+    const manual = +document.getElementById('t-manual').value;
+    const claude = +document.getElementById('t-claude').value;
+    document.getElementById('t-tasks-val').textContent  = tasks;
+    document.getElementById('t-manual-val').textContent = manual + ' min';
+    document.getElementById('t-claude-val').textContent = claude + ' min';
+    const savedMin = tasks * Math.max(0, manual - claude);
+    document.getElementById('res-week').textContent  = (savedMin / 60).toFixed(1) + 'h';
+    document.getElementById('res-month').textContent = Math.round(savedMin * 4.3 / 60) + 'h';
+    document.getElementById('res-year').textContent  = (savedMin * 52 / 60 / 8).toFixed(1) + ' dias';
+    document.getElementById('res-mult').textContent  = claude > 0 ? (manual / claude).toFixed(1) + '×' : '—';
+  }
+
+  // ── Calculadora de Tokens ─────────────────────────────────────────
+  let _tkPerMsg = 1500;
+  function setType(btn) {
+    document.querySelectorAll('.tgl').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _tkPerMsg = +btn.dataset.val;
+    calcTokens();
+  }
+  function fmt(n) {
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return Math.round(n / 1e3) + 'K';
+    return n;
+  }
+  function calcTokens() {
+    const msgs = +document.getElementById('tk-msgs').value;
+    document.getElementById('tk-msgs-val').textContent = msgs;
+    const dayTk   = msgs * _tkPerMsg;
+    const monthTk = dayTk * 22;
+    const ctxPct  = Math.min(99, _tkPerMsg / 200000 * 100);
+    document.getElementById('res-day-tk').textContent   = fmt(dayTk);
+    document.getElementById('res-month-tk').textContent = fmt(monthTk);
+    document.getElementById('res-ctx-pct').textContent  = ctxPct.toFixed(1) + '%';
+    document.getElementById('gauge-fill').style.width   = ctxPct + '%';
+    const tips = [
+      [5000,   '💡 <strong>Dica:</strong> Conversas curtas aproveitam pouco do contexto de 200K tokens. Agrupe tarefas relacionadas em uma única sessão — você extrai mais valor por interação.'],
+      [20000,  '✅ <strong>Bom uso:</strong> Conversas médias equilibram custo e profundidade. Adicione arquivos e histórico completo para respostas ainda mais precisas.'],
+      [Infinity,'🚀 <strong>Aproveitamento avançado:</strong> Você usa o contexto extenso a seu favor — projetos completos, análises com código e documentos em uma única sessão maximizam o Claude Pro.'],
+    ];
+    document.getElementById('token-tip').innerHTML = tips.find(([lim]) => _tkPerMsg < lim)[1];
+  }
+
+  // init
+  calcTime();
+  calcTokens();
 </script>
 </body>
 </html>
