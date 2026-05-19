@@ -222,6 +222,7 @@ with st.sidebar:
 page = st.session_state["page"]
 
 PRIORITY_ICON = {"alta": "⭐⭐⭐", "média": "⭐⭐", "baixa": "⭐"}
+PRIORITY_DOT  = {"alta": "🔴", "média": "🟡", "baixa": "🟢"}  # compact single-emoji for narrow columns
 STATUS_HEX = {
     "backlog":                    "#9CA3AF",
     "em análise":                 "#8B5CF6",
@@ -278,9 +279,9 @@ def _render_legend():
     with col_p:
         st.markdown(
             "**Priority**  \n"
-            "⭐⭐⭐ High  \n"
-            "⭐⭐ Medium  \n"
-            "⭐ Low"
+            "🔴 ⭐⭐⭐ High  \n"
+            "🟡 ⭐⭐ Medium  \n"
+            "🟢 ⭐ Low"
         )
     with col_s:
         rows = " &nbsp;·&nbsp; ".join(
@@ -324,7 +325,7 @@ if page == "📋 Backlog":
         st.session_state["backlog_panel"] = None if st.session_state["backlog_panel"] == name else name
 
     _panel = st.session_state["backlog_panel"]
-    _tb1, _tb2, _tb3, _ = st.columns([1.3, 1.3, 1.8, 5.6])
+    _tb1, _tb2, _tb3, _ = st.columns([1.1, 1.0, 1.1, 6.8])
 
     with _tb1:
         _active = _panel == "legenda"
@@ -338,7 +339,7 @@ if page == "📋 Backlog":
     with _tb2:
         _active = _panel == "nova"
         if st.button(
-            "➕ New idea" + (" ▲" if _active else " ▼"),
+            "➕ New" + (" ▲" if _active else " ▼"),
             key="tb_nova",
             type="primary" if _active else "secondary",
         ):
@@ -347,7 +348,7 @@ if page == "📋 Backlog":
     with _tb3:
         _active = _panel == "bulk"
         if st.button(
-            "⚡ Bulk status update" + (" ▲" if _active else " ▼"),
+            "⚡ Bulk" + (" ▲" if _active else " ▼"),
             key="tb_bulk",
             type="primary" if _active else "secondary",
         ):
@@ -565,7 +566,7 @@ if page == "📋 Backlog":
             st.markdown('<hr style="margin:2px 0 6px 0;border-color:rgba(76,77,88,0.12)">', unsafe_allow_html=True)
 
             for idea in filtered:
-                prio_icon = PRIORITY_ICON.get(idea.priority, "⚪")
+                prio_icon = PRIORITY_DOT.get(idea.priority, "⚪")
                 status_icon = STATUS_COLOR.get(idea.status, _sdot("backlog"))
                 todos_done = sum(1 for t in idea.todos if t["done"])
                 todos_total = len(idea.todos)
