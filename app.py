@@ -768,6 +768,7 @@ if page == "📋 Backlog":
                                 "text": text,
                                 "done": done,
                                 "due_date": str(todo_due) if todo_due else None,
+                                "completed_at": todo.get("completed_at"),
                             })
 
                         staged_key = f"staged_todos_{idea.id}"
@@ -908,6 +909,7 @@ elif page == "✅ To-Do List":
                 "text": todo["text"],
                 "done": todo["done"],
                 "due_date": todo.get("due_date"),
+                "completed_at": todo.get("completed_at"),
             })
 
     if not all_todos:
@@ -949,14 +951,26 @@ elif page == "✅ To-Do List":
                 due = date.fromisoformat(raw)
                 _today = date.today()
                 week_end = _today + timedelta(days=(6 - _today.weekday()))
-                if due < _today:
-                    return "🔴 Overdue"
-                elif due <= week_end:
-                    return "📅 This week"
-                elif due.month == _today.month and due.year == _today.year:
-                    return "📆 This month"
+                if t.get("done"):
+                    completed_raw = t.get("completed_at")
+                    ref = date.fromisoformat(completed_raw) if completed_raw else due
+                    if ref > due:
+                        return "🔴 Overdue"
+                    if due <= week_end:
+                        return "📅 This week"
+                    elif due.month == _today.month and due.year == _today.year:
+                        return "📆 This month"
+                    else:
+                        return "🗓️ Upcoming"
                 else:
-                    return "🗓️ Upcoming"
+                    if due < _today:
+                        return "🔴 Overdue"
+                    elif due <= week_end:
+                        return "📅 This week"
+                    elif due.month == _today.month and due.year == _today.year:
+                        return "📆 This month"
+                    else:
+                        return "🗓️ Upcoming"
             except (ValueError, TypeError):
                 return "📭 No due date"
 
@@ -1036,18 +1050,30 @@ elif page == "✅ To-Do List":
                     if item.get("due_date"):
                         try:
                             due = date.fromisoformat(item["due_date"])
-                            if due < today:
-                                due_str = f"🔴 {due.strftime('%d/%m')}"
-                            elif due == today:
-                                due_str = "🟡 hoje"
+                            if checked:
+                                completed_raw = item.get("completed_at")
+                                ref = date.fromisoformat(completed_raw) if completed_raw else due
+                                if ref > due:
+                                    due_str = f"🔴 {due.strftime('%d/%m')}"
+                                else:
+                                    due_str = f"✅ {due.strftime('%d/%m')}"
                             else:
-                                due_str = f"📅 {due.strftime('%d/%m')}"
+                                if due < today:
+                                    due_str = f"🔴 {due.strftime('%d/%m')}"
+                                elif due == today:
+                                    due_str = "🟡 hoje"
+                                else:
+                                    due_str = f"📅 {due.strftime('%d/%m')}"
                         except (ValueError, TypeError):
                             pass
                     st.caption(due_str)
 
                 if checked != item["done"]:
                     idea.todos[item["todo_idx"]]["done"] = checked
+                    if checked:
+                        idea.todos[item["todo_idx"]]["completed_at"] = today.isoformat()
+                    else:
+                        idea.todos[item["todo_idx"]]["completed_at"] = None
                     store.save(idea)
                     if checked:
                         log_entry("todo_concluido", idea, item["text"])

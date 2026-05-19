@@ -38,13 +38,22 @@ from backlog.schema import Idea, VALID_STATUSES, VALID_IMPACTS, VALID_EFFORTS
 
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
-# Matches: - [ ] text  or  - [x] text @YYYY-MM-DD
-_TODO_RE = re.compile(r"^- \[(x| )\] (.+?)(?:\s+@(\d{4}-\d{2}-\d{2}))?$", re.MULTILINE)
+# Matches: - [ ] text  or  - [x] text @YYYY-MM-DD ~YYYY-MM-DD
+# @due_date  ~completed_at (both optional, completed_at only meaningful when done=True)
+_TODO_RE = re.compile(
+    r"^- \[(x| )\] (.+?)(?:\s+@(\d{4}-\d{2}-\d{2}))?(?:\s+~(\d{4}-\d{2}-\d{2}))?$",
+    re.MULTILINE,
+)
 
 
 def _parse_todos(text: str) -> list[dict]:
     return [
-        {"done": m.group(1) == "x", "text": m.group(2).strip(), "due_date": m.group(3)}
+        {
+            "done": m.group(1) == "x",
+            "text": m.group(2).strip(),
+            "due_date": m.group(3),
+            "completed_at": m.group(4),
+        }
         for m in _TODO_RE.finditer(text)
     ]
 
@@ -56,6 +65,8 @@ def _render_todos(todos: list[dict]) -> str:
         line = f"- [{mark}] {t['text']}"
         if t.get("due_date"):
             line += f" @{t['due_date']}"
+        if t.get("completed_at"):
+            line += f" ~{t['completed_at']}"
         lines.append(line)
     return "\n".join(lines)
 
