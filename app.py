@@ -991,6 +991,7 @@ elif page == "✅ To-Do List":
         done_count = sum(1 for t in filtered_todos if t["done"])
         ip_badge = f" · **{in_progress_count} 🔄 in progress**" if in_progress_count else ""
         st.markdown(f"**{pending_count} pending**{ip_badge} · {done_count} done out of {len(filtered_todos)} shown")
+        st.caption("⬜ Aberto · 🔄 Em andamento · ✅ Concluído")
         st.markdown(
             "<style>"
             ".tdl-state button { padding:0 2px!important; min-height:22px!important; line-height:1!important;"
@@ -1095,7 +1096,7 @@ elif page == "✅ To-Do List":
                 c_prio.markdown(PRIORITY_NUM.get(item["priority"], "⚪"), unsafe_allow_html=True)
                 c_status.markdown(STATUS_COLOR.get(item["status"], _sdot("backlog")), unsafe_allow_html=True)
 
-                _STATE_OPTS = ["⬜ Aberto", "🔄 Em andamento", "✅ Concluído"]
+                _STATE_OPTS = ["⬜", "🔄", "✅"]
                 _STATE_IDX  = {"open": 0, "in_progress": 1, "done": 2}
                 cur_state = "done" if item["done"] else ("in_progress" if item.get("in_progress") else "open")
 
