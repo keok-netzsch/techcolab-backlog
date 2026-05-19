@@ -381,12 +381,6 @@ if page == "📋 Backlog":
                 ni_effort = st.selectbox("Effort", [""] + VALID_EFFORTS, index=0, key="ni_effort",
                                          format_func=lambda x: EFFORT_LABEL.get(x, x) if x else "")
             ni_desc = st.text_area("Description", height=80, placeholder="Context, motivation, details...", key="ni_desc")
-            ni_agente_autorizado = st.toggle(
-                "🤖 Autorizar agente",
-                value=False,
-                key="ni_agente_auto",
-                help="Pré-aprova os to-dos deste item no relatório diário",
-            )
 
             btn_col1, btn_col2, _ = st.columns([2, 2, 3])
             with btn_col1:
@@ -447,7 +441,7 @@ if page == "📋 Backlog":
                     esforco=ni_effort or None,
                     origin="entrada direta",
                     todos=ni_todos,
-                    agente_autorizado=ni_agente_autorizado,
+                    agente_autorizado=False,
                 )
                 log_entry("criada", idea)
                 _rebuild_index(store)
@@ -645,12 +639,6 @@ if page == "📋 Backlog":
                                 key=f"esforco_{idea.id}",
                                 format_func=lambda x: EFFORT_LABEL.get(x, x) if x else "",
                             )
-                            new_agente_autorizado = st.toggle(
-                                "🤖 Autorizar agente",
-                                value=idea.agente_autorizado,
-                                key=f"agente_auto_{idea.id}",
-                                help="Pré-aprova os to-dos deste item no relatório diário — o agente executa sem precisar de aprovação manual",
-                            )
                             st.caption(
                                 f"Origin: `{idea.origin or '—'}`  \n"
                                 f"Created: {idea.created_at}  \n"
@@ -702,6 +690,7 @@ if page == "📋 Backlog":
                                             if fresh:
                                                 fresh.claude_tips = tips_md
                                                 store.save(fresh)
+                                            st.rerun()
                                         else:
                                             st.warning("Nenhuma dica gerada. Adicione uma descrição ao item.")
                                     except Exception as e:
@@ -733,9 +722,10 @@ if page == "📋 Backlog":
                             else:
                                 st.caption("No events recorded yet.")
 
-                        h_chk, h_txt, h_date, h_del = st.columns([1, 6, 2, 0.5])
+                        h_chk, h_txt, h_date, h_auto, h_del = st.columns([1, 6, 2, 0.5, 0.5])
                         h_txt.markdown("**To-dos**")
                         h_date.caption("📅 Prazo")
+                        h_auto.caption("🤖")
                         updated_todos = []
                         deleted_idx_key = f"deleted_todo_idx_{idea.id}"
                         if deleted_idx_key not in st.session_state:
@@ -744,7 +734,7 @@ if page == "📋 Backlog":
                         for idx, todo in enumerate(idea.todos):
                             if idx in st.session_state[deleted_idx_key]:
                                 continue
-                            c_chk, c_txt, c_date, c_del = st.columns([1, 6, 2, 0.5])
+                            c_chk, c_txt, c_date, c_auto, c_del = st.columns([1, 6, 2, 0.5, 0.5])
                             with c_chk:
                                 done = st.checkbox(
                                     "", value=todo["done"],
@@ -769,6 +759,12 @@ if page == "📋 Backlog":
                                     format="DD/MM/YYYY",
                                     label_visibility="collapsed",
                                 )
+                            with c_auto:
+                                auto = st.checkbox(
+                                    "", value=todo.get("agente_autorizado", False),
+                                    key=f"bl_auto_{idea.id}_{idx}",
+                                    help="Autorizar agente para executar sem aprovação manual",
+                                )
                             with c_del:
                                 if st.button("🗑️", key=f"del_todo_{idea.id}_{idx}",
                                              help="Remove this to-do"):
@@ -779,6 +775,7 @@ if page == "📋 Backlog":
                                 "done": done,
                                 "due_date": str(todo_due) if todo_due else None,
                                 "completed_at": todo.get("completed_at"),
+                                "agente_autorizado": auto,
                             })
 
                         staged_key = f"staged_todos_{idea.id}"
@@ -853,7 +850,6 @@ if page == "📋 Backlog":
                                 idea.notes = new_notes
                                 idea.todos = updated_todos
                                 idea.claude_tips = st.session_state.get(tips_key) or idea.claude_tips
-                                idea.agente_autorizado = new_agente_autorizado
                                 store.save(idea)
                                 st.session_state.pop(f"deleted_todo_idx_{idea.id}", None)
                                 _rebuild_index(store)

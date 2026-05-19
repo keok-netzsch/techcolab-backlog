@@ -234,19 +234,22 @@ def build_report(tests: dict, data: dict) -> str:
             pico = PRIORITY_ICON.get(i.priority, "⭐")
             effort = i.esforco or "?"
             status_en = STATUS_LABEL.get(i.status, i.status)
-            auto = getattr(i, "agente_autorizado", False)
-            check = "x" if auto else " "
-            auto_badge = " 🤖" if auto else ""
             pending_todos = [t for t in i.todos if not t.get("done")]
             if pending_todos:
-                lines.append(f"**`{i.id}`** {pico} _{i.title}_ — {status_en}, effort: {effort}{auto_badge}")
+                lines.append(f"**`{i.id}`** {pico} _{i.title}_ — {status_en}, effort: {effort}")
                 for t in pending_todos:
+                    todo_auto = t.get("agente_autorizado", False)
+                    check = "x" if todo_auto else " "
+                    badge = " 🤖" if todo_auto else ""
                     due = f" _(due {t['due_date']})_" if t.get("due_date") else ""
-                    lines.append(f"- [{check}] {t['text']}{due}")
+                    lines.append(f"- [{check}] {t['text']}{due}{badge}")
             else:
+                idea_auto = getattr(i, "agente_autorizado", False)
+                check = "x" if idea_auto else " "
+                badge = " 🤖" if idea_auto else ""
                 lines.append(
                     f"- [{check}] **`{i.id}`** {pico} {i.title} — move to next status"
-                    f" _(currently: {status_en}, effort: {effort})_{auto_badge}"
+                    f" _(currently: {status_en}, effort: {effort})_{badge}"
                 )
             lines.append("")
 

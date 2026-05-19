@@ -38,10 +38,10 @@ from backlog.schema import Idea, VALID_STATUSES, VALID_IMPACTS, VALID_EFFORTS
 
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
-# Matches: - [ ] text  or  - [x] text @YYYY-MM-DD ~YYYY-MM-DD
-# @due_date  ~completed_at (both optional, completed_at only meaningful when done=True)
+# Matches: - [ ] text @YYYY-MM-DD ~YYYY-MM-DD {auto}
+# @due_date, ~completed_at, {auto} are all optional suffixes (in that order)
 _TODO_RE = re.compile(
-    r"^- \[(x| )\] (.+?)(?:\s+@(\d{4}-\d{2}-\d{2}))?(?:\s+~(\d{4}-\d{2}-\d{2}))?$",
+    r"^- \[(x| )\] (.+?)(?:\s+@(\d{4}-\d{2}-\d{2}))?(?:\s+~(\d{4}-\d{2}-\d{2}))?(?:\s+(\{auto\}))?$",
     re.MULTILINE,
 )
 
@@ -53,6 +53,7 @@ def _parse_todos(text: str) -> list[dict]:
             "text": m.group(2).strip(),
             "due_date": m.group(3),
             "completed_at": m.group(4),
+            "agente_autorizado": m.group(5) is not None,
         }
         for m in _TODO_RE.finditer(text)
     ]
@@ -67,6 +68,8 @@ def _render_todos(todos: list[dict]) -> str:
             line += f" @{t['due_date']}"
         if t.get("completed_at"):
             line += f" ~{t['completed_at']}"
+        if t.get("agente_autorizado"):
+            line += " {auto}"
         lines.append(line)
     return "\n".join(lines)
 
