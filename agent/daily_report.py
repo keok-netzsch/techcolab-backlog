@@ -163,7 +163,9 @@ def build_report(tests: dict, data: dict) -> str:
         "",
         f"> **For future Claude:** Daily agent report for {TODAY}. "
         "Check the **Proposed actions** section for items the user has approved (checked boxes). "
-        "Execute only those. Do not act on unchecked items.",
+        "Execute only those. Do not act on unchecked items. "
+        "For each item you execute: run `python agent/update_status.py <idea_id> \"em desenvolvimento\"` before starting, "
+        "and `python agent/update_status.py <idea_id> \"em validação\"` (or `concluído`) when done.",
         "",
         f"# Agent Report — {TODAY}",
         "",

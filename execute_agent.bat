@@ -32,4 +32,4 @@ echo confirm with you, then implement and run the tests.
 echo.
 pause
 
-C:\Users\Kelvin.okuda\.local\bin\claude.exe
+start "Claude Code - TechColab Phase 2" cmd /k "cd /d %~dp0 && C:\Users\Kelvin.okuda\.local\bin\claude.exe"

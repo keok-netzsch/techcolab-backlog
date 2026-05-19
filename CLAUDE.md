@@ -84,6 +84,29 @@ After updating the app pages, also check if `README.md` needs updating.
 - **Agent schedule:** Windows Task Scheduler, daily at 08:00, runs `run_agent.bat`
 - **Tests:** 40 tests in `tests/`, all must pass before committing
 
+## Agent Phase 2 — Executing approved actions
+
+When the user opens a Claude Code session via `execute_agent.bat` and says
+"Execute the approved items from today's agent report", follow this protocol:
+
+1. **Find today's report** — read `{VAULT_ROOT}/Backlog - to do - app/agent-reports/report-YYYY-MM-DD.md`
+2. **List approved items** — show the user all checked boxes (`- [x]`) and confirm before acting
+3. **Update status — start of work:**
+   ```
+   python agent/update_status.py <idea_id> "em desenvolvimento"
+   ```
+4. **Execute the item** — implement, fix, or run whatever the to-do describes
+5. **Run tests:** `python -m pytest tests/ -v`
+6. **Update status — end of work:**
+   - If implementation is complete and needs user review: `python agent/update_status.py <idea_id> "em validação"`
+   - If done and verified: `python agent/update_status.py <idea_id> "concluído"`
+7. **Commit and push** (mandatory checklist step 1)
+
+> The `update_status.py` script only changes the `status` field in the vault markdown file.
+> It does not touch `updated_at` (the store sets it automatically on save).
+
+---
+
 ## What NOT to do
 
 - Do not use `ANTHROPIC_API_KEY` — this project uses Ollama (local LLM) only
