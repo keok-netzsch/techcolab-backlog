@@ -10,6 +10,7 @@ Usage:
     python agent/daily_report.py
 """
 
+import re
 import subprocess
 import sys
 from datetime import date, timedelta
@@ -19,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import BACKLOG_DIR, VAULT_ROOT, EXTRACTION_MODEL
+from config import BACKLOG_DIR, VAULT_ROOT, EXTRACTION_MODEL, CLAUDE_PRO_REPORT_DIR, CLAUDE_PRO_START_DATE
 from backlog.store import BacklogStore
 from backlog.schema import VALID_STATUSES
 
@@ -276,6 +277,84 @@ def build_report(tests: dict, data: dict) -> str:
     return "\n".join(lines)
 
 
+# ── Claude Pro Report updater ─────────────────────────────────────────────────
+
+def _update_claude_pro_report() -> bool:
+    """
+    Update date fields in the Claude Pro Report HTML and push to GitHub.
+    Returns True on success, False on any error (non-fatal — agent continues).
+    """
+    report_dir = CLAUDE_PRO_REPORT_DIR
+    if not report_dir.exists():
+        print(f"[agent] Claude Pro Report dir not found: {report_dir} — skipping")
+        return False
+
+    html_path = report_dir / "index.html"
+    if not html_path.exists():
+        print(f"[agent] index.html not found in {report_dir} — skipping")
+        return False
+
+    try:
+        html = html_path.read_text(encoding="utf-8")
+
+        # Compute days since adoption
+        start = date.fromisoformat(CLAUDE_PRO_START_DATE)
+        days_since = (TODAY - start).days
+
+        # Formatted date in Brazilian format
+        today_br = TODAY.strftime("%d/%m/%Y")
+
+        # Update "Atualizado em" in header (meta column)
+        html = re.sub(
+            r"Atualizado em: \d{2}/\d{2}/\d{4}",
+            f"Atualizado em: {today_br}",
+            html,
+        )
+
+        # Update "Dias desde adoção" stat number
+        html = re.sub(
+            r'(<div class="stat-number">)\d+(</div>\s*<div class="stat-label">Dias desde adoção)',
+            rf"\g<1>{days_since}\g<2>",
+            html,
+        )
+
+        # Update footer date
+        html = re.sub(
+            r"Relatório atualizado em \d{2}/\d{2}/\d{4}",
+            f"Relatório atualizado em {today_br}",
+            html,
+        )
+
+        # Also update the clone: claude-pro-report.html mirrors index.html
+        html_path.write_text(html, encoding="utf-8")
+        clone_path = report_dir / "claude-pro-report.html"
+        clone_path.write_text(html, encoding="utf-8")
+
+        # Git commit and push
+        git_env = {"PATH": subprocess.os.environ.get("PATH", "")}
+        subprocess.run(["git", "add", "-A"], cwd=str(report_dir), check=True)
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            cwd=str(report_dir),
+        )
+        if result.returncode != 0:
+            # There are staged changes
+            subprocess.run(
+                ["git", "commit", "-m", f"chore: auto-update report date to {TODAY}"],
+                cwd=str(report_dir), check=True,
+            )
+            subprocess.run(["git", "push"], cwd=str(report_dir), check=True)
+            print(f"[agent] Claude Pro Report updated and pushed ({today_br}, {days_since} days)")
+        else:
+            print(f"[agent] Claude Pro Report: no date changes to push")
+
+        return True
+
+    except Exception as exc:
+        print(f"[agent] Claude Pro Report update failed: {exc}")
+        return False
+
+
 # ── Notification ──────────────────────────────────────────────────────────────
 
 def _notify(title: str, message: str):
@@ -320,6 +399,10 @@ def main():
     report_path = REPORTS_DIR / f"report-{TODAY}.md"
     report_path.write_text(report_md, encoding="utf-8")
     print(f"[agent] Report written: {report_path}")
+
+    # Update Claude Pro Report
+    print("[agent] Updating Claude Pro Report...")
+    _update_claude_pro_report()
 
     # Notify
     all_good = tests["ok"] and not data["overdue"]
