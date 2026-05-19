@@ -54,6 +54,7 @@ class Idea:
     description: Optional[str] = None
     todos: list[dict] = field(default_factory=list)  # [{"text": str, "done": bool, "due_date": Optional[str]}]
     notes: Optional[str] = None          # free-form observations
+    claude_tips: Optional[str] = None    # markdown bullets generated via Ollama
 
     def to_frontmatter(self) -> dict:
         return {

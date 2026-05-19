@@ -143,5 +143,45 @@ def suggest_todos(title: str, description: str, client: OpenAI) -> list[str]:
         return []
 
 
+_CLAUDE_TIPS_PROMPT = """
+Você é um especialista em engenharia de software e desenvolvimento de produto com IA.
+Dado o título e a descrição de um item do backlog, sugira de 3 a 5 dicas práticas e criativas de como o Claude (assistente de IA da Anthropic) pode ajudar a desenvolver ou otimizar esse item.
+
+Regras:
+- Cada dica deve ser específica para o item descrito, não genérica
+- Mencione casos de uso concretos (gerar código, escrever testes, revisar arquitetura, criar documentação, brainstorming, analisar edge cases, etc.)
+- Pode incluir sugestões criativas e inusitadas
+- Máximo 120 caracteres por dica
+- Retorne APENAS uma lista JSON de strings, sem texto extra
+
+Exemplo de saída:
+["Peça ao Claude para gerar os casos de teste com base na descrição do fluxo", "Use Claude para revisar a arquitetura e identificar edge cases"]
+""".strip()
+
+
+def suggest_claude_tips(title: str, description: str, client: OpenAI) -> list[str]:
+    """Ask the model for Claude-usage tips for developing a backlog item."""
+    user_msg = f"Título: {title}\nDescrição: {description or '(sem descrição)'}"
+    response = client.chat.completions.create(
+        model=EXTRACTION_MODEL,
+        max_tokens=600,
+        messages=[
+            {"role": "system", "content": _CLAUDE_TIPS_PROMPT},
+            {"role": "user", "content": user_msg},
+        ],
+    )
+    raw = response.choices[0].message.content.strip()
+    raw = re.sub(r"^```json\s*", "", raw)
+    raw = re.sub(r"\s*```$", "", raw)
+    start = raw.find("[")
+    if start == -1:
+        return []
+    try:
+        result = json.loads(raw[start:])
+        return [str(t).strip() for t in result if str(t).strip()]
+    except json.JSONDecodeError:
+        return []
+
+
 def build_client() -> OpenAI:
     return OpenAI(base_url=OLLAMA_BASE_URL, api_key="ollama")

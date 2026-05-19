@@ -778,6 +778,47 @@ if page == "📋 Backlog":
                                 "due_date": str(new_todo_due) if new_todo_due else None,
                             })
 
+                        # ── Claude Tips ───────────────────────────────────────────────────────
+                        tips_key = f"claude_tips_{idea.id}"
+                        current_tips = st.session_state.get(tips_key, idea.claude_tips)
+
+                        st.markdown(
+                            '<div style="margin-top:10px;margin-bottom:4px;border-top:1px solid rgba(76,77,88,0.15);padding-top:8px">'
+                            '<span style="font-size:0.85em;font-weight:600;color:#02B793">🤖 Dicas com Claude</span>'
+                            '</div>',
+                            unsafe_allow_html=True,
+                        )
+                        tips_btn_col, _ = st.columns([2, 5])
+                        with tips_btn_col:
+                            tips_label = "↻ Regenerar dicas" if current_tips else "✨ Gerar dicas com Claude"
+                            if st.button(tips_label, key=f"tips_btn_{idea.id}",
+                                         help="Usa o modelo local (Ollama) para sugerir como usar o Claude no desenvolvimento deste item"):
+                                from ingestion.extractor import suggest_claude_tips, build_client
+                                with st.spinner("Gerando dicas..."):
+                                    try:
+                                        tips_list = suggest_claude_tips(
+                                            new_title or idea.title,
+                                            new_desc or idea.description or "",
+                                            build_client(),
+                                        )
+                                        if tips_list:
+                                            tips_md = "\n".join(f"- {t}" for t in tips_list)
+                                            st.session_state[tips_key] = tips_md
+                                            idea.claude_tips = tips_md
+                                            # Auto-save only the tips field
+                                            fresh = store.load_by_id(idea.id)
+                                            if fresh:
+                                                fresh.claude_tips = tips_md
+                                                store.save(fresh)
+                                        else:
+                                            st.warning("Nenhuma dica gerada. Tente adicionar uma descrição ao item.")
+                                    except Exception as e:
+                                        st.error(f"Ollama indisponível: {e}")
+                        if current_tips:
+                            st.info(current_tips)
+                        else:
+                            st.caption("_Nenhuma dica gerada ainda._")
+
                         col_save, col_del, _ = st.columns([1, 1, 3])
                         with col_save:
                             if st.button("💾 Save", key=f"save_{idea.id}", type="primary"):
@@ -792,6 +833,7 @@ if page == "📋 Backlog":
                                 idea.description = new_desc
                                 idea.notes = new_notes
                                 idea.todos = updated_todos
+                                idea.claude_tips = st.session_state.get(tips_key) or idea.claude_tips
                                 store.save(idea)
                                 _rebuild_index(store)
                                 if new_status == "concluído":

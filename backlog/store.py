@@ -104,7 +104,8 @@ class BacklogStore:
         body = f"---\n{fm}\n---\n\n"
         body += f"## Descricao\n{idea.description or '_sem descricao_'}\n\n"
         body += f"## To-dos\n{todos_block}\n\n"
-        body += f"## Notas\n{idea.notes or '_sem notas_'}\n"
+        body += f"## Notas\n{idea.notes or '_sem notas_'}\n\n"
+        body += f"## Claude Tips\n{idea.claude_tips or ''}\n"
 
         path = self._path(idea.id)
         path.write_text(body, encoding="utf-8")
@@ -124,6 +125,7 @@ class BacklogStore:
         notes = _extract_section(body, "Notas")
         todos_raw = _extract_section(body, "To-dos") or ""
         todos = _parse_todos(todos_raw)
+        claude_tips = _extract_section(body, "Claude Tips")
 
         return Idea(
             id=fm.get("id", path.stem),
@@ -140,6 +142,7 @@ class BacklogStore:
             description=description,
             todos=todos,
             notes=notes,
+            claude_tips=claude_tips or None,
         )
 
     def load_by_id(self, idea_id: str) -> Optional[Idea]:
