@@ -223,6 +223,7 @@ def build_report(tests: dict, data: dict) -> str:
         "",
         "> Check the boxes you approve. Then open a Claude Code session and say:",
         '> *"Execute the approved items from today\'s agent report."*',
+        "> Items marked 🤖 are pre-approved (flag `agente_autorizado` active) — their boxes are already checked.",
         "",
     ]
 
@@ -233,18 +234,19 @@ def build_report(tests: dict, data: dict) -> str:
             pico = PRIORITY_ICON.get(i.priority, "⭐")
             effort = i.esforco or "?"
             status_en = STATUS_LABEL.get(i.status, i.status)
+            auto = getattr(i, "agente_autorizado", False)
+            check = "x" if auto else " "
+            auto_badge = " 🤖" if auto else ""
             pending_todos = [t for t in i.todos if not t.get("done")]
             if pending_todos:
-                # One checkbox per pending to-do, grouped under the idea
-                lines.append(f"**`{i.id}`** {pico} _{i.title}_ — {status_en}, effort: {effort}")
+                lines.append(f"**`{i.id}`** {pico} _{i.title}_ — {status_en}, effort: {effort}{auto_badge}")
                 for t in pending_todos:
                     due = f" _(due {t['due_date']})_" if t.get("due_date") else ""
-                    lines.append(f"- [ ] {t['text']}{due}")
+                    lines.append(f"- [{check}] {t['text']}{due}")
             else:
-                # Idea has no to-dos — propose advancing status
                 lines.append(
-                    f"- [ ] **`{i.id}`** {pico} {i.title} — move to next status"
-                    f" _(currently: {status_en}, effort: {effort})_"
+                    f"- [{check}] **`{i.id}`** {pico} {i.title} — move to next status"
+                    f" _(currently: {status_en}, effort: {effort})_{auto_badge}"
                 )
             lines.append("")
 

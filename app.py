@@ -381,6 +381,12 @@ if page == "📋 Backlog":
                 ni_effort = st.selectbox("Effort", [""] + VALID_EFFORTS, index=0, key="ni_effort",
                                          format_func=lambda x: EFFORT_LABEL.get(x, x) if x else "")
             ni_desc = st.text_area("Description", height=80, placeholder="Context, motivation, details...", key="ni_desc")
+            ni_agente_autorizado = st.toggle(
+                "🤖 Autorizar agente",
+                value=False,
+                key="ni_agente_auto",
+                help="Pré-aprova os to-dos deste item no relatório diário",
+            )
 
             btn_col1, btn_col2, _ = st.columns([2, 2, 3])
             with btn_col1:
@@ -441,6 +447,7 @@ if page == "📋 Backlog":
                     esforco=ni_effort or None,
                     origin="entrada direta",
                     todos=ni_todos,
+                    agente_autorizado=ni_agente_autorizado,
                 )
                 log_entry("criada", idea)
                 _rebuild_index(store)
@@ -638,6 +645,12 @@ if page == "📋 Backlog":
                                 key=f"esforco_{idea.id}",
                                 format_func=lambda x: EFFORT_LABEL.get(x, x) if x else "",
                             )
+                            new_agente_autorizado = st.toggle(
+                                "🤖 Autorizar agente",
+                                value=idea.agente_autorizado,
+                                key=f"agente_auto_{idea.id}",
+                                help="Pré-aprova os to-dos deste item no relatório diário — o agente executa sem precisar de aprovação manual",
+                            )
                             st.caption(
                                 f"Origin: `{idea.origin or '—'}`  \n"
                                 f"Created: {idea.created_at}  \n"
@@ -829,6 +842,7 @@ if page == "📋 Backlog":
                                 idea.notes = new_notes
                                 idea.todos = updated_todos
                                 idea.claude_tips = st.session_state.get(tips_key) or idea.claude_tips
+                                idea.agente_autorizado = new_agente_autorizado
                                 store.save(idea)
                                 _rebuild_index(store)
                                 if new_status == "concluído":

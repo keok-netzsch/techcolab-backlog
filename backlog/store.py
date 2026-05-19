@@ -143,6 +143,7 @@ class BacklogStore:
             todos=todos,
             notes=notes,
             claude_tips=claude_tips or None,
+            agente_autorizado=bool(fm.get("agente_autorizado", False)),
         )
 
     def load_by_id(self, idea_id: str) -> Optional[Idea]:

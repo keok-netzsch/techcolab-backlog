@@ -55,6 +55,7 @@ class Idea:
     todos: list[dict] = field(default_factory=list)  # [{"text": str, "done": bool, "due_date": Optional[str]}]
     notes: Optional[str] = None          # free-form observations
     claude_tips: Optional[str] = None    # markdown bullets generated via Ollama
+    agente_autorizado: bool = False      # pre-approves todos in the daily report
 
     def to_frontmatter(self) -> dict:
         return {
@@ -69,4 +70,5 @@ class Idea:
             "due_date": str(self.due_date) if self.due_date else "",
             "impacto": self.impacto or "",
             "esforco": self.esforco or "",
+            "agente_autorizado": self.agente_autorizado,
         }
