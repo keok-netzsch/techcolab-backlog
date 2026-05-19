@@ -1316,6 +1316,22 @@ elif page == "📊 Dashboard":
     st.caption("Analise seu padrão de uso e descubra onde você está deixando valor na mesa.")
 
     with st.expander("Abrir coach", expanded=False):
+        with st.expander("❓ Como usar esta calculadora", expanded=False):
+            st.markdown(
+                "**Passo 1 — Ajuste os sliders** conforme seu uso real do Claude:\n\n"
+                "| Campo | O que preencher |\n"
+                "|---|---|\n"
+                "| **Mensagens/dia** | Conte quantas vezes você envia uma mensagem ao Claude em um dia típico de trabalho. Inclua todas as ferramentas (Claude.ai, Claude Code, API). |\n"
+                "| **Tipo de conversa** | Escolha o formato que representa a maioria das suas sessões. Dica: se você cola arquivos ou código inteiro, provavelmente é Longa ou Projeto. |\n\n"
+                "**Passo 2 — Leia o score** no painel direito. Ele combina dois fatores:\n"
+                "- *Aproveitamento de contexto* — o quanto da janela de 200K você usa por mensagem\n"
+                "- *Frequência* — quantas interações você realiza por dia\n\n"
+                "**Passo 3 — Leia o diagnóstico.** Cada erro listado abaixo tem uma correção prática. "
+                "Ajuste um slider de cada vez para ver como seu score muda conforme você adota o comportamento recomendado.\n\n"
+                "> 💡 **Dica:** os tipos de conversa usam tokens médios estimados — "
+                "Curta (~1.5K), Média (~8K), Longa (~30K), Projeto (~80K). "
+                "Quanto mais contexto você fornece (arquivos, histórico, exemplos), mais você sobe na escala."
+            )
         col_tc_a, col_tc_b = st.columns([1, 1])
         with col_tc_a:
             msgs_day = st.slider("Mensagens/dia ao Claude", 1, 100, 20, key="tk_msgs")
