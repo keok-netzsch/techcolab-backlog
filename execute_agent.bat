@@ -32,4 +32,4 @@ echo confirm with you, then implement and run the tests.
 echo.
 pause
 
-wt -d "C:\Users\Kelvin.okuda\techcolab-backlog" cmd /k "C:\Users\Kelvin.okuda\.local\bin\claude.exe"
+C:\Users\Kelvin.okuda\.local\bin\claude.exe
