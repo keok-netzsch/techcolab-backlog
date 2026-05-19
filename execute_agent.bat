@@ -32,4 +32,4 @@ echo confirm with you, then implement and run the tests.
 echo.
 pause
 
-start "TechColab Agent" /D "C:\Users\Kelvin.okuda\techcolab-backlog" cmd /k C:\Users\Kelvin.okuda\.local\bin\claude.exe
+wt -d "C:\Users\Kelvin.okuda\techcolab-backlog" cmd /k "C:\Users\Kelvin.okuda\.local\bin\claude.exe"
