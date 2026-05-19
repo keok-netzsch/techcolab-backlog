@@ -722,7 +722,19 @@ if page == "📋 Backlog":
                                 "due_date": str(todo_due) if todo_due else None,
                             })
 
-                        c_new_txt, c_new_date = st.columns([6, 2])
+                        staged_key = f"staged_todos_{idea.id}"
+                        if staged_key not in st.session_state:
+                            st.session_state[staged_key] = []
+
+                        for _si, _stgd in enumerate(st.session_state[staged_key]):
+                            _sc1, _sc2, _sc3 = st.columns([0.5, 7, 0.5])
+                            _sc1.markdown("➕")
+                            _sc2.caption(_stgd["text"])
+                            if _sc3.button("✕", key=f"rm_staged_{idea.id}_{_si}", help="Remove"):
+                                st.session_state[staged_key].pop(_si)
+                                st.rerun()
+
+                        c_new_txt, c_new_date, c_add = st.columns([5, 2, 1])
                         with c_new_txt:
                             new_todo_text = st.text_input(
                                 "", placeholder="+ New to-do...",
@@ -736,6 +748,21 @@ if page == "📋 Backlog":
                                 format="DD/MM/YYYY",
                                 label_visibility="collapsed",
                             )
+                        with c_add:
+                            if st.button("➕", key=f"add_todo_btn_{idea.id}",
+                                         disabled=not new_todo_text.strip(),
+                                         help="Stage this to-do (add another without saving)"):
+                                st.session_state[staged_key].append({
+                                    "text": new_todo_text.strip(),
+                                    "done": False,
+                                    "due_date": str(new_todo_due) if new_todo_due else None,
+                                })
+                                st.session_state.pop(f"bl_new_txt_{idea.id}", None)
+                                st.session_state.pop(f"bl_new_due_{idea.id}", None)
+                                st.rerun()
+
+                        for _stgd in st.session_state.get(staged_key, []):
+                            updated_todos.append(_stgd)
                         if new_todo_text.strip():
                             updated_todos.append({
                                 "text": new_todo_text.strip(),
@@ -767,6 +794,7 @@ if page == "📋 Backlog":
                                     log_entry("alterada", idea)
                                 st.session_state.pop(f"bl_new_txt_{idea.id}", None)
                                 st.session_state.pop(f"bl_new_due_{idea.id}", None)
+                                st.session_state.pop(f"staged_todos_{idea.id}", None)
                                 st.session_state[exp_key] = False
                                 if st.session_state.get("return_to_kanban") == idea.id:
                                     st.session_state["view_mode"] = "Kanban"
@@ -886,6 +914,8 @@ elif page == "✅ To-Do List":
         from itertools import groupby
         if group_by == "Date":
             filtered_todos.sort(key=lambda t: (_GROUP_DATA_ORDER.get(_due_group(t), 9), t["idea_id"]))
+        elif group_by == "Priority":
+            filtered_todos.sort(key=lambda t: (prio_order.get(t["priority"], 9), t["idea_id"]))
         else:
             filtered_todos.sort(key=get_group_key)
         store = get_store()
