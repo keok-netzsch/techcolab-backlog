@@ -722,6 +722,15 @@ if page == "📋 Backlog":
                             else:
                                 st.caption("No events recorded yet.")
 
+                        st.markdown(
+                            "<style>"
+                            ".todo-row-del button { padding:0 4px!important; min-height:24px!important;"
+                            " background:transparent!important; border:none!important;"
+                            " box-shadow:none!important; color:#bbb!important; font-size:0.85rem!important; }"
+                            ".todo-row-del button:hover { color:#d44!important; }"
+                            "</style>",
+                            unsafe_allow_html=True,
+                        )
                         h_chk, h_txt, h_date, h_auto, h_del = st.columns([1, 6, 2, 0.5, 0.5])
                         h_txt.markdown("**To-dos**")
                         h_date.caption("📅 Prazo")
@@ -763,13 +772,13 @@ if page == "📋 Backlog":
                                 auto = st.checkbox(
                                     "", value=todo.get("agente_autorizado", False),
                                     key=f"bl_auto_{idea.id}_{idx}",
-                                    help="Autorizar agente para executar sem aprovação manual",
                                 )
                             with c_del:
-                                if st.button("🗑️", key=f"del_todo_{idea.id}_{idx}",
-                                             help="Remove this to-do"):
+                                st.markdown('<div class="todo-row-del">', unsafe_allow_html=True)
+                                if st.button("×", key=f"del_todo_{idea.id}_{idx}"):
                                     st.session_state[deleted_idx_key].add(idx)
                                     st.rerun()
+                                st.markdown('</div>', unsafe_allow_html=True)
                             updated_todos.append({
                                 "text": text,
                                 "done": done,
