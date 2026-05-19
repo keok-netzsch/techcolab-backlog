@@ -1082,25 +1082,32 @@ elif page == "✅ To-Do List":
                 if not idea:
                     continue
 
-                c_id, c_prio, c_status, c_chk, c_text, c_info = st.columns([0.06, 0.07, 0.05, 0.05, 0.59, 0.18])
+                c_id, c_prio, c_status, c_chk, c_text, c_info = st.columns([0.09, 0.07, 0.04, 0.12, 0.50, 0.18])
 
                 short = str(int(item["idea_id"].replace("idea-", "")))
-                c_id.markdown(f"**{short}**")
+                if c_id.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
+                               use_container_width=True,
+                               help=f"Abrir {item['idea_id']} no Backlog"):
+                    st.session_state["page"] = "📋 Backlog"
+                    st.session_state[f"exp_{item['idea_id']}"] = True
+                    st.rerun()
 
                 c_prio.markdown(PRIORITY_NUM.get(item["priority"], "⚪"), unsafe_allow_html=True)
                 c_status.markdown(STATUS_COLOR.get(item["status"], _sdot("backlog")), unsafe_allow_html=True)
 
-                _TDL_STATE_ICON = {"open": "⬜", "in_progress": "🔄", "done": "✅"}
-                _TDL_STATE_NEXT = {"open": "in_progress", "in_progress": "done", "done": "open"}
+                _STATE_OPTS = ["⬜ Aberto", "🔄 Em andamento", "✅ Concluído"]
+                _STATE_IDX  = {"open": 0, "in_progress": 1, "done": 2}
                 cur_state = "done" if item["done"] else ("in_progress" if item.get("in_progress") else "open")
 
                 with c_chk:
-                    st.markdown('<div class="tdl-state">', unsafe_allow_html=True)
-                    state_clicked = st.button(
-                        _TDL_STATE_ICON[cur_state],
+                    sel = st.selectbox(
+                        "", _STATE_OPTS,
+                        index=_STATE_IDX[cur_state],
                         key=f"tdl_state_{item['idea_id']}_{item['todo_idx']}",
+                        label_visibility="collapsed",
                     )
-                    st.markdown('</div>', unsafe_allow_html=True)
+                new_state = ["open", "in_progress", "done"][_STATE_OPTS.index(sel)]
+                state_clicked = new_state != cur_state
 
                 with c_text:
                     if item["done"]:
@@ -1133,14 +1140,14 @@ elif page == "✅ To-Do List":
                     st.caption(due_str)
 
                 if state_clicked:
-                    next_state = _TDL_STATE_NEXT[cur_state]
                     todo_entry = idea.todos[item["todo_idx"]]
-                    todo_entry["done"] = next_state == "done"
-                    todo_entry["in_progress"] = next_state == "in_progress"
-                    todo_entry["completed_at"] = today.isoformat() if next_state == "done" else None
+                    todo_entry["done"] = new_state == "done"
+                    todo_entry["in_progress"] = new_state == "in_progress"
+                    todo_entry["completed_at"] = today.isoformat() if new_state == "done" else None
                     store.save(idea)
-                    if next_state == "done":
+                    if new_state == "done":
                         log_entry("todo_concluido", idea, item["text"])
+                    st.rerun()
             st.markdown("")
 
 
