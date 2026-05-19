@@ -997,8 +997,6 @@ elif page == "✅ To-Do List":
             " background:transparent!important; border:none!important; box-shadow:none!important;"
             " font-size:1rem!important; }"
             ".tdl-state button:hover { opacity:0.7!important; }"
-            ".tdl-id button { white-space:nowrap!important; padding:0 4px!important;"
-            " min-height:24px!important; font-size:0.75rem!important; }"
             "</style>",
             unsafe_allow_html=True,
         )
@@ -1087,14 +1085,7 @@ elif page == "✅ To-Do List":
                 c_id, c_prio, c_status, c_chk, c_text, c_info = st.columns([0.06, 0.07, 0.05, 0.05, 0.59, 0.18])
 
                 short = str(int(item["idea_id"].replace("idea-", "")))
-                with c_id:
-                    st.markdown('<div class="tdl-id">', unsafe_allow_html=True)
-                    if st.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
-                                 help=f"Abrir {item['idea_id']} no Backlog"):
-                        st.session_state["page"] = "📋 Backlog"
-                        st.session_state[f"exp_{item['idea_id']}"] = True
-                        st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
+                c_id.markdown(f"**{short}**")
 
                 c_prio.markdown(PRIORITY_NUM.get(item["priority"], "⚪"), unsafe_allow_html=True)
                 c_status.markdown(STATUS_COLOR.get(item["status"], _sdot("backlog")), unsafe_allow_html=True)
