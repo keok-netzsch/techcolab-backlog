@@ -980,6 +980,24 @@ elif page == "✅ To-Do List":
         store = get_store()
         today = date.today()
 
+        # In "Pending" filter, always include this-week done items (show as strikethrough)
+        if show_filter == "Pending":
+            this_week_done = [
+                t for t in all_todos
+                if t["done"] and _due_group(t) == "📅 This week"
+                and (filter_area == "All" or t["area"] == filter_area)
+            ]
+            existing_keys = {(t["idea_id"], t["todo_idx"]) for t in filtered_todos}
+            for t in this_week_done:
+                if (t["idea_id"], t["todo_idx"]) not in existing_keys:
+                    filtered_todos.append(t)
+            if group_by == "Date":
+                filtered_todos.sort(key=lambda t: (_GROUP_DATA_ORDER.get(_due_group(t), 9), t["idea_id"]))
+            elif group_by == "Priority":
+                filtered_todos.sort(key=lambda t: (prio_order.get(t["priority"], 9), t["idea_id"]))
+            else:
+                filtered_todos.sort(key=get_group_key)
+
         for group_label, group_items in groupby(filtered_todos, key=get_group_key):
             items = list(group_items)
             st.markdown(f"#### {group_label}")
@@ -988,19 +1006,31 @@ elif page == "✅ To-Do List":
                 if not idea:
                     continue
 
-                # Header row: short ID | prio | status | todo text + due
-                c_id, c_prio, c_status, c_chk, c_info = st.columns([0.05, 0.07, 0.05, 0.65, 0.18])
+                c_id, c_prio, c_status, c_chk, c_text, c_info = st.columns([0.06, 0.07, 0.05, 0.05, 0.59, 0.18])
+
                 short = item["idea_id"].replace("idea-", "")
-                c_id.caption(short)
+                if c_id.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
+                               help=f"Abrir {item['idea_id']} no Backlog"):
+                    st.session_state["page"] = "📋 Backlog"
+                    st.session_state[f"exp_{item['idea_id']}"] = True
+                    st.rerun()
+
                 c_prio.markdown(PRIORITY_ICON.get(item["priority"], "⚪"))
                 c_status.markdown(STATUS_COLOR.get(item["status"], _sdot("backlog")), unsafe_allow_html=True)
 
                 with c_chk:
                     checked = st.checkbox(
-                        item["text"],
+                        "",
                         value=item["done"],
                         key=f"tdl_{item['idea_id']}_{item['todo_idx']}",
+                        label_visibility="collapsed",
                     )
+
+                with c_text:
+                    text_md = f"~~{item['text']}~~" if checked else item["text"]
+                    st.markdown(text_md)
+                    st.caption(f"`{item['idea_id']}` {item['idea_title'][:45]}")
+
                 with c_info:
                     due_str = ""
                     if item.get("due_date"):
@@ -1009,7 +1039,7 @@ elif page == "✅ To-Do List":
                             if due < today:
                                 due_str = f"🔴 {due.strftime('%d/%m')}"
                             elif due == today:
-                                due_str = "🟡 today"
+                                due_str = "🟡 hoje"
                             else:
                                 due_str = f"📅 {due.strftime('%d/%m')}"
                         except (ValueError, TypeError):
@@ -1021,7 +1051,7 @@ elif page == "✅ To-Do List":
                     store.save(idea)
                     if checked:
                         log_entry("todo_concluido", idea, item["text"])
-                    st.rerun()
+                    # Sem st.rerun(): item fica visível com risco até próximo carregamento
             st.markdown("")
 
 
