@@ -1206,6 +1206,48 @@ backlog → under review → approved → waiting → in development → in vali
 
 ---
 
+## Daily agent
+
+The agent runs every morning at 08:00, analyses the backlog, and proposes actions.
+You interact with it in two steps:
+
+### Step 1 — Review the report (Obsidian)
+
+Open the file `Backlog - to do - app/agent-reports/report-YYYY-MM-DD.md` in Obsidian.
+
+The **Proposed actions** section lists specific to-dos from your backlog, grouped by idea:
+
+```
+**`idea-004`** ⭐⭐⭐ _Análise de agentes_ — Backlog, effort: ?
+- [ ] Criar um fluxo de ideias
+
+**`idea-008`** ⭐⭐⭐ _Planejamento OKR FY27_ — Backlog, effort: médio
+- [ ] Pensar em áreas de melhoria (due 2026-05-29)
+- [ ] Incluir item sobre adesão de AI no time
+```
+
+Check the boxes (`- [x]`) next to every to-do you want the agent to implement.
+Leave unchecked what you don't approve — the agent will not touch those.
+
+### Step 2 — Execute approved items (Claude Code)
+
+1. Double-click **`execute_agent.bat`** in the project folder
+2. A terminal opens showing today's report path and a confirmation prompt — press any key
+3. Claude Code opens in the project directory
+4. Type exactly:
+
+```
+Execute the approved items from today's agent report
+```
+
+5. Claude reads the report, lists the approved to-dos, and asks you to confirm
+6. After confirmation, Claude implements each to-do, runs the tests, and commits
+
+> **Tip:** You can be more specific — e.g. *"Execute only the first two approved items"*
+> or *"Skip idea-008, execute the rest."*
+
+---
+
 ## Troubleshooting
 
 | Issue | Solution |
@@ -1215,6 +1257,8 @@ backlog → under review → approved → waiting → in development → in vali
 | Port 8501 in use | `streamlit run app.py --server.port 8502` |
 | "python not recognized" | Reinstall Python with "Add to PATH" checked |
 | pip install error | Activate `.venv` first: `.venv\\Scripts\\activate` |
+| Agent report not found | Run `run_agent.bat` manually to generate it |
+| `TECHCOLAB_VAULT` error in app | Restart the app — the env var is set but needs a new process |
 """)
 
 
