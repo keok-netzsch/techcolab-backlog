@@ -656,27 +656,54 @@ if page == "📋 Backlog":
                                 key=f"notes_{idea.id}",
                             )
 
-                        re_col, hist_col, _ = st.columns([2, 2, 3])
+                        re_col, tips_col, hist_col = st.columns([2, 2, 2])
                         with re_col:
-                            if st.button("✨ Regenerate to-dos", key=f"regen_{idea.id}", help="Suggests new to-dos based on current title and description"):
+                            if st.button("✨ Sugerir to-dos", key=f"regen_{idea.id}", help="Sugere próximos passos com base no título e descrição"):
                                 from ingestion.extractor import suggest_todos, build_client
-                                with st.spinner("Generating..."):
+                                with st.spinner("Gerando..."):
                                     try:
                                         sugs = suggest_todos(new_title or idea.title, new_desc or idea.description or "", build_client())
                                         st.session_state[f"regen_sugs_{idea.id}"] = sugs
                                     except Exception as e:
-                                        st.error(f"Ollama unavailable: {e}")
+                                        st.error(f"Ollama indisponível: {e}")
+
+                        tips_key = f"claude_tips_{idea.id}"
+                        current_tips = st.session_state.get(tips_key, idea.claude_tips)
+                        with tips_col:
+                            tips_label = "🤖 Regenerar dicas" if current_tips else "🤖 Dicas com Claude"
+                            if st.button(tips_label, key=f"tips_btn_{idea.id}",
+                                         help="Gera dicas de como usar o Claude para desenvolver este item"):
+                                from ingestion.extractor import suggest_claude_tips, build_client
+                                with st.spinner("Gerando dicas..."):
+                                    try:
+                                        tips_list = suggest_claude_tips(
+                                            new_title or idea.title,
+                                            new_desc or idea.description or "",
+                                            build_client(),
+                                        )
+                                        if tips_list:
+                                            tips_md = "\n".join(f"- {t}" for t in tips_list)
+                                            st.session_state[tips_key] = tips_md
+                                            idea.claude_tips = tips_md
+                                            fresh = store.load_by_id(idea.id)
+                                            if fresh:
+                                                fresh.claude_tips = tips_md
+                                                store.save(fresh)
+                                        else:
+                                            st.warning("Nenhuma dica gerada. Adicione uma descrição ao item.")
+                                    except Exception as e:
+                                        st.error(f"Ollama indisponível: {e}")
 
                         regen_sugs = st.session_state.get(f"regen_sugs_{idea.id}", [])
                         if regen_sugs:
-                            st.markdown("**Suggested to-dos** — check the ones you want to add:")
+                            st.markdown("**To-dos sugeridos** — marque os que deseja adicionar:")
                             for si, stxt in enumerate(regen_sugs):
                                 if st.checkbox(stxt, value=False, key=f"regen_chk_{idea.id}_{si}"):
                                     if not any(t["text"] == stxt for t in idea.todos):
                                         idea.todos.append({"text": stxt, "done": False, "due_date": None})
 
                         with hist_col:
-                            if st.button("🕓 View history", key=f"hist_{idea.id}"):
+                            if st.button("🕓 Ver histórico", key=f"hist_{idea.id}"):
                                 st.session_state[f"show_hist_{idea.id}"] = not st.session_state.get(f"show_hist_{idea.id}", False)
 
                         if st.session_state.get(f"show_hist_{idea.id}"):
@@ -778,46 +805,14 @@ if page == "📋 Backlog":
                                 "due_date": str(new_todo_due) if new_todo_due else None,
                             })
 
-                        # ── Claude Tips ───────────────────────────────────────────────────────
-                        tips_key = f"claude_tips_{idea.id}"
-                        current_tips = st.session_state.get(tips_key, idea.claude_tips)
-
-                        st.markdown(
-                            '<div style="margin-top:10px;margin-bottom:4px;border-top:1px solid rgba(76,77,88,0.15);padding-top:8px">'
-                            '<span style="font-size:0.85em;font-weight:600;color:#02B793">🤖 Dicas com Claude</span>'
-                            '</div>',
-                            unsafe_allow_html=True,
-                        )
-                        tips_btn_col, _ = st.columns([2, 5])
-                        with tips_btn_col:
-                            tips_label = "↻ Regenerar dicas" if current_tips else "✨ Gerar dicas com Claude"
-                            if st.button(tips_label, key=f"tips_btn_{idea.id}",
-                                         help="Usa o modelo local (Ollama) para sugerir como usar o Claude no desenvolvimento deste item"):
-                                from ingestion.extractor import suggest_claude_tips, build_client
-                                with st.spinner("Gerando dicas..."):
-                                    try:
-                                        tips_list = suggest_claude_tips(
-                                            new_title or idea.title,
-                                            new_desc or idea.description or "",
-                                            build_client(),
-                                        )
-                                        if tips_list:
-                                            tips_md = "\n".join(f"- {t}" for t in tips_list)
-                                            st.session_state[tips_key] = tips_md
-                                            idea.claude_tips = tips_md
-                                            # Auto-save only the tips field
-                                            fresh = store.load_by_id(idea.id)
-                                            if fresh:
-                                                fresh.claude_tips = tips_md
-                                                store.save(fresh)
-                                        else:
-                                            st.warning("Nenhuma dica gerada. Tente adicionar uma descrição ao item.")
-                                    except Exception as e:
-                                        st.error(f"Ollama indisponível: {e}")
                         if current_tips:
+                            st.markdown(
+                                '<div style="margin-top:6px;margin-bottom:2px">'
+                                '<span style="font-size:0.82em;font-weight:600;color:#02B793">🤖 Dicas com Claude</span>'
+                                '</div>',
+                                unsafe_allow_html=True,
+                            )
                             st.info(current_tips)
-                        else:
-                            st.caption("_Nenhuma dica gerada ainda._")
 
                         col_save, col_del, _ = st.columns([1, 1, 3])
                         with col_save:
