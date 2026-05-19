@@ -166,7 +166,7 @@ st.markdown(
 )
 
 # ── Sidebar: logo + navigation + reload ────────────────────────────────────────
-_PAGES_MAIN  = ["📋 Backlog", "✅ To-Do List", "📊 Dashboard"]
+_PAGES_MAIN  = ["📋 Backlog", "✅ To-Do List", "📊 Dashboard", "📈 Claude Pro"]
 _PAGES_EXTRA = {"📖": "📖 Tutorial", "📚": "📚 Documentation"}
 
 if "page" not in st.session_state:
@@ -1354,3 +1354,20 @@ Anotações livres.
 - **Phase 3** — Parallel orchestrator: runs multiple analyses simultaneously
 - **Phase 4** — Notion integration (optional bidirectional sync)
 """)
+
+elif page == "📈 Claude Pro":
+    import streamlit.components.v1 as components
+    st.markdown('<h1 style="margin-bottom:0.2rem">Claude Pro Report</h1>',
+                unsafe_allow_html=True)
+    st.caption("Relatório vivo de uso do Claude Pro · NBS D&A · Techco.lab — "
+               "atualizado automaticamente via GitHub Pages")
+    st.markdown(
+        '<a href="https://keok-netzsch.github.io/claude-pro-report/" target="_blank" '
+        'style="font-size:0.8rem;color:rgba(76,77,88,0.5)">Abrir em nova aba ↗</a>',
+        unsafe_allow_html=True,
+    )
+    components.iframe(
+        "https://keok-netzsch.github.io/claude-pro-report/",
+        height=900,
+        scrolling=True,
+    )
