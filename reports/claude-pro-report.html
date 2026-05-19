@@ -4,490 +4,115 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Claude Pro — Relatório de Uso | NBS D&A · Techco.lab</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #0d0d0d;
-    --paper: #f5f2ee;
-    --accent: #c84b2f;
-    --accent-soft: #f0e6e2;
-    --mid: #6b6560;
-    --border: #d9d4ce;
-    --tag-bg: #e8e3dc;
-    --green: #2d6a4f;
-    --green-bg: #e9f5ee;
-    --amber: #b5640a;
-    --amber-bg: #fdf0e0;
-    --executive-bg: #fdf8f5;
-    --executive-border: #e8c9be;
+    --ink:          #2A2A2A;
+    --body:         #4A4A4A;
+    --paper:        #F9FAFB;
+    --dark:         #4C4D58;
+    --accent:       #02B793;
+    --accent-light: #0AD4A8;
+    --accent-dark:  #007167;
+    --accent-soft:  #8AC6BD;
+    --mid:          rgba(76,77,88,0.55);
+    --border:       rgba(76,77,88,0.12);
+    --tag-bg:       rgba(76,77,88,0.07);
+    --green:        #007167;
+    --green-bg:     rgba(2,183,147,0.09);
+    --amber:        #b5640a;
+    --amber-bg:     #fdf0e0;
+    --exec-bg:      rgba(2,183,147,0.05);
+    --exec-border:  rgba(2,183,147,0.35);
   }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--paper);color:var(--body);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.65;font-size:15px;min-height:100vh}
 
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  header{background:var(--dark);padding:40px 64px 44px;display:grid;grid-template-columns:1fr auto;align-items:end;gap:32px}
+  .header-logo{margin-bottom:20px}
+  .org-tag{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+  h1{font-size:clamp(26px,3.5vw,40px);font-weight:700;line-height:1.15;letter-spacing:-.02em;background:linear-gradient(135deg,#fff 0%,#0AD4A8 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .header-meta{text-align:right;font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.45);line-height:1.9;letter-spacing:.04em}
+  .header-meta strong{color:rgba(255,255,255,.9);font-weight:500}
 
-  body {
-    background: var(--paper);
-    color: var(--ink);
-    font-family: 'DM Sans', sans-serif;
-    font-weight: 300;
-    line-height: 1.65;
-    font-size: 15px;
-    min-height: 100vh;
-  }
+  main{max-width:1100px;margin:0 auto;padding:56px 64px 96px}
+  section{margin-bottom:72px}
 
-  /* HEADER */
-  header {
-    border-bottom: 1px solid var(--border);
-    padding: 48px 64px 40px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: end;
-    gap: 32px;
-  }
+  .section-label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--mid);margin-bottom:24px;display:flex;align-items:center;gap:12px}
+  .section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+  h2{font-size:24px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px;color:var(--ink)}
+  .section-desc{color:var(--mid);font-size:14px;margin-bottom:32px}
 
-  .org-tag {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 12px;
-  }
+  .stat-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:48px}
+  .stat-box{background:white;border:1px solid var(--border);padding:24px 28px;border-radius:4px}
+  .stat-number{font-size:40px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-bottom:6px;background:linear-gradient(135deg,var(--accent-dark),var(--accent-soft));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .stat-label{font-size:13px;color:var(--mid)}
 
-  h1 {
-    font-family: 'DM Serif Display', serif;
-    font-size: clamp(28px, 4vw, 44px);
-    font-weight: 400;
-    line-height: 1.15;
-    color: var(--ink);
-    letter-spacing: -0.02em;
-  }
+  .executive-box{background:var(--exec-bg);border:1px solid var(--exec-border);border-left:4px solid var(--accent);border-radius:6px;padding:28px 32px;margin-bottom:48px}
+  .executive-box .exec-label{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  .executive-box .exec-lead{font-size:15px;color:var(--ink);margin-bottom:16px;line-height:1.6}
+  .executive-box ul{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:8px 32px}
+  .executive-box ul li{font-size:14px;color:var(--body);position:relative;padding-left:16px}
+  .executive-box ul li::before{content:'';position:absolute;left:0;top:.3em;width:4px;height:1em;background:var(--accent);border-radius:2px}
+  .executive-box ul li strong{color:var(--ink);font-weight:500}
 
-  h1 em {
-    font-style: italic;
-    color: var(--accent);
-  }
+  .initiatives-grid{display:flex;flex-direction:column;gap:2px}
+  .initiative-card{background:white;border:1px solid var(--border);border-radius:4px;padding:28px 32px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;transition:box-shadow .15s ease,border-color .15s ease}
+  .initiative-card:hover{box-shadow:0 4px 24px rgba(2,183,147,.08);border-color:rgba(2,183,147,.25)}
+  .initiative-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px}
+  .initiative-number{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);font-weight:500;min-width:24px;padding-top:3px}
+  .initiative-title-wrap{display:flex;flex-direction:column;gap:6px}
+  .initiative-title{font-size:15px;font-weight:500;color:var(--ink);letter-spacing:-.01em}
+  .title-bar{width:32px;height:3px;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent-light))}
 
-  .header-meta {
-    text-align: right;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--mid);
-    line-height: 1.9;
-    letter-spacing: 0.04em;
-  }
+  .boss-summary{background:var(--exec-bg);border-left:3px solid var(--accent);border-radius:0 4px 4px 0;padding:12px 16px;margin-left:36px;margin-bottom:14px}
+  .boss-summary .boss-label{font-family:'DM Mono',monospace;font-size:9px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+  .boss-summary p{font-size:13px;color:var(--ink);line-height:1.6}
+  .boss-summary .advance{margin-top:6px;font-size:12px;color:var(--mid)}
+  .boss-summary .advance strong{color:var(--green);font-weight:500}
 
-  .header-meta strong {
-    color: var(--ink);
-    font-weight: 500;
-  }
+  .initiative-body{font-size:13.5px;color:var(--mid);line-height:1.7;padding-left:36px}
+  .initiative-body ul{list-style:none;margin-top:8px}
+  .initiative-body ul li{position:relative;padding-left:14px;margin-bottom:4px}
+  .initiative-body ul li::before{content:'';position:absolute;left:0;top:.58em;width:4px;height:4px;border-radius:50%;background:var(--border)}
 
-  /* LAYOUT */
-  main {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 56px 64px 96px;
-  }
+  .badge-area{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0}
+  .badge{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:999px}
+  .badge-done{background:var(--green-bg);color:var(--green)}
+  .badge-progress{background:var(--amber-bg);color:var(--amber)}
+  .badge-category{background:var(--tag-bg);color:var(--mid);border-radius:3px}
 
-  /* SECTION */
-  section {
-    margin-bottom: 72px;
-  }
+  .timeline{position:relative;padding-left:32px}
+  .timeline::before{content:'';position:absolute;left:0;top:8px;bottom:0;width:1px;background:var(--border)}
+  .timeline-item{position:relative;margin-bottom:28px}
+  .timeline-item::before{content:'';position:absolute;left:-36px;top:6px;width:8px;height:8px;border-radius:50%;background:var(--accent);border:2px solid var(--paper);box-shadow:0 0 0 1px var(--accent)}
+  .timeline-item.latest::before{width:10px;height:10px;left:-37px;top:5px;background:linear-gradient(135deg,var(--accent),var(--accent-light));box-shadow:0 0 0 1px var(--accent),0 0 8px rgba(2,183,147,.4)}
+  .timeline-date{font-family:'DM Mono',monospace;font-size:11px;color:var(--mid);margin-bottom:4px}
+  .timeline-title{font-weight:500;font-size:14px;color:var(--ink);margin-bottom:4px}
+  .timeline-detail{font-size:13px;color:var(--mid)}
+  .timeline-new-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;background:var(--green-bg);color:var(--accent);padding:2px 8px;border-radius:999px;margin-left:8px;vertical-align:middle}
 
-  .section-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--mid);
-    margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
+  .tools-table{width:100%;border-collapse:collapse;font-size:14px}
+  .tools-table th{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);text-align:left;padding:12px 16px;border-bottom:1px solid var(--border);background:white}
+  .tools-table td{padding:14px 16px;border-bottom:1px solid var(--border);vertical-align:top;background:white}
+  .tools-table tr:last-child td{border-bottom:none}
+  .tools-table tr:hover td{background:rgba(2,183,147,.03)}
+  .tool-name{font-weight:500;font-size:14px;color:var(--ink)}
+  .tool-desc{font-size:13px;color:var(--mid);margin-top:2px}
 
-  .section-label::after {
-    content: '';
-    flex: 1;
-    height: 1px;
-    background: var(--border);
-  }
+  footer{background:var(--dark);padding:28px 64px;display:flex;justify-content:space-between;align-items:center}
+  .footer-left{font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.45)}
+  .footer-right{font-size:12px;color:rgba(255,255,255,.35)}
+  .dot-accent{color:var(--accent)}
 
-  h2 {
-    font-family: 'DM Serif Display', serif;
-    font-size: 26px;
-    font-weight: 400;
-    letter-spacing: -0.01em;
-    margin-bottom: 6px;
-    color: var(--ink);
-  }
-
-  .section-desc {
-    color: var(--mid);
-    font-size: 14px;
-    margin-bottom: 32px;
-  }
-
-  /* EXECUTIVE SUMMARY */
-  .executive-box {
-    background: var(--executive-bg);
-    border: 1px solid var(--executive-border);
-    border-left: 4px solid var(--accent);
-    border-radius: 4px;
-    padding: 28px 32px;
-    margin-bottom: 48px;
-  }
-
-  .executive-box .exec-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 12px;
-  }
-
-  .executive-box .exec-lead {
-    font-size: 15px;
-    color: var(--ink);
-    margin-bottom: 16px;
-    line-height: 1.6;
-  }
-
-  .executive-box ul {
-    list-style: none;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px 32px;
-  }
-
-  .executive-box ul li {
-    font-size: 14px;
-    color: var(--mid);
-    position: relative;
-    padding-left: 16px;
-  }
-
-  .executive-box ul li::before {
-    content: '→';
-    position: absolute;
-    left: 0;
-    color: var(--accent);
-    font-size: 12px;
-  }
-
-  .executive-box ul li strong {
-    color: var(--ink);
-    font-weight: 500;
-  }
-
-  /* INITIATIVE CARDS */
-  .initiatives-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .initiative-card {
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 28px 32px;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 16px;
-    align-items: start;
-    transition: box-shadow 0.15s ease;
-  }
-
-  .initiative-card:hover {
-    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-  }
-
-  .initiative-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-  }
-
-  .initiative-number {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--accent);
-    font-weight: 500;
-    min-width: 24px;
-  }
-
-  .initiative-title {
-    font-size: 16px;
-    font-weight: 500;
-    color: var(--ink);
-    letter-spacing: -0.01em;
-  }
-
-  /* BOSS SUMMARY */
-  .boss-summary {
-    background: var(--executive-bg);
-    border-left: 3px solid var(--executive-border);
-    border-radius: 0 3px 3px 0;
-    padding: 12px 16px;
-    margin-left: 36px;
-    margin-bottom: 14px;
-  }
-
-  .boss-summary .boss-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 5px;
-  }
-
-  .boss-summary p {
-    font-size: 13px;
-    color: var(--ink);
-    line-height: 1.6;
-  }
-
-  .boss-summary .advance {
-    margin-top: 6px;
-    font-size: 12px;
-    color: var(--mid);
-  }
-
-  .boss-summary .advance strong {
-    color: var(--green);
-    font-weight: 500;
-  }
-
-  /* TECHNICAL DETAILS (collapsible look) */
-  .initiative-body {
-    font-size: 14px;
-    color: var(--mid);
-    line-height: 1.7;
-    padding-left: 36px;
-  }
-
-  .initiative-body ul {
-    list-style: none;
-    margin-top: 8px;
-  }
-
-  .initiative-body ul li {
-    position: relative;
-    padding-left: 16px;
-    margin-bottom: 4px;
-  }
-
-  .initiative-body ul li::before {
-    content: '—';
-    position: absolute;
-    left: 0;
-    color: var(--border);
-  }
-
-  .badge-area {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-
-  .badge {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 4px 10px;
-    border-radius: 2px;
-  }
-
-  .badge-done { background: var(--green-bg); color: var(--green); }
-  .badge-progress { background: var(--amber-bg); color: var(--amber); }
-  .badge-setup { background: var(--accent-soft); color: var(--accent); }
-  .badge-category { background: var(--tag-bg); color: var(--mid); }
-
-  /* TIMELINE */
-  .timeline {
-    position: relative;
-    padding-left: 32px;
-  }
-
-  .timeline::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 8px;
-    bottom: 0;
-    width: 1px;
-    background: var(--border);
-  }
-
-  .timeline-item {
-    position: relative;
-    margin-bottom: 28px;
-  }
-
-  .timeline-item.latest::before {
-    background: var(--accent);
-    width: 10px;
-    height: 10px;
-    left: -37px;
-    top: 5px;
-  }
-
-  .timeline-item::before {
-    content: '';
-    position: absolute;
-    left: -36px;
-    top: 6px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: 2px solid var(--paper);
-    box-shadow: 0 0 0 1px var(--accent);
-  }
-
-  .timeline-date {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--mid);
-    margin-bottom: 4px;
-  }
-
-  .timeline-title {
-    font-weight: 500;
-    font-size: 14px;
-    margin-bottom: 4px;
-  }
-
-  .timeline-detail {
-    font-size: 13px;
-    color: var(--mid);
-  }
-
-  .timeline-new-badge {
-    display: inline-block;
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    background: var(--accent-soft);
-    color: var(--accent);
-    padding: 2px 8px;
-    border-radius: 2px;
-    margin-left: 8px;
-    vertical-align: middle;
-  }
-
-  /* TOOLING TABLE */
-  .tools-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 14px;
-  }
-
-  .tools-table th {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--mid);
-    text-align: left;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-    background: white;
-  }
-
-  .tools-table td {
-    padding: 14px 16px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-    background: white;
-  }
-
-  .tools-table tr:last-child td { border-bottom: none; }
-
-  .tool-name {
-    font-weight: 500;
-    font-size: 14px;
-  }
-
-  .tool-desc {
-    font-size: 13px;
-    color: var(--mid);
-    margin-top: 2px;
-  }
-
-  /* STAT STRIP */
-  .stat-strip {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2px;
-    margin-bottom: 48px;
-  }
-
-  .stat-box {
-    background: white;
-    border: 1px solid var(--border);
-    padding: 24px 28px;
-    border-radius: 4px;
-  }
-
-  .stat-number {
-    font-family: 'DM Serif Display', serif;
-    font-size: 36px;
-    color: var(--accent);
-    line-height: 1;
-    margin-bottom: 6px;
-  }
-
-  .stat-label {
-    font-size: 13px;
-    color: var(--mid);
-  }
-
-  /* FOOTER */
-  footer {
-    border-top: 1px solid var(--border);
-    padding: 28px 64px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .footer-left {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    color: var(--mid);
-  }
-
-  .footer-right {
-    font-size: 12px;
-    color: var(--mid);
-  }
-
-  .dot-accent { color: var(--accent); }
-
-  @media (max-width: 768px) {
-    header { padding: 32px 24px; grid-template-columns: 1fr; }
-    .header-meta { text-align: left; }
-    main { padding: 40px 24px 72px; }
-    footer { padding: 24px; flex-direction: column; gap: 8px; }
-    .stat-strip { grid-template-columns: 1fr; }
-    .initiative-card { grid-template-columns: 1fr; }
-    .badge-area { flex-direction: row; flex-wrap: wrap; }
-    .executive-box ul { grid-template-columns: 1fr; }
+  @media(max-width:768px){
+    header{padding:32px 24px;grid-template-columns:1fr}
+    .header-meta{text-align:left}
+    main{padding:40px 24px 72px}
+    footer{padding:24px;flex-direction:column;gap:8px;text-align:center}
+    .stat-strip,.executive-box ul{grid-template-columns:1fr}
+    .initiative-card{grid-template-columns:1fr}
+    .badge-area{flex-direction:row;flex-wrap:wrap}
   }
 </style>
 </head>
@@ -495,8 +120,24 @@
 
 <header>
   <div>
+    <div class="header-logo">
+      <svg width="120" height="38" viewBox="0 0 123 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M0 14.6087V29.2173H2.61944H5.23889V28.1021V26.987H3.64444H2.05V14.6087V2.23038H3.64444H5.23889V1.11521V5.34058e-05H2.61944H0V14.6087Z" fill="white"/>
+        <path d="M117.761 1.11521V2.23038H119.356H120.95V14.6087V26.987H119.356H117.761V28.1021V29.2173H120.381H123V14.6087V5.34058e-05H120.381H117.761V1.11521Z" fill="white"/>
+        <path d="M42.2528 5.64268C42.1844 5.7765 42.1617 9.9249 42.1844 14.8316L42.2528 23.7529L43.0044 23.8198L43.7333 23.8867V18.9131C43.7333 12.289 43.9611 11.8207 47.2183 11.8207C49.0861 11.8207 49.9744 12.1998 50.3161 13.1812C50.4756 13.6272 50.5667 15.813 50.5667 18.8685V23.8644H51.3639H52.1611V18.5562C52.1611 13.828 52.1156 13.1812 51.7056 12.3336C51.0222 10.8393 50.2022 10.4825 47.5372 10.4825C45.305 10.4825 44.1433 10.7724 43.8928 11.4192C43.8244 11.5753 43.7561 10.2817 43.7561 8.51979L43.7333 5.35274H43.05C42.6628 5.35274 42.2983 5.48656 42.2528 5.64268Z" fill="white"/>
+        <path d="M84.0498 14.6084V23.8643H85.4165H86.7831V14.6084V5.35258H85.4165H84.0498V14.6084Z" fill="white"/>
+        <path d="M103.343 5.50886C103.252 5.57577 103.183 9.74647 103.183 14.7647V23.8867L107.488 23.8198C112.203 23.7529 112.408 23.686 113.524 22.214C113.98 21.6341 114.003 21.2995 114.003 17.1065C114.003 12.7574 113.98 12.579 113.479 11.8653C112.613 10.6832 111.771 10.371 109.402 10.371C107.602 10.371 107.238 10.4379 106.623 10.8839L105.917 11.3969V8.36367V5.35274H104.709C104.026 5.35274 103.411 5.41965 103.343 5.50886ZM110.882 13.2258C111.224 13.5603 111.269 14.0956 111.269 17.0396C111.269 21.5003 111.292 21.4557 108.217 21.3665L106.031 21.2995L105.962 18.1548C105.871 13.3373 106.281 12.6236 109.06 12.7797C110.017 12.8243 110.609 12.9804 110.882 13.2258Z" fill="white"/>
+        <path d="M10.9333 9.14412V10.4823H9.9083C8.92886 10.4823 8.8833 10.5046 8.8833 11.1514C8.8833 11.7982 8.92886 11.8205 9.88552 11.8205H10.9105L10.9789 16.6603C11.0472 20.9648 11.0927 21.6116 11.48 22.2361C12.1633 23.329 13.3477 23.8643 15.1472 23.8643H16.6505L16.5822 23.2398C16.5139 22.6822 16.4227 22.6376 15.17 22.5038C14.1677 22.3922 13.7122 22.2138 13.2339 21.7678L12.6416 21.1879L12.5733 16.5042L12.505 11.8428L14.3955 11.7759C16.2405 11.709 16.2861 11.6867 16.2861 11.1514C16.2861 10.6161 16.2177 10.5938 14.4639 10.4823L12.6416 10.3708L12.5733 9.07722L12.505 7.80593H11.7305H10.9333V9.14412Z" fill="white"/>
+        <path d="M20.4772 10.9953C19.065 11.9097 18.9055 12.5342 18.9055 17.1733C18.9055 21.8124 19.065 22.4369 20.4772 23.3513C21.2061 23.842 21.4794 23.8643 24.9644 23.8643H28.7V23.2175V22.5484L25.1694 22.4815C21.8666 22.4145 21.6161 22.3922 21.1377 21.9016C20.705 21.5001 20.6138 21.0987 20.5455 19.7382L20.4544 18.0654L24.6227 18.0208L28.8138 17.9539L28.8822 15.6121C28.9277 13.5379 28.8822 13.1587 28.4266 12.2666C27.6522 10.7723 26.8777 10.4823 23.78 10.4823C21.525 10.4823 21.1605 10.5492 20.4772 10.9953ZM26.0577 12.0435C26.9233 12.3558 27.3333 13.3594 27.3333 15.166V16.7272H23.9166H20.5V14.9207C20.5 13.2256 20.5455 13.0918 21.1605 12.4673C21.7983 11.8651 21.935 11.8205 23.6661 11.8205C24.6683 11.8205 25.7388 11.9097 26.0577 12.0435Z" fill="white"/>
+        <path d="M33.4832 10.9061C31.9343 11.709 31.7749 12.2666 31.7749 17.1733C31.7749 21.2994 31.7977 21.567 32.2988 22.3253C33.096 23.5966 33.916 23.8643 37.1049 23.8643H39.861V23.1952V22.5261H37.4693C33.4832 22.5261 33.2555 22.2361 33.2555 17.1733C33.2555 12.1105 33.4832 11.8205 37.4693 11.8205H39.861V11.1514V10.4823H37.0593C34.7816 10.4823 34.121 10.5492 33.4832 10.9061Z" fill="white"/>
+        <path d="M56.7166 10.9733C55.0539 12.0885 55.0083 12.2446 55.0083 17.1736C55.0083 21.2997 55.0311 21.6343 55.4866 22.2141C56.5572 23.6192 56.9216 23.7531 60.3839 23.82L63.5727 23.9092L63.5044 22.7048L63.4361 21.5227L61.0216 21.4558C57.6733 21.3666 57.7416 21.4558 57.7416 17.1736C57.7416 12.8914 57.6733 12.9806 61.0216 12.8914L63.4361 12.8245L63.5044 11.6424L63.5727 10.4826H60.5205C57.7189 10.4826 57.4 10.5272 56.7166 10.9733Z" fill="white"/>
+        <path d="M67.5134 10.7948C65.7368 11.5754 65.304 12.9582 65.4179 17.7088C65.4862 21.6341 65.6912 22.3032 67.0351 23.2846C67.6273 23.7083 67.9918 23.7529 70.839 23.7529C74.4606 23.7529 74.8934 23.5968 75.8045 21.8572C76.2601 20.9427 76.3056 20.5636 76.3056 17.1735C76.3056 13.7834 76.2601 13.4042 75.8045 12.4898C74.9162 10.7948 74.4379 10.594 71.1123 10.5271C69.0395 10.5048 68.0145 10.5717 67.5134 10.7948ZM73.0256 13.4042C73.4129 13.828 73.4584 14.2518 73.4584 17.1735C73.4584 21.3219 73.4129 21.4111 70.8845 21.4111C68.3106 21.4111 68.3334 21.4334 68.3334 17.2181C68.3334 12.9136 68.3334 12.9359 70.839 12.9359C72.3195 12.9359 72.6612 13.0028 73.0256 13.4042Z" fill="white"/>
+        <path d="M91.6578 10.7946C89.8812 11.5752 89.4484 12.958 89.5623 17.7086C89.6306 20.8087 89.6989 21.4109 90.0862 22.0577C90.9289 23.4405 91.5667 23.7528 94.0039 23.842C95.94 23.9089 96.2589 23.8643 96.8284 23.4405L97.4889 22.9498V23.4182C97.4889 23.842 97.6028 23.8866 98.9239 23.8197L100.336 23.7528V17.1733V10.5938L96.35 10.5492C93.4117 10.5046 92.1817 10.5715 91.6578 10.7946ZM97.4889 16.6157C97.4889 20.2511 97.4889 20.3181 96.9195 20.8533C96.4412 21.344 96.1678 21.4109 94.8695 21.4109C92.5462 21.4109 92.4778 21.2771 92.4778 17.1287C92.4778 12.8465 92.4095 12.9357 95.3706 12.9357H97.4889V16.6157Z" fill="white"/>
+        <path d="M78.5833 21.7455V23.8643H79.9499H81.3166V21.7455V19.6266H79.9499H78.5833V21.7455Z" fill="white"/>
+      </svg>
+    </div>
     <div class="org-tag">NBS D&amp;A &middot; Techco.lab &middot; Team Lead</div>
-    <h1>Claude Pro — <em>Iniciativas</em><br>e Desenvolvimentos</h1>
+    <h1>Claude Pro — Iniciativas<br>e Desenvolvimentos</h1>
   </div>
   <div class="header-meta">
     <strong>Kelvin Okuda</strong><br>
@@ -508,337 +149,147 @@
 
 <main>
 
-  <!-- OVERVIEW STATS -->
   <section>
     <div class="section-label">Visão geral</div>
     <div class="stat-strip">
-      <div class="stat-box">
-        <div class="stat-number">8</div>
-        <div class="stat-label">Iniciativas ativas</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-number">5</div>
-        <div class="stat-label">Concluídas</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-number">8</div>
-        <div class="stat-label">Dias desde adoção</div>
-      </div>
+      <div class="stat-box"><div class="stat-number">8</div><div class="stat-label">Iniciativas ativas</div></div>
+      <div class="stat-box"><div class="stat-number">5</div><div class="stat-label">Concluídas</div></div>
+      <div class="stat-box"><div class="stat-number">9</div><div class="stat-label">Dias desde adoção</div></div>
     </div>
-
-    <!-- EXECUTIVE SUMMARY -->
     <div class="executive-box">
       <div class="exec-label">Para o gestor — o que está sendo feito com o Claude Pro</div>
-      <p class="exec-lead">
-        O Claude Pro está sendo usado para aumentar a produtividade e a qualidade da gestão da área D&amp;A.
-        Em 9 dias, foram configuradas 8 iniciativas que cobrem desde documentação e governança até automações de reuniões e ferramentas de desenvolvimento.
-      </p>
+      <p class="exec-lead">O Claude Pro está sendo usado para aumentar a produtividade e a qualidade da gestão da área D&amp;A. Em 9 dias, foram configuradas 8 iniciativas cobrindo documentação, governança, automações e ferramentas de desenvolvimento.</p>
       <ul>
         <li><strong>Gestão do time:</strong> base de conhecimento com OKRs, planos e histórico de todos os 5 liderados</li>
         <li><strong>Governança:</strong> OKRs revisados e consolidados; estrutura corporativa mapeada</li>
         <li><strong>Produtividade:</strong> apresentações geradas automaticamente no padrão visual</li>
         <li><strong>Documentação:</strong> processos técnicos documentados como guias práticos (OPLs)</li>
         <li><strong>Automação:</strong> transcrição automática de reuniões em andamento</li>
-        <li><strong>Visibilidade:</strong> este relatório — atualizado e publicado automaticamente</li>
+        <li><strong>Visibilidade:</strong> este relatório — atualizado automaticamente toda manhã</li>
       </ul>
     </div>
   </section>
 
-  <!-- INICIATIVAS -->
   <section>
     <div class="section-label">Iniciativas</div>
     <h2>Projetos e Desenvolvimentos</h2>
     <p class="section-desc">Uso do Claude Pro aplicado à gestão, governança e desenvolvimento do time D&amp;A.</p>
-
     <div class="initiatives-grid">
 
-      <!-- 01 -->
       <div class="initiative-card">
         <div>
-          <div class="initiative-header">
-            <span class="initiative-number">01</span>
-            <span class="initiative-title">Setup e Onboarding do Claude Pro</span>
-          </div>
-          <div class="boss-summary">
-            <div class="boss-label">Em resumo</div>
-            <p>Configuração inicial do ambiente Claude Pro para uso corporativo. Pré-requisito para todas as demais iniciativas — avalia o que está disponível no plano e como integrar com o ambiente Microsoft da empresa.</p>
-            <div class="advance"><strong>Principal avanço:</strong> ambiente pronto e operacional desde o primeiro dia.</div>
-          </div>
-          <div class="initiative-body">
-            Configuração do ambiente para uso do Claude Pro no contexto corporativo. Inclui instalação do Claude Desktop App, avaliação de requisitos administrativos de máquina, e mapeamento de recursos disponíveis no plano.
-            <ul>
-              <li>Ticket de instalação estruturado (Claude Desktop App via MSIX)</li>
-              <li>Mapeamento de features: Computer Use, Cowork, Projects, MCP</li>
-              <li>Avaliação de integração com ferramentas Microsoft 365 (Power Automate, Teams)</li>
-            </ul>
-          </div>
+          <div class="initiative-header"><span class="initiative-number">01</span><div class="initiative-title-wrap"><span class="initiative-title">Setup e Onboarding do Claude Pro</span><div class="title-bar"></div></div></div>
+          <div class="boss-summary"><div class="boss-label">Em resumo</div><p>Configuração inicial do ambiente Claude Pro para uso corporativo. Pré-requisito para todas as demais iniciativas.</p><div class="advance"><strong>Principal avanço:</strong> ambiente pronto e operacional desde o primeiro dia.</div></div>
+          <div class="initiative-body">Instalação, avaliação de requisitos e mapeamento de integrações Microsoft 365.<ul><li>Ticket de instalação (Claude Desktop App via MSIX)</li><li>Mapeamento de features: Computer Use, Cowork, Projects, MCP</li><li>Avaliação de integração com Power Automate e Teams</li></ul></div>
         </div>
-        <div class="badge-area">
-          <span class="badge badge-done">Concluído</span>
-          <span class="badge badge-category">Setup</span>
-        </div>
+        <div class="badge-area"><span class="badge badge-done">Concluído</span><span class="badge badge-category">Setup</span></div>
       </div>
 
-      <!-- 02 -->
       <div class="initiative-card">
         <div>
-          <div class="initiative-header">
-            <span class="initiative-number">02</span>
-            <span class="initiative-title">Vault Obsidian — Segundo Cérebro para Gestão D&amp;A</span>
-          </div>
-          <div class="boss-summary">
-            <div class="boss-label">Em resumo</div>
-            <p>Uma base de conhecimento digital — como um "caderno inteligente" — integrada ao Claude. Substitui anotações dispersas por um sistema centralizado onde o Claude pode consultar e registrar tudo automaticamente.</p>
-            <div class="advance"><strong>Principal avanço:</strong> todos os 5 liderados têm OKRs, planos de desenvolvimento e histórico de 1:1s registrados e acessíveis ao Claude.</div>
-          </div>
-          <div class="initiative-body">
-            Configuração de um vault Obsidian integrado ao Claude Code como base de conhecimento persistente para gestão do time e projetos. Arquitetura PARA + estrutura por liderado.
-            <ul>
-              <li>Estrutura de pastas criada: Inbox, Projects, Areas, Resources, Archive, AI, Templates, Team</li>
-              <li>Perfis individuais criados para 5 liderados (Ana Leite, Pedro Klein, Pedro Hennig, Lucas Shizuno, Daniel Lima) com arquivos OKR, 1:1, PDI e Overview</li>
-              <li>CLAUDE.md configurado com protocolo de sessão, contexto de role e regras de escrita</li>
-              <li>Skill obsidian-second-brain instalada (25 slash commands: /obsidian-daily, /obsidian-capture, /obsidian-log, etc.)</li>
-              <li>Integração validada: Claude Code lê/escreve no vault via terminal</li>
-            </ul>
-          </div>
+          <div class="initiative-header"><span class="initiative-number">02</span><div class="initiative-title-wrap"><span class="initiative-title">Vault Obsidian — Segundo Cérebro para Gestão D&amp;A</span><div class="title-bar"></div></div></div>
+          <div class="boss-summary"><div class="boss-label">Em resumo</div><p>Base de conhecimento digital integrada ao Claude. Substitui anotações dispersas por um sistema centralizado consultável automaticamente.</p><div class="advance"><strong>Principal avanço:</strong> todos os 5 liderados têm OKRs, planos e histórico de 1:1s registrados e acessíveis ao Claude.</div></div>
+          <div class="initiative-body">Vault Obsidian integrado ao Claude Code como base de conhecimento persistente.<ul><li>Estrutura PARA: Inbox, Projects, Areas, Resources, Archive, AI, Templates, Team</li><li>Perfis individuais para 5 liderados com OKR, 1:1, PDI e Overview</li><li>Skill obsidian-second-brain com 25 slash commands instalados</li></ul></div>
         </div>
-        <div class="badge-area">
-          <span class="badge badge-done">Concluído</span>
-          <span class="badge badge-category">Gestão · IA</span>
-        </div>
+        <div class="badge-area"><span class="badge badge-done">Concluído</span><span class="badge badge-category">Gestão · IA</span></div>
       </div>
 
-      <!-- 03 -->
       <div class="initiative-card">
         <div>
-          <div class="initiative-header">
-            <span class="initiative-number">03</span>
-            <span class="initiative-title">Avaliação e Consolidação de OKRs do Time D&amp;A</span>
-          </div>
-          <div class="boss-summary">
-            <div class="boss-label">Em resumo</div>
-            <p>Uso do Claude para revisar os OKRs do time, encontrar inconsistências e gerar textos prontos para reporte — sem retrabalho manual de formatação.</p>
-            <div class="advance"><strong>Principal avanço:</strong> documentação padronizada de todos os 4 liderados ativos, alinhada à apresentação oficial e pronta para uso em reuniões.</div>
-          </div>
-          <div class="initiative-body">
-            Uso do Claude para analisar, corrigir e consolidar a matriz de OKRs dos 4 integrantes ativos do DA Team, identificando inconsistências em relação à apresentação oficial e gerando textos padronizados para reporte.
-            <ul>
-              <li>Revisão crítica de status por KR (ex: Lucas Shizuno — Power App em desenvolvimento, não "sem progresso")</li>
-              <li>Geração de textos limpos para reporte a stakeholders (sem metadados internos)</li>
-              <li>Consolidação de dados de todos os liderados: Ana Leite, Pedro Klein, Lucas Shizuno, Daniel Lima</li>
-              <li>Registro estruturado no vault Obsidian (OKR.md por liderado)</li>
-            </ul>
-          </div>
+          <div class="initiative-header"><span class="initiative-number">03</span><div class="initiative-title-wrap"><span class="initiative-title">Avaliação e Consolidação de OKRs do Time D&amp;A</span><div class="title-bar"></div></div></div>
+          <div class="boss-summary"><div class="boss-label">Em resumo</div><p>Uso do Claude para revisar OKRs, encontrar inconsistências e gerar textos prontos para reporte — sem retrabalho manual.</p><div class="advance"><strong>Principal avanço:</strong> documentação padronizada de todos os 4 liderados ativos, pronta para reuniões.</div></div>
+          <div class="initiative-body">Análise, correção e consolidação da matriz de OKRs dos 4 integrantes ativos.<ul><li>Revisão crítica de status por KR com identificação de inconsistências</li><li>Geração de textos limpos para reporte a stakeholders</li><li>Registro estruturado no vault (OKR.md por liderado)</li></ul></div>
         </div>
-        <div class="badge-area">
-          <span class="badge badge-done">Concluído</span>
-          <span class="badge badge-category">Governança · OKR</span>
-        </div>
+        <div class="badge-area"><span class="badge badge-done">Concluído</span><span class="badge badge-category">Governança · OKR</span></div>
       </div>
 
-      <!-- 04 -->
       <div class="initiative-card">
         <div>
-          <div class="initiative-header">
-            <span class="initiative-number">04</span>
-            <span class="initiative-title">Skill Techco.lab Deck — Criação de Apresentações com Identidade Visual</span>
-          </div>
-          <div class="boss-summary">
-            <div class="boss-label">Em resumo</div>
-            <p>Ferramenta que permite ao Claude criar apresentações no padrão visual Techco.lab/NETZSCH automaticamente — sem trabalho manual de formatação ou ajuste de template.</p>
-            <div class="advance"><strong>Principal avanço:</strong> Claude gera slides e arquivos .pptx com identidade visual correta a partir de uma instrução em linguagem natural.</div>
-          </div>
-          <div class="initiative-body">
-            Importação e configuração da skill proprietária de geração de decks no padrão visual Techco.lab/NETZSCH. Skill permite criação de apresentações web (React) e .pptx com identidade visual e estrutura narrativa padronizada.
-            <ul>
-              <li>Skill importada do arquivo .skill fornecido por colega</li>
-              <li>Conversa dedicada criada para uso persistente da skill</li>
-              <li>Tipos de saída: deck web interativo (Vite + React + Tailwind) ou .pptx</li>
-              <li>Níveis de classificação configurados: Internal Use Only, Confidential, Strictly Confidential</li>
-            </ul>
-          </div>
+          <div class="initiative-header"><span class="initiative-number">04</span><div class="initiative-title-wrap"><span class="initiative-title">Skill Techco.lab Deck — Apresentações com Identidade Visual</span><div class="title-bar"></div></div></div>
+          <div class="boss-summary"><div class="boss-label">Em resumo</div><p>Ferramenta que permite ao Claude criar apresentações no padrão Techco.lab/NETZSCH automaticamente — sem formatação manual.</p><div class="advance"><strong>Principal avanço:</strong> Claude gera slides e .pptx com identidade visual correta a partir de linguagem natural.</div></div>
+          <div class="initiative-body">Skill proprietária de geração de decks no padrão Techco.lab/NETZSCH.<ul><li>Saída: deck web (Vite + React + Tailwind) ou .pptx</li><li>Níveis de classificação: Internal Use Only, Confidential, Strictly Confidential</li></ul></div>
         </div>
-        <div class="badge-area">
-          <span class="badge badge-done">Configurado</span>
-          <span class="badge badge-category">Produtividade · Deck</span>
-        </div>
+        <div class="badge-area"><span class="badge badge-done">Configurado</span><span class="badge badge-category">Produtividade · Deck</span></div>
       </div>
 
-      <!-- 05 -->
       <div class="initiative-card">
         <div>
-          <div class="initiative-header">
-            <span class="initiative-number">05</span>
-            <span class="initiative-title">Knowledge Base — Estrutura Corporativa NETZSCH</span>
-          </div>
-          <div class="boss-summary">
-            <div class="boss-label">Em resumo</div>
-            <p>Mapeamento completo da estrutura do grupo NETZSCH disponível como contexto permanente para o Claude. Assim, ao gerar qualquer análise ou documento, o Claude já sabe quem é quem na empresa.</p>
-            <div class="advance"><strong>Principal avanço:</strong> 50+ entidades de todas as BUs documentadas. Claude referencia corretamente divisões, siglas e hierarquias sem precisar ser relembrado a cada sessão.</div>
-          </div>
-          <div class="initiative-body">
-            Extração e organização da estrutura corporativa completa do grupo NETZSCH no vault Obsidian como referência persistente para uso em análises, relatórios e contexto de projetos D&A.
-            <ul>
-              <li>Mapeamento de todas as BUs: A&T Analyzing & Testing, G&D Grinding & Dispersing, P&S Pumps & Systems, Holding</li>
-              <li>50+ entidades mapeadas com código, nome completo e BU</li>
-              <li>Gravado em <code>Resources/NETZSCH/General.md</code> com change log</li>
-            </ul>
-          </div>
+          <div class="initiative-header"><span class="initiative-number">05</span><div class="initiative-title-wrap"><span class="initiative-title">Knowledge Base — Estrutura Corporativa NETZSCH</span><div class="title-bar"></div></div></div>
+          <div class="boss-summary"><div class="boss-label">Em resumo</div><p>Mapeamento completo do grupo NETZSCH disponível como contexto permanente — Claude sabe quem é quem sem ser relembrado a cada sessão.</p><div class="advance"><strong>Principal avanço:</strong> 50+ entidades de todas as BUs documentadas e acessíveis.</div></div>
+          <div class="initiative-body">Extração e organização da estrutura corporativa no vault Obsidian.<ul><li>Todas as BUs: A&amp;T, G&amp;D, P&amp;S, Holding</li><li>50+ entidades com código, nome completo e BU</li><li>Resources/NETZSCH/General.md com change log</li></ul></div>
         </div>
-        <div class="badge-area">
-          <span class="badge badge-done">Concluído</span>
-          <span class="badge badge-category">Knowledge Base</span>
-        </div>
+        <div class="badge-area"><span class="badge badge-done">Concluído</span><span class="badge badge-category">Knowledge Base</span></div>
       </div>
 
-      <!-- 06 -->
       <div class="initiative-card">
         <div>
-          <div class="initiative-header">
-            <span class="initiative-number">06</span>
-            <span class="initiative-title">One-Point Lesson — Power Platform Deployment (Dev to Prod)</span>
-          </div>
-          <div class="boss-summary">
-            <div class="boss-label">Em resumo</div>
-            <p>Documentação do processo de publicar uma solução Power Platform do ambiente de teste para produção — um procedimento complexo que antes dependia de conhecimento tácito de uma pessoa só.</p>
-            <div class="advance"><strong>Principal avanço:</strong> guia de 9 passos pronto, com notas-chave e referências. Qualquer membro do time pode executar o processo sem precisar pedir ajuda.</div>
-          </div>
-          <div class="initiative-body">
-            Documentação estruturada do processo de deployment de soluções Power Platform do ambiente de desenvolvimento (Test) para produção, gerada a partir de walkthrough interno e documentação oficial.
-            <ul>
-              <li>9 passos documentados com timestamps de referência de vídeo</li>
-              <li>Notas-chave: uso de solution unmanaged no export, opção Upgrade no import, atualização de connections para service users</li>
-              <li>Gravado em <code>One-Point-Lesson/Power-Automate/Deployment-Dev-to-Prod.md</code></li>
-            </ul>
-          </div>
+          <div class="initiative-header"><span class="initiative-number">06</span><div class="initiative-title-wrap"><span class="initiative-title">One-Point Lesson — Power Platform Deployment</span><div class="title-bar"></div></div></div>
+          <div class="boss-summary"><div class="boss-label">Em resumo</div><p>Documentação do processo de publicar soluções Power Platform do ambiente de teste para produção — antes dependia do conhecimento tácito de uma pessoa.</p><div class="advance"><strong>Principal avanço:</strong> guia de 9 passos pronto. Qualquer membro do time executa sem pedir ajuda.</div></div>
+          <div class="initiative-body">Documentação estruturada do deployment Power Platform (Test → Prod).<ul><li>9 passos com timestamps de referência de vídeo</li><li>Notas-chave: solution unmanaged, opção Upgrade, connections para service users</li></ul></div>
         </div>
-        <div class="badge-area">
-          <span class="badge badge-done">Concluído</span>
-          <span class="badge badge-category">OPL · Power Platform</span>
-        </div>
+        <div class="badge-area"><span class="badge badge-done">Concluído</span><span class="badge badge-category">OPL · Power Platform</span></div>
       </div>
 
-      <!-- 07 -->
       <div class="initiative-card">
         <div>
-          <div class="initiative-header">
-            <span class="initiative-number">07</span>
-            <span class="initiative-title">Relatório Claude Pro — Publicação Automatizada via GitHub Pages</span>
-          </div>
-          <div class="boss-summary">
-            <div class="boss-label">Em resumo</div>
-            <p>Este próprio relatório — gerado e atualizado pelo Claude, publicado automaticamente na web. Objetivo: tornar visível, de forma contínua, o uso e o valor do Claude Pro para a área e para stakeholders.</p>
-            <div class="advance"><strong>Principal avanço:</strong> relatório publicado e acessível via link. Atualização em andamento para ser automática toda manhã, com resumo executivo por iniciativa.</div>
-          </div>
-          <div class="initiative-body">
-            Criação deste próprio relatório como artefato vivo: gerado pelo Claude, versionado no GitHub e publicado automaticamente via GitHub Pages. Inclui automação de lembrete diário via Power Automate + Teams.
-            <ul>
-              <li>Repositório criado: <a href="https://github.com/keok-netzsch/claude-pro-report" target="_blank">github.com/keok-netzsch/claude-pro-report</a></li>
-              <li>GitHub Pages ativo: <a href="https://keok-netzsch.github.io/claude-pro-report/" target="_blank">keok-netzsch.github.io/claude-pro-report</a></li>
-              <li>Flow Power Automate configurado: lembrete diário às 12h via Teams com link direto para este chat</li>
-              <li>Atualização contínua: comando "atualiza o relatório" dispara leitura de chats + geração + push automático</li>
-            </ul>
-          </div>
+          <div class="initiative-header"><span class="initiative-number">07</span><div class="initiative-title-wrap"><span class="initiative-title">Relatório Claude Pro — Atualização Automática Diária</span><div class="title-bar"></div></div></div>
+          <div class="boss-summary"><div class="boss-label">Em resumo</div><p>Este próprio relatório — gerado e atualizado pelo Claude automaticamente toda manhã. Objetivo: tornar visível o uso e o valor do Claude Pro para stakeholders.</p><div class="advance"><strong>Principal avanço:</strong> integrado ao TechColab Backlog App, atualizado às 08h pelo agente diário, com identidade Techco.lab.</div></div>
+          <div class="initiative-body">Relatório vivo integrado ao TechColab Backlog App.<ul><li>Servido localmente — sem dependência de URL externa</li><li>Agente diário atualiza data e estatísticas às 08h</li><li>Versionado no repositório techcolab-backlog</li></ul></div>
         </div>
-        <div class="badge-area">
-          <span class="badge badge-progress">Em andamento</span>
-          <span class="badge badge-category">Automação · Relatório</span>
-        </div>
+        <div class="badge-area"><span class="badge badge-progress">Em andamento</span><span class="badge badge-category">Automação · Relatório</span></div>
       </div>
 
-      <!-- 08 -->
       <div class="initiative-card">
         <div>
-          <div class="initiative-header">
-            <span class="initiative-number">08</span>
-            <span class="initiative-title">Call Recorder — Transcrição e Integração com Vault Obsidian</span>
-          </div>
-          <div class="boss-summary">
-            <div class="boss-label">Em resumo</div>
-            <p>Sistema de gravação e transcrição automática de reuniões e 1:1s — apenas o áudio do microfone — com geração automática de notas estruturadas no vault. Objetivo: eliminar o trabalho manual de registrar reuniões.</p>
-            <div class="advance"><strong>Principal avanço:</strong> pipeline de gravação e transcrição funcionando localmente (sem envio de dados para a nuvem). Próximo passo: integração completa com o vault Obsidian.</div>
-          </div>
-          <div class="initiative-body">
-            Pipeline de gravação e transcrição de calls (apenas voz própria, via microfone) com integração automática ao vault Obsidian. Objetivo: eliminar o trabalho manual de registro de 1:1s e reuniões, gerando notas estruturadas por liderado.
-            <ul>
-              <li>Stack: Python 3.13 + faster-whisper (CPU, int8, pt-BR) + PowerShell + Raycast (Windows beta)</li>
-              <li><code>record.py</code> — grava microfone e transcreve via faster-whisper (modelo medium)</li>
-              <li><code>call-recorder.ps1</code> — orquestrador: seleção de pessoa, agenda pré-call, start gravação, envio ao Claude, salvamento no vault</li>
-              <li>Trigger via atalho Win+Space (Raycast Windows beta)</li>
-              <li>Próximo passo: substituir fluxo manual (browser + paste) por chamada direta à API Anthropic (Python SDK)</li>
-            </ul>
-          </div>
+          <div class="initiative-header"><span class="initiative-number">08</span><div class="initiative-title-wrap"><span class="initiative-title">Call Recorder — Transcrição e Integração com Vault Obsidian</span><div class="title-bar"></div></div></div>
+          <div class="boss-summary"><div class="boss-label">Em resumo</div><p>Sistema de gravação e transcrição automática de reuniões e 1:1s, com geração de notas estruturadas. Objetivo: eliminar o trabalho manual de registrar reuniões.</p><div class="advance"><strong>Principal avanço:</strong> pipeline funcionando localmente (sem envio de dados para a nuvem). Próximo passo: integração com vault.</div></div>
+          <div class="initiative-body">Pipeline de gravação/transcrição de calls integrado ao vault.<ul><li>Stack: Python 3.13 + faster-whisper (CPU, int8, pt-BR)</li><li>record.py + call-recorder.ps1 — orquestrador completo</li><li>Próximo passo: integração completa com vault Obsidian</li></ul></div>
         </div>
-        <div class="badge-area">
-          <span class="badge badge-progress">Em andamento</span>
-          <span class="badge badge-category">Automação · 1:1s</span>
-        </div>
+        <div class="badge-area"><span class="badge badge-progress">Em andamento</span><span class="badge badge-category">Automação · 1:1s</span></div>
       </div>
 
     </div>
   </section>
 
-  <!-- TIMELINE (newest first) -->
   <section>
     <div class="section-label">Linha do tempo</div>
     <h2>Cronologia de Adoção</h2>
     <p class="section-desc">Sequência de configurações e marcos desde o acesso ao plano Pro — mais recente primeiro.</p>
-
     <div class="timeline">
       <div class="timeline-item latest">
         <div class="timeline-date">19 Mai 2026 <span class="timeline-new-badge">hoje</span></div>
-        <div class="timeline-title">Relatório Claude Pro — melhorias de conteúdo e visual</div>
-        <div class="timeline-detail">Adição de resumo executivo por iniciativa ("Para o gestor"), inversão da cronologia, novo painel executivo. Integração com agente diário em andamento.</div>
+        <div class="timeline-title">Identidade visual Techco.lab aplicada ao relatório</div>
+        <div class="timeline-detail">Redesign completo: paleta verde #02B793, dark header #4C4D58, logo SVG, gradientes e cards seguindo o design system Techco.lab.</div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-date">19 Mai 2026</div>
+        <div class="timeline-title">Resumo executivo e agente diário integrado</div>
+        <div class="timeline-detail">Seção "Para o gestor" por iniciativa, inversão da cronologia, atualização automática às 08h e integração local no app.</div>
       </div>
       <div class="timeline-item">
         <div class="timeline-date">18 Mai 2026</div>
-        <div class="timeline-title">Call Recorder — Transcrição + Obsidian</div>
-        <div class="timeline-detail">Pipeline de gravação/transcrição de calls configurado (faster-whisper + PowerShell). Integração com vault via blocos estruturados. Migração para API Anthropic em andamento.</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-date">18 Mai 2026</div>
-        <div class="timeline-title">TechColab Backlog — App de gestão de ideias com agente diário</div>
-        <div class="timeline-detail">App Streamlit local para gestão de backlog de ideias integrado ao vault Obsidian. Agente diário configurado (Windows Task Scheduler às 08h): analisa backlog, roda testes e gera relatório de ações propostas.</div>
+        <div class="timeline-title">Call Recorder + TechColab Backlog App com agente diário</div>
+        <div class="timeline-detail">Pipeline de transcrição configurado. App Streamlit com agente diário no Task Scheduler (08h).</div>
       </div>
       <div class="timeline-item">
         <div class="timeline-date">14 Mai 2026</div>
-        <div class="timeline-title">Relatório Claude Pro publicado via GitHub Pages</div>
-        <div class="timeline-detail">Repositório criado, GitHub Pages ativo, Flow Power Automate configurado com lembrete diário às 12h via Teams.</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-date">14 Mai 2026</div>
-        <div class="timeline-title">OPL — Power Platform Deployment</div>
-        <div class="timeline-detail">One-Point Lesson documentada: 9 passos, notas-chave, timestamps. Gravado em One-Point-Lesson/Power-Automate/.</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-date">14 Mai 2026</div>
-        <div class="timeline-title">Knowledge Base — Estrutura corporativa NETZSCH</div>
-        <div class="timeline-detail">50+ entidades mapeadas por BU. Gravado em Resources/NETZSCH/General.md.</div>
+        <div class="timeline-title">Relatório Claude Pro + OPL + Knowledge Base</div>
+        <div class="timeline-detail">Relatório publicado via GitHub Pages, OPL Power Platform documentada, 50+ entidades NETZSCH mapeadas.</div>
       </div>
       <div class="timeline-item">
         <div class="timeline-date">12 Mai 2026</div>
         <div class="timeline-title">Avaliação de OKRs do time D&amp;A</div>
-        <div class="timeline-detail">Análise da matriz de OKRs, correção de status, geração de textos para reporte. Dados consolidados no vault.</div>
+        <div class="timeline-detail">Análise, correção de status e textos para reporte. Dados consolidados no vault.</div>
       </div>
       <div class="timeline-item">
         <div class="timeline-date">11–12 Mai 2026</div>
-        <div class="timeline-title">Importação e teste da Skill Techco.lab Deck</div>
-        <div class="timeline-detail">Skill .skill importada, conversa dedicada criada, fluxo de geração validado.</div>
+        <div class="timeline-title">Skill Techco.lab Deck importada e validada</div>
+        <div class="timeline-detail">Skill importada, conversa dedicada criada, geração de decks validada.</div>
       </div>
       <div class="timeline-item">
         <div class="timeline-date">11 Mai 2026</div>
-        <div class="timeline-title">Instalação da skill obsidian-second-brain</div>
-        <div class="timeline-detail">25 slash commands instalados no Claude Code, hook PostCompact configurado para atualização automática do vault.</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-date">11 Mai 2026</div>
-        <div class="timeline-title">Configuração do Vault Obsidian</div>
-        <div class="timeline-detail">Estrutura PARA criada via Claude Code, CLAUDE.md configurado, perfis dos 5 liderados inicializados.</div>
-      </div>
-      <div class="timeline-item">
-        <div class="timeline-date">11 Mai 2026</div>
-        <div class="timeline-title">Acesso ao Claude Pro + Setup inicial</div>
-        <div class="timeline-detail">Avaliação de requisitos de máquina, instalação do Claude Desktop App, mapeamento de integrações Microsoft 365.</div>
+        <div class="timeline-title">Vault Obsidian + obsidian-second-brain + Setup inicial</div>
+        <div class="timeline-detail">Estrutura PARA criada, 5 perfis de liderados inicializados, 25 slash commands instalados. Claude Desktop App configurado.</div>
       </div>
     </div>
   </section>
@@ -847,64 +298,15 @@
     <div class="section-label">Stack configurada</div>
     <h2>Ferramentas e Integrações</h2>
     <p class="section-desc">Ecossistema de ferramentas Claude Pro ativo no ambiente de trabalho.</p>
-
     <table class="tools-table">
-      <thead>
-        <tr>
-          <th>Ferramenta</th>
-          <th>Aplicação</th>
-          <th>Status</th>
-        </tr>
-      </thead>
+      <thead><tr><th>Ferramenta</th><th>Aplicação</th><th>Status</th></tr></thead>
       <tbody>
-        <tr>
-          <td>
-            <div class="tool-name">Claude Desktop App</div>
-            <div class="tool-desc">claude.ai + Computer Use</div>
-          </td>
-          <td>Interface principal. Acesso a Windows-MCP, geração de documentos, gestão do vault via chat.</td>
-          <td><span class="badge badge-done">Ativo</span></td>
-        </tr>
-        <tr>
-          <td>
-            <div class="tool-name">Claude Code</div>
-            <div class="tool-desc">CLI agentic coding</div>
-          </td>
-          <td>Operações no vault Obsidian, automações de arquivo, execução de slash commands (/obsidian-*).</td>
-          <td><span class="badge badge-done">Ativo</span></td>
-        </tr>
-        <tr>
-          <td>
-            <div class="tool-name">Obsidian + obsidian-second-brain</div>
-            <div class="tool-desc">Vault local com skill open-source</div>
-          </td>
-          <td>Base de conhecimento persistente para gestão de time: OKRs, 1:1s, PDIs, logs de sessão.</td>
-          <td><span class="badge badge-done">Ativo</span></td>
-        </tr>
-        <tr>
-          <td>
-            <div class="tool-name">Skill Techco.lab Deck</div>
-            <div class="tool-desc">Skill proprietária NETZSCH</div>
-          </td>
-          <td>Geração de apresentações web e .pptx com identidade visual Techco.lab.</td>
-          <td><span class="badge badge-done">Configurado</span></td>
-        </tr>
-        <tr>
-          <td>
-            <div class="tool-name">Windows-MCP</div>
-            <div class="tool-desc">Controle de sistema via Claude</div>
-          </td>
-          <td>Leitura e escrita em arquivos locais (vault, relatórios), execução de PowerShell via Claude Desktop.</td>
-          <td><span class="badge badge-progress">Em uso</span></td>
-        </tr>
-        <tr>
-          <td>
-            <div class="tool-name">Microsoft 365 MCP</div>
-            <div class="tool-desc">SharePoint · OneDrive · Teams</div>
-          </td>
-          <td>Acesso a documentos corporativos, integração planejada com Power Automate para lembretes de 1:1.</td>
-          <td><span class="badge badge-progress">Planejado</span></td>
-        </tr>
+        <tr><td><div class="tool-name">Claude Desktop App</div><div class="tool-desc">claude.ai + Computer Use</div></td><td>Interface principal. Windows-MCP, geração de documentos, gestão do vault.</td><td><span class="badge badge-done">Ativo</span></td></tr>
+        <tr><td><div class="tool-name">Claude Code</div><div class="tool-desc">CLI agentic coding</div></td><td>Operações no vault Obsidian, automações, slash commands (/obsidian-*).</td><td><span class="badge badge-done">Ativo</span></td></tr>
+        <tr><td><div class="tool-name">Obsidian + obsidian-second-brain</div><div class="tool-desc">Vault local com skill open-source</div></td><td>Base de conhecimento persistente: OKRs, 1:1s, PDIs, logs de sessão.</td><td><span class="badge badge-done">Ativo</span></td></tr>
+        <tr><td><div class="tool-name">Skill Techco.lab Deck</div><div class="tool-desc">Skill proprietária NETZSCH</div></td><td>Geração de apresentações web e .pptx com identidade visual Techco.lab.</td><td><span class="badge badge-done">Configurado</span></td></tr>
+        <tr><td><div class="tool-name">TechColab Backlog App</div><div class="tool-desc">Streamlit + Obsidian + Ollama</div></td><td>Gestão de backlog com agente diário, dashboard e este relatório integrado.</td><td><span class="badge badge-done">Ativo</span></td></tr>
+        <tr><td><div class="tool-name">Windows-MCP</div><div class="tool-desc">Controle de sistema via Claude</div></td><td>Leitura e escrita em arquivos locais, execução de PowerShell via Claude Desktop.</td><td><span class="badge badge-progress">Em uso</span></td></tr>
       </tbody>
     </table>
   </section>
@@ -912,12 +314,8 @@
 </main>
 
 <footer>
-  <div class="footer-left">
-    NBS D&amp;A <span class="dot-accent">·</span> Techco.lab <span class="dot-accent">·</span> Kelvin Okuda
-  </div>
-  <div class="footer-right">
-    Relatório atualizado em 19/05/2026 <span class="dot-accent">·</span> Atualização contínua
-  </div>
+  <div class="footer-left">NBS D&amp;A <span class="dot-accent">·</span> Techco.lab <span class="dot-accent">·</span> Kelvin Okuda</div>
+  <div class="footer-right">Relatório atualizado em 19/05/2026 <span class="dot-accent">·</span> Atualização contínua</div>
 </footer>
 
 </body>
