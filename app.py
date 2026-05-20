@@ -91,24 +91,27 @@ html, body { overflow: hidden !important; height: 100vh !important; }
 }
 div[data-testid="stSidebar"] { display: none !important; }
 
+/* ── Global: never wrap button text ──────────────────────── */
+button { white-space: nowrap !important; }
+
 /* ── Top nav buttons ─────────────────────────────────────── */
-div.topnav button {
+[data-testid="stMainBlockContainer"] > div:first-child button {
     border-radius: 6px !important;
     font-size: 0.8rem !important;
     font-weight: 500 !important;
     padding: 0.2rem 0.5rem !important;
     border: none !important;
-    white-space: nowrap !important;
+    line-height: 1.4 !important;
 }
-div.topnav button[kind="secondary"] {
+[data-testid="stMainBlockContainer"] > div:first-child button[kind="secondary"] {
     background: transparent !important;
     color: #4A4A4A !important;
 }
-div.topnav button[kind="secondary"]:hover {
+[data-testid="stMainBlockContainer"] > div:first-child button[kind="secondary"]:hover {
     background: rgba(2,183,147,0.08) !important;
     color: #007167 !important;
 }
-div.topnav button[kind="primary"] {
+[data-testid="stMainBlockContainer"] > div:first-child button[kind="primary"] {
     background: rgba(2,183,147,0.15) !important;
     color: #007167 !important;
     font-weight: 600 !important;
@@ -179,11 +182,12 @@ _PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Claude Pro", "Weekly Brief
 if "page" not in st.session_state:
     st.session_state["page"] = "Dashboard"
 
+_LOGO_NAV = _LOGO_GREEN.replace('width="140" height="44"', 'width="100" height="31"')
 st.markdown('<div class="topnav">', unsafe_allow_html=True)
-_nc = st.columns([1.6, 0.95, 0.8, 0.95, 0.95, 1.0, 1.05, 0.2, 0.4, 0.4, 0.55],
+_nc = st.columns([1.3, 0.9, 0.75, 0.9, 0.9, 1.1, 1.2, 0.15, 0.38, 0.38, 0.45],
                  vertical_alignment="center", gap="small")
 _nc[0].markdown(
-    f'<div style="padding:0.05rem 0 0 0.2rem">{_LOGO_GREEN}</div>',
+    f'<div style="line-height:0;padding-left:0.2rem">{_LOGO_NAV}</div>',
     unsafe_allow_html=True,
 )
 for _i, _p in enumerate(_PAGES_MAIN):
