@@ -1040,7 +1040,7 @@ elif page == "✅ To-Do List":
     if not all_todos:
         st.info("No to-dos found. Add to-dos to ideas in the Backlog.")
     else:
-        col_a, col_b, col_c, col_d = st.columns([2, 3, 2, 1], vertical_alignment="bottom")
+        col_a, col_b, col_c, col_d = st.columns([1.5, 2.5, 1.8, 0.7], vertical_alignment="bottom")
         with col_a:
             areas = sorted(set(t["area"] for t in all_todos if t["area"] != "—"))
             filter_area = st.selectbox("Area", ["All"] + areas)
