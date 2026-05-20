@@ -1040,7 +1040,7 @@ elif page == "✅ To-Do List":
     if not all_todos:
         st.info("No to-dos found. Add to-dos to ideas in the Backlog.")
     else:
-        col_a, col_b, col_c, col_d = st.columns([1.5, 2.5, 1.8, 0.7], vertical_alignment="bottom")
+        col_a, col_b, col_c, col_d, _ = st.columns([1.5, 2.2, 1.6, 0.6, 2.1], vertical_alignment="bottom", gap="small")
         with col_a:
             areas = sorted(set(t["area"] for t in all_todos if t["area"] != "—"))
             filter_area = st.selectbox("Area", ["All"] + areas)
@@ -1184,113 +1184,119 @@ elif page == "✅ To-Do List":
         _hdrbtn("To-Do · Backlog item", "text", _h5)
         _hdrbtn("Prazo", "due_date", _h6)
 
-        # ── Rows ───────────────────────────────────────────────────────────────
+        # ── Rows (scrollable, header stays pinned above) ────────────────────────
         _STATE_OPTS = ["⬜", "🔄", "✅"]
         _STATE_IDX  = {"open": 0, "in_progress": 1, "done": 2}
-        for group_label, group_items in groupby(filtered_todos, key=get_group_key):
-            items = list(group_items)
-            # intra-group sort by header column
-            if _sc == "id":
-                items.sort(key=lambda t: t["idea_id"], reverse=(_sd == -1))
-            elif _sc == "priority":
-                items.sort(key=lambda t: prio_order.get(t["priority"], 9), reverse=(_sd == -1))
-            elif _sc == "text":
-                items.sort(key=lambda t: t["text"].lower(), reverse=(_sd == -1))
-            elif _sc == "due_date":
-                items.sort(key=lambda t: t.get("due_date") or "9999-12-31", reverse=(_sd == -1))
+        st.markdown(
+            "<style>div[data-testid='stVerticalBlockBorderWrapper']"
+            "{ height:calc(100vh - 360px)!important; }</style>",
+            unsafe_allow_html=True,
+        )
+        with st.container(height=600, border=False):
+            for group_label, group_items in groupby(filtered_todos, key=get_group_key):
+                items = list(group_items)
+                # intra-group sort by header column
+                if _sc == "id":
+                    items.sort(key=lambda t: t["idea_id"], reverse=(_sd == -1))
+                elif _sc == "priority":
+                    items.sort(key=lambda t: prio_order.get(t["priority"], 9), reverse=(_sd == -1))
+                elif _sc == "text":
+                    items.sort(key=lambda t: t["text"].lower(), reverse=(_sd == -1))
+                elif _sc == "due_date":
+                    items.sort(key=lambda t: t.get("due_date") or "9999-12-31", reverse=(_sd == -1))
 
-            st.markdown(
-                f'<div style="font-size:0.78rem;font-weight:600;color:#6B7280;'
-                f'padding:10px 0 2px 0;border-top:1px solid rgba(0,0,0,0.07);'
-                f'margin-top:2px">{group_label}</div>',
-                unsafe_allow_html=True,
-            )
+                st.markdown(
+                    f'<div style="font-size:0.78rem;font-weight:600;color:#6B7280;'
+                    f'padding:10px 0 2px 0;border-top:1px solid rgba(0,0,0,0.07);'
+                    f'margin-top:2px">{group_label}</div>',
+                    unsafe_allow_html=True,
+                )
 
-            for item in items:
-                idea = store.load_by_id(item["idea_id"])
-                if not idea:
-                    continue
+                for item in items:
+                    idea = store.load_by_id(item["idea_id"])
+                    if not idea:
+                        continue
 
-                c_id, c_prio, c_status, c_chk, c_text, c_info = st.columns(_TDL_COLS, vertical_alignment="center")
+                    c_id, c_prio, c_status, c_chk, c_text, c_info = st.columns(_TDL_COLS, vertical_alignment="center")
 
-                short = str(int(item["idea_id"].replace("idea-", "")))
-                with c_id:
-                    st.markdown('<div class="tdl-num">', unsafe_allow_html=True)
-                    if st.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
-                                 use_container_width=True):
-                        st.session_state["page"] = "📋 Backlog"
-                        st.session_state[f"exp_{item['idea_id']}"] = True
-                        st.rerun()
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    short = str(int(item["idea_id"].replace("idea-", "")))
+                    with c_id:
+                        st.markdown('<div class="tdl-num">', unsafe_allow_html=True)
+                        if st.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
+                                     use_container_width=True):
+                            st.session_state["page"] = "📋 Backlog"
+                            st.session_state[f"exp_{item['idea_id']}"] = True
+                            st.rerun()
+                        st.markdown('</div>', unsafe_allow_html=True)
 
-                c_prio.markdown(PRIORITY_NUM.get(item["priority"], "⚪"), unsafe_allow_html=True)
-                c_status.markdown(STATUS_COLOR.get(item["status"], _sdot("backlog")), unsafe_allow_html=True)
+                    c_prio.markdown(PRIORITY_NUM.get(item["priority"], "⚪"), unsafe_allow_html=True)
+                    c_status.markdown(STATUS_COLOR.get(item["status"], _sdot("backlog")), unsafe_allow_html=True)
 
-                cur_state = "done" if item["done"] else ("in_progress" if item.get("in_progress") else "open")
-                with c_chk:
-                    st.markdown('<div class="tdl-sel">', unsafe_allow_html=True)
-                    sel = st.selectbox(
-                        "", _STATE_OPTS,
-                        index=_STATE_IDX[cur_state],
-                        key=f"tdl_state_{item['idea_id']}_{item['todo_idx']}",
-                        label_visibility="collapsed",
-                    )
-                    st.markdown('</div>', unsafe_allow_html=True)
-                new_state = ["open", "in_progress", "done"][_STATE_OPTS.index(sel)]
-                state_clicked = new_state != cur_state
+                    cur_state = "done" if item["done"] else ("in_progress" if item.get("in_progress") else "open")
+                    with c_chk:
+                        st.markdown('<div class="tdl-sel">', unsafe_allow_html=True)
+                        sel = st.selectbox(
+                            "", _STATE_OPTS,
+                            index=_STATE_IDX[cur_state],
+                            key=f"tdl_state_{item['idea_id']}_{item['todo_idx']}",
+                            label_visibility="collapsed",
+                        )
+                        st.markdown('</div>', unsafe_allow_html=True)
+                    new_state = ["open", "in_progress", "done"][_STATE_OPTS.index(sel)]
+                    state_clicked = new_state != cur_state
 
-                with c_text:
-                    if item["done"]:
-                        text_html = f"<s>{item['text']}</s>"
-                    elif item.get("in_progress"):
-                        text_html = f"<em>{item['text']}</em>"
-                    else:
-                        text_html = item["text"]
-                    bug_badge = (
-                        ' <span style="background:#FEE2E2;color:#B91C1C;font-size:9px;font-weight:700;'
-                        'letter-spacing:.04em;padding:1px 4px;border-radius:3px;vertical-align:middle">BUG</span>'
-                        if item.get("is_bug") else ""
-                    )
-                    idea_ref = (
-                        f'<div style="font-size:0.72rem;color:#9CA3AF;margin-top:1px">'
-                        f'<code style="font-size:0.68rem;background:#F3F4F6;padding:0 3px;'
-                        f'border-radius:2px;color:#6B7280">{item["idea_id"]}</code>'
-                        f'&nbsp;{item["idea_title"][:52]}</div>'
-                    )
-                    st.markdown(
-                        f'<div style="font-size:0.87rem;line-height:1.35">{text_html}{bug_badge}{idea_ref}</div>',
-                        unsafe_allow_html=True,
-                    )
+                    with c_text:
+                        if item["done"]:
+                            text_html = f"<s>{item['text']}</s>"
+                        elif item.get("in_progress"):
+                            text_html = f"<em>{item['text']}</em>"
+                        else:
+                            text_html = item["text"]
+                        bug_badge = (
+                            ' <span style="background:#FEE2E2;color:#B91C1C;font-size:9px;font-weight:700;'
+                            'letter-spacing:.04em;padding:1px 4px;border-radius:3px;vertical-align:middle">BUG</span>'
+                            if item.get("is_bug") else ""
+                        )
+                        idea_ref = (
+                            f'<div style="font-size:0.72rem;color:#9CA3AF;margin-top:1px">'
+                            f'<code style="font-size:0.68rem;background:#F3F4F6;padding:0 3px;'
+                            f'border-radius:2px;color:#6B7280">{item["idea_id"]}</code>'
+                            f'&nbsp;{item["idea_title"][:52]}</div>'
+                        )
+                        st.markdown(
+                            f'<div style="font-size:0.87rem;line-height:1.35">{text_html}{bug_badge}{idea_ref}</div>',
+                            unsafe_allow_html=True,
+                        )
 
-                with c_info:
-                    due_str = ""
-                    if item.get("due_date"):
-                        try:
-                            due = date.fromisoformat(item["due_date"])
-                            if item["done"]:
-                                completed_raw = item.get("completed_at")
-                                ref = date.fromisoformat(completed_raw) if completed_raw else due
-                                due_str = f"🔴 {due.strftime('%d/%m')}" if ref > due else f"✅ {due.strftime('%d/%m')}"
-                            else:
-                                if due < today:
-                                    due_str = f"🔴 {due.strftime('%d/%m')}"
-                                elif due == today:
-                                    due_str = "🟡 hoje"
+                    with c_info:
+                        due_str = ""
+                        if item.get("due_date"):
+                            try:
+                                due = date.fromisoformat(item["due_date"])
+                                if item["done"]:
+                                    completed_raw = item.get("completed_at")
+                                    ref = date.fromisoformat(completed_raw) if completed_raw else due
+                                    due_str = f"🔴 {due.strftime('%d/%m')}" if ref > due else f"✅ {due.strftime('%d/%m')}"
                                 else:
-                                    due_str = f"📅 {due.strftime('%d/%m')}"
-                        except (ValueError, TypeError):
-                            pass
-                    st.caption(due_str)
+                                    if due < today:
+                                        due_str = f"🔴 {due.strftime('%d/%m')}"
+                                    elif due == today:
+                                        due_str = "🟡 hoje"
+                                    else:
+                                        due_str = f"📅 {due.strftime('%d/%m')}"
+                            except (ValueError, TypeError):
+                                pass
+                        st.caption(due_str)
 
-                if state_clicked:
-                    todo_entry = idea.todos[item["todo_idx"]]
-                    todo_entry["done"] = new_state == "done"
-                    todo_entry["in_progress"] = new_state == "in_progress"
-                    todo_entry["completed_at"] = today.isoformat() if new_state == "done" else None
-                    store.save(idea)
-                    if new_state == "done":
-                        log_entry("todo_concluido", idea, item["text"])
-                    st.rerun()
+                    if state_clicked:
+                        todo_entry = idea.todos[item["todo_idx"]]
+                        todo_entry["done"] = new_state == "done"
+                        todo_entry["in_progress"] = new_state == "in_progress"
+                        todo_entry["completed_at"] = today.isoformat() if new_state == "done" else None
+                        store.save(idea)
+                        if new_state == "done":
+                            log_entry("todo_concluido", idea, item["text"])
+                        st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
