@@ -166,7 +166,7 @@ st.markdown(
 )
 
 # ── Sidebar: logo + navigation + reload ────────────────────────────────────────
-_PAGES_MAIN  = ["📋 Backlog", "✅ To-Do List", "📊 Dashboard", "📈 Claude Pro"]
+_PAGES_MAIN  = ["📋 Backlog", "✅ To-Do List", "📊 Dashboard", "📈 Claude Pro", "🗓️ Weekly Brief"]
 _PAGES_EXTRA = {"📖": "📖 Tutorial", "📚": "📚 Documentation"}
 
 if "page" not in st.session_state:
@@ -1459,6 +1459,215 @@ elif page == "📊 Dashboard":
                     f'</div>',
                     unsafe_allow_html=True,
                 )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 5 — WEEKLY BRIEF
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "🗓️ Weekly Brief":
+    from datetime import timedelta
+    import re as _wre
+
+    _TEAM_DIR  = VAULT_ROOT / "Team"
+    _LOG_DIR   = VAULT_ROOT / "Backlog - to do - app" / "Log"
+    _TEAM = [
+        {"name": "Ana Leite",      "folder": "Ana-Leite"},
+        {"name": "Daniel Lima",    "folder": "Daniel-Lima"},
+        {"name": "Lucas Shizuno",  "folder": "Lucas-Shizuno"},
+        {"name": "Pedro Hennig",   "folder": "Pedro-Hennig"},
+        {"name": "Pedro Klein",    "folder": "Pedro-Klein"},
+    ]
+
+    st.markdown('<h1 style="margin-bottom:0.2rem">🗓️ Weekly Brief</h1>', unsafe_allow_html=True)
+    st.caption("Painel de preparação para reunião com Alberto Reuters e Stefan Lautenschlager.")
+
+    # ── Controls ──────────────────────────────────────────────────────────────
+    _ctrl1, _ctrl2 = st.columns([1, 3])
+    with _ctrl1:
+        _period = st.slider("Período (dias)", 3, 30, 7, key="wb_period")
+    _start = date.today() - timedelta(days=_period)
+    with _ctrl2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        _c1, _c2, _c3, _c4 = st.columns(4)
+        _show_devs  = _c1.checkbox("🚀 Desenvolvimentos", value=True,  key="wb_devs")
+        _show_wip   = _c2.checkbox("🔄 Em andamento",     value=True,  key="wb_wip")
+        _show_team  = _c3.checkbox("👥 Time",             value=True,  key="wb_team")
+        _show_calls = _c4.checkbox("📞 Calls",            value=True,  key="wb_calls")
+
+    st.caption(f"Período: **{_start.strftime('%d/%m/%Y')}** → **{date.today().strftime('%d/%m/%Y')}**")
+    st.divider()
+
+    _store = get_store()
+    _ideas = _store.load_all()
+    _today = date.today()
+    _export = [f"# Weekly Brief — {_today.strftime('%d/%m/%Y')}",
+               f"Período: {_start.strftime('%d/%m/%Y')} → {_today.strftime('%d/%m/%Y')}", ""]
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def _wb_parse_1on1(path: Path):
+        if not path.exists():
+            return None
+        text = path.read_text(encoding="utf-8")
+        parts = _wre.split(r"^## (\d{4}-\d{2}-\d{2})\b", text, flags=_wre.MULTILINE)
+        if len(parts) < 3:
+            return None
+        session_date, content = parts[1], parts[2]
+        topics, actions, in_topics, in_actions = [], [], False, False
+        for line in content.splitlines():
+            s = line.strip()
+            if _wre.match(r"\*\*(T[oó]picos?|Topics?)\*\*", s):
+                in_topics, in_actions = True, False; continue
+            if _wre.match(r"\*\*(Action [Ii]tems?|Ac[oõ]es?)\*\*", s):
+                in_topics, in_actions = False, True; continue
+            if s.startswith("**") or s.startswith("---"):
+                in_topics = in_actions = False
+            if in_topics and s.startswith("- "):
+                topics.append(s[2:])
+            if in_actions and _wre.match(r"- \[[ x]\]", s):
+                actions.append({"text": s[6:].strip(), "done": s[3] == "x"})
+        return {"date": session_date, "topics": topics[:6], "actions": actions}
+
+    def _wb_read_logs(start: date, end: date):
+        entries, cur = [], start
+        while cur <= end:
+            lp = _LOG_DIR / f"diario-{cur.isoformat()}.md"
+            if lp.exists():
+                for line in lp.read_text(encoding="utf-8").splitlines():
+                    m = _wre.match(r"^- (\d{2}:\d{2}) `(\w+)` \[(.+?)\] (.+?)(?:\s—\s(.+))?$", line)
+                    if m:
+                        entries.append({"date": cur, "time": m.group(1), "action": m.group(2),
+                                        "idea_id": m.group(3), "title": m.group(4).strip(),
+                                        "detail": (m.group(5) or "").strip()})
+            cur += timedelta(days=1)
+        return entries
+
+    # ── Section 1: Desenvolvimentos ───────────────────────────────────────────
+    if _show_devs:
+        st.subheader("🚀 Desenvolvimentos da semana")
+        _logs = _wb_read_logs(_start, _today)
+        _seen, _devs = set(), []
+        for e in _logs:
+            key = (e["idea_id"], e["detail"])
+            if ("status:" in e["detail"] or e["action"] == "CRIADA") and key not in _seen:
+                _seen.add(key); _devs.append(e)
+
+        _export.append("## 🚀 Desenvolvimentos")
+        if not _devs:
+            st.info("Nenhum desenvolvimento registrado no período.")
+            _export.append("_Sem desenvolvimentos registrados._")
+        else:
+            for e in _devs:
+                _icon = "🆕" if e["action"] == "CRIADA" else "🔄"
+                _detail = f" — `{e['detail'].replace('status:', '→').strip()}`" if e["detail"] else ""
+                st.markdown(f"{_icon} **[{e['idea_id']}]** {e['title']}{_detail}")
+                _export.append(f"- {_icon} [{e['idea_id']}] {e['title']}" + (f" ({e['detail']})" if e["detail"] else ""))
+        _export.append(""); st.divider()
+
+    # ── Section 2: Em andamento ───────────────────────────────────────────────
+    if _show_wip:
+        st.subheader("🔄 Em andamento")
+        _active = [i for i in _ideas if i.status in ("em desenvolvimento", "em validação", "aguardando desenvolvimento")]
+        _wip_todos = [(i, t) for i in _ideas for t in i.todos if t.get("in_progress") and not t.get("done")]
+        _upcoming  = [i for i in _ideas if i.due_date and _today <= i.due_date <= _today + timedelta(days=7)
+                      and i.status not in ("concluído", "descartado")]
+
+        _export.append("## 🔄 Em andamento")
+        if _active:
+            st.markdown("**Ideias em desenvolvimento:**")
+            for i in _active:
+                dot = STATUS_COLOR.get(i.status, "")
+                st.markdown(f"  {dot} **{i.id}** {i.title} — _{STATUS_LABEL.get(i.status, i.status)}_", unsafe_allow_html=True)
+                _export.append(f"- [{i.id}] {i.title} — {STATUS_LABEL.get(i.status, i.status)}")
+        if _wip_todos:
+            st.markdown("**To-dos em andamento:**")
+            for i, t in _wip_todos:
+                _due = f" _(vence {t['due_date']})_" if t.get("due_date") else ""
+                st.markdown(f"  🔄 {t['text']}{_due} — `{i.id}`")
+                _export.append(f"- 🔄 {t['text']} ({i.id})")
+        if _upcoming:
+            st.markdown("**Vencendo em 7 dias:**")
+            for i in _upcoming:
+                _dl = (i.due_date - _today).days
+                _col = "#EF4444" if _dl <= 2 else "#F59E0B"
+                st.markdown(f'  <span style="color:{_col}">⏰</span> **{i.id}** {i.title} — vence {i.due_date.strftime("%d/%m")}', unsafe_allow_html=True)
+                _export.append(f"- ⏰ [{i.id}] {i.title} — vence {i.due_date.strftime('%d/%m')}")
+        if not _active and not _wip_todos and not _upcoming:
+            st.info("Nenhum item em andamento no momento.")
+        _export.append(""); st.divider()
+
+    # ── Section 3: Status do time ─────────────────────────────────────────────
+    if _show_team:
+        st.subheader("👥 Status do time")
+        _export.append("## 👥 Time")
+        for _m in _TEAM:
+            _folder = _TEAM_DIR / _m["folder"]
+            with st.expander(f"**{_m['name']}**", expanded=True):
+                _role = ""
+                _ov = _folder / "Overview.md"
+                if _ov.exists():
+                    _rm = _wre.search(r"\*\*Role:\*\*\s*(.+)", _ov.read_text(encoding="utf-8"))
+                    if _rm: _role = _rm.group(1).strip()
+
+                _latest = _wb_parse_1on1(_folder / "1on1.md")
+                if _latest:
+                    st.caption(f"{_role + ' — ' if _role else ''}último 1-on-1: {_latest['date']}")
+                    if _latest["topics"]:
+                        st.markdown("**Tópicos:**")
+                        for _t in _latest["topics"]:
+                            st.markdown(f"  - {_t}")
+                    _open = [a for a in _latest["actions"] if not a["done"]]
+                    if _open:
+                        st.markdown("**Action items em aberto:**")
+                        for _a in _open:
+                            st.markdown(f"  - ☐ {_a['text']}")
+                    _export += [f"### {_m['name']}", f"Último 1-on-1: {_latest['date']}"]
+                    _export += [f"- {t}" for t in _latest["topics"]]
+                    if _open:
+                        _export.append("Action items:")
+                        _export += [f"  - [ ] {a['text']}" for a in _open]
+                    _export.append("")
+                else:
+                    st.caption(f"{_role + ' — ' if _role else ''}sem 1-on-1 registrado")
+                    _export.append(f"### {_m['name']} — sem 1-on-1"); _export.append("")
+        st.divider()
+
+    # ── Section 4: Calls ──────────────────────────────────────────────────────
+    if _show_calls:
+        st.subheader("📞 Calls da semana")
+        _export.append("## 📞 Calls")
+        _calls = []
+        for _m in _TEAM:
+            _call_dir = _TEAM_DIR / _m["folder"] / "1on1"
+            if _call_dir.exists():
+                for _cf in sorted(_call_dir.glob("*.md")):
+                    if _cf.name.startswith("_"): continue
+                    try:
+                        _nd = date.fromisoformat(_cf.stem[:10])
+                        if _nd >= _start:
+                            _calls.append({"member": _m["name"], "date": _nd, "path": _cf})
+                    except ValueError:
+                        pass
+        if not _calls:
+            st.info("Nenhuma call registrada no período.")
+            _export.append("_Sem calls registradas no período._")
+        else:
+            for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
+                with st.expander(f"📞 {_c['member']} — {_c['date'].strftime('%d/%m/%Y')}"):
+                    _body = _wre.sub(r"^---.*?---\n", "", _c["path"].read_text(encoding="utf-8"), flags=_wre.DOTALL).strip()
+                    st.markdown(_body[:2500] + ("…" if len(_body) > 2500 else ""))
+                _export.append(f"- Call com {_c['member']} em {_c['date'].strftime('%d/%m/%Y')}")
+        _export.append(""); st.divider()
+
+    # ── Export ────────────────────────────────────────────────────────────────
+    st.subheader("📤 Exportar resumo")
+    _export_md = "\n".join(_export)
+    _dl_col, _ = st.columns([1, 3])
+    with _dl_col:
+        st.download_button("⬇️ Baixar .md", data=_export_md,
+                           file_name=f"weekly-brief-{_today.isoformat()}.md",
+                           mime="text/markdown", type="primary")
+    with st.expander("Prévia do resumo exportado"):
+        st.code(_export_md, language="markdown")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
