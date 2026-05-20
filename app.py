@@ -1183,10 +1183,6 @@ elif page == "✅ To-Do List":
         _hdrbtn("Estado", "state", _h4)
         _hdrbtn("To-Do · Backlog item", "text", _h5)
         _hdrbtn("Prazo", "due_date", _h6)
-        st.markdown(
-            '<hr style="margin:2px 0 0 0;border:none;border-top:2px solid rgba(0,0,0,0.09)">',
-            unsafe_allow_html=True,
-        )
 
         # ── Rows ───────────────────────────────────────────────────────────────
         _STATE_OPTS = ["⬜", "🔄", "✅"]
