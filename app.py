@@ -1071,34 +1071,15 @@ elif page == "✅ To-Do List":
         st.markdown(f"**{pending_count} pending**{ip_badge} · {done_count} done out of {len(filtered_todos)} shown")
         st.markdown(
             "<style>"
-            "div[data-testid='stMarkdown']:has(div.tdl-header)"
-            " + div[data-testid='stHorizontalBlock'] {"
-            " border-bottom:2px solid rgba(0,0,0,0.10)!important; padding-bottom:4px!important; }"
-            "div[data-testid='stMarkdown']:has(div.tdl-header)"
-            " + div[data-testid='stHorizontalBlock'] button {"
-            " background:none!important; border:none!important; box-shadow:none!important;"
-            " color:#9CA3AF!important; font-size:0.68rem!important; font-weight:700!important;"
-            " letter-spacing:.06em!important; text-transform:uppercase!important;"
-            " padding:2px 0!important; width:100%!important; justify-content:flex-start!important; }"
-            "div[data-testid='stMarkdown']:has(div.tdl-header)"
-            " + div[data-testid='stHorizontalBlock'] button:hover {"
-            " color:#374151!important; background:none!important; }"
-            "div[data-testid='stMarkdown']:has(div.tdl-rows)"
-            " ~ div[data-testid='stHorizontalBlock'] {"
-            " border-bottom:1px solid rgba(0,0,0,0.05)!important; padding:1px 0!important; }"
-            "div[data-testid='stMarkdown']:has(div.tdl-rows)"
-            " ~ div[data-testid='stHorizontalBlock']"
-            " div[data-testid='stSelectbox'] > div > div {"
-            " min-height:26px!important; padding:1px 6px!important; font-size:0.82rem!important; }"
-            "div[data-testid='stMarkdown']:has(div.tdl-rows)"
-            " ~ div[data-testid='stHorizontalBlock'] div.tdl-num button {"
+            "div.tdl-num button {"
             " background:#F3F4F6!important; border:none!important; box-shadow:none!important;"
             " border-radius:4px!important; font-size:0.73rem!important; font-weight:700!important;"
             " color:#6B7280!important; padding:1px 2px!important;"
             " min-height:22px!important; width:100%!important; }"
-            "div[data-testid='stMarkdown']:has(div.tdl-rows)"
-            " ~ div[data-testid='stHorizontalBlock'] div.tdl-num button:hover {"
+            "div.tdl-num button:hover {"
             " background:rgba(2,183,147,0.12)!important; color:#007167!important; }"
+            "div.tdl-sel div[data-testid='stSelectbox'] > div > div {"
+            " min-height:26px!important; padding:1px 6px!important; font-size:0.82rem!important; }"
             "</style>",
             unsafe_allow_html=True,
         )
@@ -1195,7 +1176,6 @@ elif page == "✅ To-Do List":
                 st.rerun()
 
         # ── Header row ─────────────────────────────────────────────────────────
-        st.markdown('<div class="tdl-header">', unsafe_allow_html=True)
         _h1, _h2, _h3, _h4, _h5, _h6 = st.columns(_TDL_COLS)
         _hdrbtn("#", "id", _h1)
         _hdrbtn("Prio", "priority", _h2)
@@ -1203,13 +1183,14 @@ elif page == "✅ To-Do List":
         _hdrbtn("Estado", "state", _h4)
         _hdrbtn("To-Do · Backlog item", "text", _h5)
         _hdrbtn("Prazo", "due_date", _h6)
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown(
+            '<hr style="margin:2px 0 0 0;border:none;border-top:2px solid rgba(0,0,0,0.09)">',
+            unsafe_allow_html=True,
+        )
 
         # ── Rows ───────────────────────────────────────────────────────────────
         _STATE_OPTS = ["⬜", "🔄", "✅"]
         _STATE_IDX  = {"open": 0, "in_progress": 1, "done": 2}
-
-        st.markdown('<div class="tdl-rows">', unsafe_allow_html=True)
         for group_label, group_items in groupby(filtered_todos, key=get_group_key):
             items = list(group_items)
             # intra-group sort by header column
@@ -1314,7 +1295,6 @@ elif page == "✅ To-Do List":
                     if new_state == "done":
                         log_entry("todo_concluido", idea, item["text"])
                     st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
