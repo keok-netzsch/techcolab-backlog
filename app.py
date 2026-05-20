@@ -100,8 +100,13 @@ html, body { overflow: hidden !important; height: 100vh !important; }
 }
 [data-testid="stSidebarContent"] {
     flex: 1 !important;
-    overflow: hidden !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
     padding-bottom: 0.5rem !important;
+    scrollbar-width: none !important;
+}
+[data-testid="stSidebarContent"]::-webkit-scrollbar {
+    display: none !important;
 }
 
 /* ── Sidebar nav buttons ─────────────────────────────────── */
