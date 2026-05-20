@@ -1071,7 +1071,6 @@ elif page == "✅ To-Do List":
         st.markdown(f"**{pending_count} pending**{ip_badge} · {done_count} done out of {len(filtered_todos)} shown")
         st.markdown(
             "<style>"
-            /* header row — use :has() sibling selector since st.markdown div doesn't nest columns */
             "div[data-testid='stMarkdown']:has(div.tdl-header)"
             " + div[data-testid='stHorizontalBlock'] {"
             " border-bottom:2px solid rgba(0,0,0,0.10)!important; padding-bottom:4px!important; }"
@@ -1084,16 +1083,13 @@ elif page == "✅ To-Do List":
             "div[data-testid='stMarkdown']:has(div.tdl-header)"
             " + div[data-testid='stHorizontalBlock'] button:hover {"
             " color:#374151!important; background:none!important; }"
-            /* data rows */
             "div[data-testid='stMarkdown']:has(div.tdl-rows)"
             " ~ div[data-testid='stHorizontalBlock'] {"
             " border-bottom:1px solid rgba(0,0,0,0.05)!important; padding:1px 0!important; }"
-            /* compact selectbox in data rows */
             "div[data-testid='stMarkdown']:has(div.tdl-rows)"
             " ~ div[data-testid='stHorizontalBlock']"
             " div[data-testid='stSelectbox'] > div > div {"
             " min-height:26px!important; padding:1px 6px!important; font-size:0.82rem!important; }"
-            /* number button in data rows */
             "div[data-testid='stMarkdown']:has(div.tdl-rows)"
             " ~ div[data-testid='stHorizontalBlock'] div.tdl-num button {"
             " background:#F3F4F6!important; border:none!important; box-shadow:none!important;"
