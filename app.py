@@ -1040,14 +1040,14 @@ elif page == "✅ To-Do List":
     if not all_todos:
         st.info("No to-dos found. Add to-dos to ideas in the Backlog.")
     else:
-        col_a, col_b, col_c, col_d = st.columns([2, 2, 2, 1])
+        col_a, col_b, col_c, col_d = st.columns([2, 3, 2, 1], vertical_alignment="bottom")
         with col_a:
-            show_filter = st.radio("Show", ["Pending", "Done", "All"], horizontal=True)
-        with col_b:
             areas = sorted(set(t["area"] for t in all_todos if t["area"] != "—"))
             filter_area = st.selectbox("Area", ["All"] + areas)
-        with col_c:
+        with col_b:
             group_by = st.radio("Group by", ["Priority", "Idea", "Area", "Date"], index=3, horizontal=True)
+        with col_c:
+            show_filter = st.radio("Show", ["Pending", "Done", "All"], horizontal=True)
         with col_d:
             filter_bugs = st.checkbox("🐛 Bugs", value=False, key="tdl_bugs_only")
 
