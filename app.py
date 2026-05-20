@@ -1023,7 +1023,7 @@ if page == "Backlog":
 # PAGE 2 — TO-DO LIST
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "To-Do List":
-    st.header("To-Do List")
+    st.markdown('<h1 style="margin-bottom:0.4rem">To-Do List</h1>', unsafe_allow_html=True)
     st.caption("All action items consolidated in one place. Check them off throughout the day.")
     with st.expander("📖 Legend", expanded=False):
         _render_legend()
@@ -1317,7 +1317,7 @@ elif page == "Dashboard":
     from datetime import timedelta, date as _date
     import re as _re
 
-    st.header("Dashboard")
+    st.markdown('<h1 style="margin-bottom:0.4rem">Dashboard</h1>', unsafe_allow_html=True)
 
     ideas_all = load_ideas()
     todos_all = [t for idea in ideas_all for t in idea.todos]
@@ -1630,7 +1630,7 @@ elif page == "Weekly Brief":
         {"name": "Pedro Klein",    "folder": "Pedro-Klein"},
     ]
 
-    st.markdown('<h1 style="margin-bottom:0.2rem">Weekly Brief</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="margin-bottom:0.4rem">Weekly Brief</h1>', unsafe_allow_html=True)
     st.caption("Painel de preparação para reunião com Alberto Reuters e Stefan Lautenschlager.")
 
     # ── Controls ──────────────────────────────────────────────────────────────
@@ -1892,7 +1892,7 @@ elif page == "Weekly Brief":
 # PAGE 4 — TUTORIAL
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Tutorial":
-    st.header("Installation Tutorial")
+    st.markdown('<h1 style="margin-bottom:0.4rem">Installation Tutorial</h1>', unsafe_allow_html=True)
     st.caption("Complete guide to install and configure Personal Toolkit · Techco.lab on a new machine.")
 
     st.info("**Source code:** [github.com/keok-netzsch/techcolab-backlog](https://github.com/keok-netzsch/techcolab-backlog)", icon="📦")
@@ -2162,7 +2162,7 @@ If you want to update the report outside the agent schedule, click the button be
 # PAGE 5 — DOCUMENTAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Documentation":
-    st.header("Documentation & Context")
+    st.markdown('<h1 style="margin-bottom:0.4rem">Documentation & Context</h1>', unsafe_allow_html=True)
     st.info("**Repository:** [github.com/keok-netzsch/techcolab-backlog](https://github.com/keok-netzsch/techcolab-backlog)", icon="📦")
 
     st.markdown("## Overview")
@@ -2256,8 +2256,7 @@ Anotações livres.
 elif page == "Claude Pro":
     import streamlit.components.v1 as components
     from config import CLAUDE_PRO_REPORT_HTML
-    st.markdown('<h1 style="margin-bottom:0.2rem">Claude Pro Report</h1>',
-                unsafe_allow_html=True)
+    st.markdown('<h1 style="margin-bottom:0.4rem">Claude Pro Report</h1>', unsafe_allow_html=True)
     st.caption("Relatório vivo de uso do Claude Pro · NBS D&A · Techco.lab — "
                "atualizado automaticamente pelo agente diário")
     if CLAUDE_PRO_REPORT_HTML.exists():
@@ -2279,7 +2278,7 @@ elif page == "English Coach":
     _EC_PROGRESS = _EC_DIR / "progress.md"
     _EC_SESSIONS = _EC_DIR / "sessions"
 
-    st.markdown('<h1 style="margin-bottom:0.2rem">English Coach</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="margin-bottom:0.4rem">English Coach</h1>', unsafe_allow_html=True)
     st.caption("Evolução das sessões de prática de inglês · avaliadas por IA")
 
     if not _EC_DIR.exists() or not _EC_PROGRESS.exists():
