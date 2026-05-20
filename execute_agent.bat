@@ -3,7 +3,7 @@ cd /d "%~dp0"
 
 echo.
 echo ========================================
-echo  TechColab Backlog Agent -- Phase 2
+echo  Techco.lab Agent -- Phase 2
 echo  Execution of approved actions
 echo ========================================
 echo.
@@ -11,11 +11,18 @@ echo.
 :: Get today's date in YYYY-MM-DD format
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set dt=%%I
 set TODAY=%dt:~0,4%-%dt:~4,2%-%dt:~6,2%
-set REPORT=agent-reports\report-%TODAY%.md
+
+:: Vault path from env var or fallback
+if "%TECHCOLAB_VAULT%"=="" (
+    set "TECHCOLAB_VAULT=C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO"
+)
+set "REPORT=%TECHCOLAB_VAULT%\Backlog - to do - app\agent-reports\report-%TODAY%.md"
 
 if not exist "%REPORT%" (
-    echo [ERROR] Report not found: %REPORT%
-    echo Run run_agent.bat first to generate today's report.
+    echo [ERROR] Report not found:
+    echo         %REPORT%
+    echo.
+    echo Run "3. Rodar Agente" first to generate today's report.
     pause
     exit /b 1
 )
