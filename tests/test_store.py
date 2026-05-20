@@ -156,3 +156,61 @@ def test_todo_at_suffix_in_file(tmp_store):
     )
     raw = (tmp_store.dir / "idea-001.md").read_text(encoding="utf-8")
     assert "@2026-08-01" in raw
+
+
+def test_todo_in_progress_roundtrip(tmp_store):
+    """[>] marker persists through save/load."""
+    idea = tmp_store.create(
+        title="In progress test",
+        todos=[{"text": "Em andamento", "done": False, "in_progress": True, "due_date": None}],
+    )
+    loaded = tmp_store.load_by_id("idea-001")
+    assert loaded.todos[0]["in_progress"] is True
+    assert loaded.todos[0]["done"] is False
+    raw = (tmp_store.dir / "idea-001.md").read_text(encoding="utf-8")
+    assert "- [>]" in raw
+
+
+def test_todo_agente_autorizado_roundtrip(tmp_store):
+    """{auto} suffix persists through save/load."""
+    idea = tmp_store.create(
+        title="Agente test",
+        todos=[{"text": "Auto task", "done": False, "agente_autorizado": True, "due_date": None}],
+    )
+    loaded = tmp_store.load_by_id("idea-001")
+    assert loaded.todos[0]["agente_autorizado"] is True
+    raw = (tmp_store.dir / "idea-001.md").read_text(encoding="utf-8")
+    assert "{auto}" in raw
+
+
+def test_todo_completed_at_roundtrip(tmp_store):
+    """~YYYY-MM-DD completed_at suffix persists through save/load."""
+    idea = tmp_store.create(
+        title="Completed at test",
+        todos=[{"text": "Feito", "done": True, "completed_at": "2026-05-19", "due_date": None}],
+    )
+    loaded = tmp_store.load_by_id("idea-001")
+    assert loaded.todos[0]["completed_at"] == "2026-05-19"
+    raw = (tmp_store.dir / "idea-001.md").read_text(encoding="utf-8")
+    assert "~2026-05-19" in raw
+
+
+def test_parse_todos_in_progress():
+    raw = "- [>] Tarefa em andamento"
+    todos = _parse_todos(raw)
+    assert todos[0]["in_progress"] is True
+    assert todos[0]["done"] is False
+
+
+def test_parse_todos_agente_autorizado():
+    raw = "- [ ] Auto task {auto}"
+    todos = _parse_todos(raw)
+    assert todos[0]["agente_autorizado"] is True
+
+
+def test_parse_todos_completed_at():
+    raw = "- [x] Feito @2026-05-01 ~2026-05-19"
+    todos = _parse_todos(raw)
+    assert todos[0]["done"] is True
+    assert todos[0]["due_date"] == "2026-05-01"
+    assert todos[0]["completed_at"] == "2026-05-19"

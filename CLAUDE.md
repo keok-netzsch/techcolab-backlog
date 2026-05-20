@@ -14,6 +14,10 @@ offline — no external API keys required.
 - **Vault path:** read from env var `TECHCOLAB_VAULT` (fallback in `config.py`)
 - **Backlog items:** `{VAULT_ROOT}/Backlog - to do - app/backlog items/idea-NNN.md`
 - **Agent reports:** `{VAULT_ROOT}/Backlog - to do - app/agent-reports/`
+- **Daily logs:** `{VAULT_ROOT}/Backlog - to do - app/Log/diario-YYYY-MM-DD.md`
+- **Team (direct reports):** `{VAULT_ROOT}/Team/{Person}/` — `1on1.md`, `OKR.md`, `PDI.md`, `Overview.md`
+- **Call recorder:** `C:\Users\Kelvin.okuda\Scripts\call-recorder\` — standalone session notes land in `{VAULT_ROOT}/Team/{Person}/1on1/{date}_1on1_{Person}.md`
+- **Stakeholders (planned):** `{VAULT_ROOT}/Stakeholders/` — Alberto Reuters, Stefan Lautenschlager
 - **Tests:** `tests/` — run with `python -m pytest tests/ -v`
 - **Repository:** https://github.com/keok-netzsch/techcolab-backlog
 
@@ -68,9 +72,11 @@ and/or the Documentation (`📚 Documentation` page) accordingly:
 | Installation steps | Tutorial → Installation section |
 | `config.py` settings or env vars | Tutorial → Configuration section |
 | Agent flow or report format | Tutorial → Daily agent section |
-| New feature added to the app | Tutorial → Using the app table |
+| New feature added to the app | Tutorial → Using the app table + feature section |
+| New page added to sidebar | Tutorial → Using the app table |
 | Planned phases changed | Documentation → Planned next phases |
 | Architecture changed | Documentation → System architecture |
+| Team structure changed | CLAUDE.md → Project context + Weekly Brief page |
 
 After updating the app pages, also check if `README.md` needs updating.
 

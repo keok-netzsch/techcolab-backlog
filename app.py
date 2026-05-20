@@ -1533,7 +1533,7 @@ elif page == "🗓️ Weekly Brief":
             lp = _LOG_DIR / f"diario-{cur.isoformat()}.md"
             if lp.exists():
                 for line in lp.read_text(encoding="utf-8").splitlines():
-                    m = _wre.match(r"^- (\d{2}:\d{2}) `(\w+)` \[(.+?)\] (.+?)(?:\s—\s(.+))?$", line)
+                    m = _wre.match(r"^- (\d{2}:\d{2}) `([\w-]+)` \[(.+?)\] (.+?)(?:\s—\s(.+))?$", line)
                     if m:
                         entries.append({"date": cur, "time": m.group(1), "action": m.group(2),
                                         "idea_id": m.group(3), "title": m.group(4).strip(),
@@ -1572,27 +1572,29 @@ elif page == "🗓️ Weekly Brief":
                       and i.status not in ("concluído", "descartado")]
 
         _export.append("## 🔄 Em andamento")
-        if _active:
-            st.markdown("**Ideias em desenvolvimento:**")
-            for i in _active:
-                dot = STATUS_COLOR.get(i.status, "")
-                st.markdown(f"  {dot} **{i.id}** {i.title} — _{STATUS_LABEL.get(i.status, i.status)}_", unsafe_allow_html=True)
-                _export.append(f"- [{i.id}] {i.title} — {STATUS_LABEL.get(i.status, i.status)}")
-        if _wip_todos:
-            st.markdown("**To-dos em andamento:**")
-            for i, t in _wip_todos:
-                _due = f" _(vence {t['due_date']})_" if t.get("due_date") else ""
-                st.markdown(f"  🔄 {t['text']}{_due} — `{i.id}`")
-                _export.append(f"- 🔄 {t['text']} ({i.id})")
-        if _upcoming:
-            st.markdown("**Vencendo em 7 dias:**")
-            for i in _upcoming:
-                _dl = (i.due_date - _today).days
-                _col = "#EF4444" if _dl <= 2 else "#F59E0B"
-                st.markdown(f'  <span style="color:{_col}">⏰</span> **{i.id}** {i.title} — vence {i.due_date.strftime("%d/%m")}', unsafe_allow_html=True)
-                _export.append(f"- ⏰ [{i.id}] {i.title} — vence {i.due_date.strftime('%d/%m')}")
         if not _active and not _wip_todos and not _upcoming:
             st.info("Nenhum item em andamento no momento.")
+            _export.append("_Sem itens em andamento._")
+        else:
+            if _active:
+                st.markdown("**Ideias em desenvolvimento:**")
+                for i in _active:
+                    dot = STATUS_COLOR.get(i.status, "")
+                    st.markdown(f"  {dot} **{i.id}** {i.title} — _{STATUS_LABEL.get(i.status, i.status)}_", unsafe_allow_html=True)
+                    _export.append(f"- [{i.id}] {i.title} — {STATUS_LABEL.get(i.status, i.status)}")
+            if _wip_todos:
+                st.markdown("**To-dos em andamento:**")
+                for i, t in _wip_todos:
+                    _due = f" _(vence {t['due_date']})_" if t.get("due_date") else ""
+                    st.markdown(f"  🔄 {t['text']}{_due} — `{i.id}`")
+                    _export.append(f"- 🔄 {t['text']} ({i.id})")
+            if _upcoming:
+                st.markdown("**Vencendo em 7 dias:**")
+                for i in _upcoming:
+                    _dl = (i.due_date - _today).days
+                    _col = "#EF4444" if _dl <= 2 else "#F59E0B"
+                    st.markdown(f'  <span style="color:{_col}">⏰</span> **{i.id}** {i.title} — vence {i.due_date.strftime("%d/%m")}', unsafe_allow_html=True)
+                    _export.append(f"- ⏰ [{i.id}] {i.title} — vence {i.due_date.strftime('%d/%m')}")
         _export.append(""); st.divider()
 
     # ── Section 3: Status do time ─────────────────────────────────────────────
@@ -1765,14 +1767,51 @@ Download ~2 GB. To verify: `ollama list` — the model should appear in the list
 | Section | Purpose |
 |---|---|
 | 📋 Backlog | Create, edit and view ideas |
-| ✅ To-Do List | All action items consolidated |
-| 📊 Dashboard | Metrics, scoring and period report |
+| ✅ To-Do List | All action items consolidated across all ideas |
+| 📊 Dashboard | Metrics, scoring, period report and token coach |
+| 📈 Claude Pro | HTML report tracking Claude Pro adoption metrics |
+| 🗓️ Weekly Brief | Preparation panel for meetings with leadership |
 
 **Status flow:**
 ```
 backlog → under review → approved → waiting → in development → in validation → done ✅
                        └─► rejected / discarded ⛔
 ```
+
+### Priority badges
+
+In the Backlog list view and To-Do List, priority is shown as a numbered circle:
+
+| Badge | Priority |
+|---|---|
+| ● 3 (dark) | Alta / High |
+| ● 2 (medium) | Média / Medium |
+| ● 1 (light) | Baixa / Low |
+
+### To-do states
+
+Each to-do supports three states, toggled via the selectbox (To-Do List) or the state dropdown (Backlog card):
+
+| Symbol | Meaning |
+|---|---|
+| ⬜ | Open — not started |
+| 🔄 | In progress — started but not done |
+| ✅ | Done — completed (records `completed_at` date) |
+
+### Agent authorisation per to-do
+
+The 🤖 checkbox on each to-do marks it as pre-approved for the daily agent.
+Pre-approved to-dos appear with `[x]` already checked in the agent report — no manual approval needed.
+You can set this during to-do creation or by editing the idea card later.
+
+### Weekly Brief
+
+Open **🗓️ Weekly Brief** before any meeting with Alberto Reuters or Stefan Lautenschlager.
+
+- Use the period slider (default 7 days) to set the reporting window
+- Toggle sections on/off with the checkboxes
+- Download the summary as `.md` for pasting into emails or Obsidian notes
+- The **Calls** section auto-populates from session notes generated by the call recorder
 
 ---
 
@@ -1958,9 +1997,11 @@ Anotações livres.
     st.divider()
     st.markdown("## Planned next phases")
     st.markdown("""
-- **Phase 2** — Analysis agent: given an idea "under review", researches, validates hypotheses and generates a report
+- **Phase 2** — Analysis agent: given an idea "under review", researches, validates hypotheses and generates a structured report
 - **Phase 3** — Parallel orchestrator: runs multiple analyses simultaneously
 - **Phase 4** — Notion integration (optional bidirectional sync)
+- **Phase 5** — Stakeholder pages: vault folders for Alberto Reuters and Stefan Lautenschlager, surfaced in Weekly Brief
+- **Phase 6** — Voice recorder integration: auto-populate Weekly Brief calls section from call-recorder session notes
 """)
 
 elif page == "📈 Claude Pro":
