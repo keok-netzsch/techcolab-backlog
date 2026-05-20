@@ -1069,17 +1069,28 @@ elif page == "✅ To-Do List":
         done_count = sum(1 for t in filtered_todos if t["done"])
         ip_badge = f" · **{in_progress_count} 🔄 in progress**" if in_progress_count else ""
         st.markdown(f"**{pending_count} pending**{ip_badge} · {done_count} done out of {len(filtered_todos)} shown")
-        st.caption("⬜ Aberto · 🔄 Em andamento · ✅ Concluído")
         st.markdown(
             "<style>"
-            ".tdl-state button { padding:0 2px!important; min-height:22px!important; line-height:1!important;"
-            " background:transparent!important; border:none!important; box-shadow:none!important;"
-            " font-size:1rem!important; }"
-            ".tdl-state button:hover { opacity:0.7!important; }"
+            "div.tdl-sel div[data-testid='stSelectbox'] > div > div {"
+            " min-height:26px!important; padding:1px 6px!important; font-size:0.82rem!important; }"
+            "div.tdl-rows .stHorizontalBlock {"
+            " border-bottom:1px solid rgba(0,0,0,0.05); margin-bottom:0!important; padding:1px 0!important; }"
+            "div.tdl-header .stHorizontalBlock { border-bottom:2px solid rgba(0,0,0,0.10)!important; }"
+            "div.tdl-header button { background:none!important; border:none!important; box-shadow:none!important;"
+            " color:#9CA3AF!important; font-size:0.68rem!important; font-weight:700!important;"
+            " letter-spacing:.06em!important; text-transform:uppercase!important;"
+            " padding:2px 0!important; width:100%!important; text-align:left!important;"
+            " justify-content:flex-start!important; }"
+            "div.tdl-header button:hover { color:#374151!important; background:none!important; }"
+            "div.tdl-rows div.tdl-num button { background:#F3F4F6!important; border:none!important;"
+            " box-shadow:none!important; border-radius:4px!important; font-size:0.73rem!important;"
+            " font-weight:700!important; color:#6B7280!important; padding:1px 2px!important;"
+            " min-height:22px!important; width:100%!important; }"
+            "div.tdl-rows div.tdl-num button:hover { background:rgba(2,183,147,0.12)!important;"
+            " color:#007167!important; }"
             "</style>",
             unsafe_allow_html=True,
         )
-        st.divider()
 
         _GROUP_DATA_ORDER = {"🔴 Overdue": 0, "📅 This week": 1, "📆 This month": 2, "🗓️ Upcoming": 3, "📭 No due date": 4}
 
@@ -1153,59 +1164,115 @@ elif page == "✅ To-Do List":
             else:
                 filtered_todos.sort(key=get_group_key)
 
+        # ── Sort state ─────────────────────────────────────────────────────────
+        for _k, _dv in [("tdl_sort_col", None), ("tdl_sort_dir", 1)]:
+            if _k not in st.session_state:
+                st.session_state[_k] = _dv
+        _sc = st.session_state.get("tdl_sort_col")
+        _sd = st.session_state.get("tdl_sort_dir", 1)
+
+        _TDL_COLS = [0.06, 0.05, 0.04, 0.09, 0.62, 0.14]
+
+        def _hdrbtn(label, col_name, widget_col):
+            arr = (" ↑" if _sd == 1 else " ↓") if _sc == col_name else ""
+            if widget_col.button(f"{label}{arr}", key=f"tdl_hdr_{col_name}", use_container_width=True):
+                if _sc == col_name:
+                    st.session_state["tdl_sort_dir"] = -_sd
+                else:
+                    st.session_state["tdl_sort_col"] = col_name
+                    st.session_state["tdl_sort_dir"] = 1
+                st.rerun()
+
+        # ── Header row ─────────────────────────────────────────────────────────
+        st.markdown('<div class="tdl-header">', unsafe_allow_html=True)
+        _h1, _h2, _h3, _h4, _h5, _h6 = st.columns(_TDL_COLS)
+        _hdrbtn("#", "id", _h1)
+        _hdrbtn("Prio", "priority", _h2)
+        _h3.caption("")
+        _h4.caption("Estado")
+        _hdrbtn("To-Do · Backlog item", "text", _h5)
+        _hdrbtn("Prazo", "due_date", _h6)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # ── Rows ───────────────────────────────────────────────────────────────
+        _STATE_OPTS = ["⬜", "🔄", "✅"]
+        _STATE_IDX  = {"open": 0, "in_progress": 1, "done": 2}
+
+        st.markdown('<div class="tdl-rows">', unsafe_allow_html=True)
         for group_label, group_items in groupby(filtered_todos, key=get_group_key):
             items = list(group_items)
-            st.markdown(f"#### {group_label}", unsafe_allow_html=True)
+            # intra-group sort by header column
+            if _sc == "id":
+                items.sort(key=lambda t: t["idea_id"], reverse=(_sd == -1))
+            elif _sc == "priority":
+                items.sort(key=lambda t: prio_order.get(t["priority"], 9), reverse=(_sd == -1))
+            elif _sc == "text":
+                items.sort(key=lambda t: t["text"].lower(), reverse=(_sd == -1))
+            elif _sc == "due_date":
+                items.sort(key=lambda t: t.get("due_date") or "9999-12-31", reverse=(_sd == -1))
+
+            st.markdown(
+                f'<div style="font-size:0.72rem;font-weight:700;letter-spacing:.06em;'
+                f'text-transform:uppercase;color:#6B7280;padding:10px 0 3px 0;'
+                f'border-top:1px solid rgba(0,0,0,0.07);margin-top:4px">{group_label}</div>',
+                unsafe_allow_html=True,
+            )
+
             for item in items:
                 idea = store.load_by_id(item["idea_id"])
                 if not idea:
                     continue
 
-                c_id, c_prio, c_status, c_chk, c_text, c_bug, c_info = st.columns([0.09, 0.07, 0.04, 0.12, 0.44, 0.06, 0.18])
+                c_id, c_prio, c_status, c_chk, c_text, c_info = st.columns(_TDL_COLS, vertical_alignment="center")
 
                 short = str(int(item["idea_id"].replace("idea-", "")))
-                if c_id.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
-                               use_container_width=True,
-                               help=f"Abrir {item['idea_id']} no Backlog"):
-                    st.session_state["page"] = "📋 Backlog"
-                    st.session_state[f"exp_{item['idea_id']}"] = True
-                    st.rerun()
+                with c_id:
+                    st.markdown('<div class="tdl-num">', unsafe_allow_html=True)
+                    if st.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
+                                 use_container_width=True):
+                        st.session_state["page"] = "📋 Backlog"
+                        st.session_state[f"exp_{item['idea_id']}"] = True
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
 
                 c_prio.markdown(PRIORITY_NUM.get(item["priority"], "⚪"), unsafe_allow_html=True)
                 c_status.markdown(STATUS_COLOR.get(item["status"], _sdot("backlog")), unsafe_allow_html=True)
 
-                _STATE_OPTS = ["⬜", "🔄", "✅"]
-                _STATE_IDX  = {"open": 0, "in_progress": 1, "done": 2}
                 cur_state = "done" if item["done"] else ("in_progress" if item.get("in_progress") else "open")
-
                 with c_chk:
+                    st.markdown('<div class="tdl-sel">', unsafe_allow_html=True)
                     sel = st.selectbox(
                         "", _STATE_OPTS,
                         index=_STATE_IDX[cur_state],
                         key=f"tdl_state_{item['idea_id']}_{item['todo_idx']}",
                         label_visibility="collapsed",
                     )
+                    st.markdown('</div>', unsafe_allow_html=True)
                 new_state = ["open", "in_progress", "done"][_STATE_OPTS.index(sel)]
                 state_clicked = new_state != cur_state
 
                 with c_text:
                     if item["done"]:
-                        text_md = f"~~{item['text']}~~"
+                        text_html = f"<s>{item['text']}</s>"
                     elif item.get("in_progress"):
-                        text_md = f"*{item['text']}*"
+                        text_html = f"<em>{item['text']}</em>"
                     else:
-                        text_md = item["text"]
-                    st.markdown(text_md)
-                    st.caption(f"`{item['idea_id']}` {item['idea_title'][:45]}")
-
-                with c_bug:
-                    if item.get("is_bug"):
-                        st.markdown(
-                            '<span style="display:inline-block;background:#FEE2E2;color:#B91C1C;'
-                            'font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 5px;'
-                            'border-radius:3px;margin-top:4px">BUG</span>',
-                            unsafe_allow_html=True,
-                        )
+                        text_html = item["text"]
+                    bug_badge = (
+                        ' <span style="background:#FEE2E2;color:#B91C1C;font-size:9px;font-weight:700;'
+                        'letter-spacing:.04em;padding:1px 4px;border-radius:3px;vertical-align:middle">BUG</span>'
+                        if item.get("is_bug") else ""
+                    )
+                    idea_ref = (
+                        f'<div style="font-size:0.72rem;color:#9CA3AF;margin-top:1px">'
+                        f'<code style="font-size:0.68rem;background:#F3F4F6;padding:0 3px;'
+                        f'border-radius:2px;color:#6B7280">{item["idea_id"]}</code>'
+                        f'&nbsp;{item["idea_title"][:52]}</div>'
+                    )
+                    st.markdown(
+                        f'<div style="font-size:0.87rem;line-height:1.35">{text_html}{bug_badge}{idea_ref}</div>',
+                        unsafe_allow_html=True,
+                    )
 
                 with c_info:
                     due_str = ""
@@ -1236,7 +1303,7 @@ elif page == "✅ To-Do List":
                     if new_state == "done":
                         log_entry("todo_concluido", idea, item["text"])
                     st.rerun()
-            st.markdown("")
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
