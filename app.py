@@ -190,11 +190,11 @@ st.markdown(
 )
 
 # ── Sidebar: logo + navigation + reload ────────────────────────────────────────
-_PAGES_MAIN  = ["📋 Backlog", "✅ To-Do List", "📊 Dashboard", "📈 Claude Pro", "🗓️ Weekly Brief", "🎙️ English Coach"]
-_PAGES_EXTRA = {"📖": "📖 Tutorial", "📚": "📚 Documentation"}
+_PAGES_MAIN  = ["Backlog", "To-Do List", "Dashboard", "Claude Pro", "Weekly Brief", "English Coach"]
+_PAGES_EXTRA = {"📖": "Tutorial", "📚": "Documentation"}
 
 if "page" not in st.session_state:
-    st.session_state["page"] = "📋 Backlog"
+    st.session_state["page"] = "Backlog"
 
 with st.sidebar:
     st.markdown(
@@ -225,7 +225,7 @@ with st.sidebar:
         with _fc1:
             if st.button("📖", key="nav_tutorial", use_container_width=True,
                          help="Installation tutorial"):
-                st.session_state["page"] = "📖 Tutorial"
+                st.session_state["page"] = "Tutorial"
                 st.rerun()
             st.markdown(
                 '<p style="text-align:center;font-size:0.68rem;color:rgba(76,77,88,0.5);margin:0">Tutorial</p>',
@@ -234,7 +234,7 @@ with st.sidebar:
         with _fc2:
             if st.button("📚", key="nav_docs", use_container_width=True,
                          help="Technical documentation"):
-                st.session_state["page"] = "📚 Documentation"
+                st.session_state["page"] = "Documentation"
                 st.rerun()
             st.markdown(
                 '<p style="text-align:center;font-size:0.68rem;color:rgba(76,77,88,0.5);margin:0">Docs</p>',
@@ -342,7 +342,7 @@ def _similar_ideas(title: str, ideas: list, threshold: float = 0.45) -> list:
     return sorted(matches, key=lambda x: -x[1])
 
 
-if page == "📋 Backlog":
+if page == "Backlog":
     st.markdown(
         '<h1 style="margin-bottom:0.4rem">Idea Backlog</h1>',
         unsafe_allow_html=True,
@@ -1022,7 +1022,7 @@ if page == "📋 Backlog":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 2 — TO-DO LIST
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "✅ To-Do List":
+elif page == "To-Do List":
     st.header("To-Do List")
     st.caption("All action items consolidated in one place. Check them off throughout the day.")
     with st.expander("📖 Legend", expanded=False):
@@ -1235,7 +1235,7 @@ elif page == "✅ To-Do List":
                         st.markdown('<div class="tdl-num">', unsafe_allow_html=True)
                         if st.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
                                      use_container_width=True):
-                            st.session_state["page"] = "📋 Backlog"
+                            st.session_state["page"] = "Backlog"
                             st.session_state[f"exp_{item['idea_id']}"] = True
                             st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
@@ -1313,11 +1313,11 @@ elif page == "✅ To-Do List":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📊 Dashboard":
+elif page == "Dashboard":
     from datetime import timedelta, date as _date
     import re as _re
 
-    st.header("📊 Dashboard")
+    st.header("Dashboard")
 
     ideas_all = load_ideas()
     todos_all = [t for idea in ideas_all for t in idea.todos]
@@ -1403,7 +1403,7 @@ elif page == "📊 Dashboard":
 
     st.divider()
 
-    st.subheader("📋 Period report")
+    st.subheader("Period report")
 
     @st.dialog("Generate period report", width="large")
     def _report_dialog():
@@ -1477,7 +1477,7 @@ elif page == "📊 Dashboard":
         _report_dialog()
 
     st.divider()
-    st.subheader("🪙 Coach de Tokens")
+    st.subheader("Coach de Tokens")
     st.caption("Analise seu padrão de uso e descubra onde você está deixando valor na mesa.")
 
     with st.expander("Abrir coach", expanded=False):
@@ -1616,7 +1616,7 @@ elif page == "📊 Dashboard":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 5 — WEEKLY BRIEF
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🗓️ Weekly Brief":
+elif page == "Weekly Brief":
     from datetime import timedelta
     import re as _wre
 
@@ -1630,7 +1630,7 @@ elif page == "🗓️ Weekly Brief":
         {"name": "Pedro Klein",    "folder": "Pedro-Klein"},
     ]
 
-    st.markdown('<h1 style="margin-bottom:0.2rem">🗓️ Weekly Brief</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="margin-bottom:0.2rem">Weekly Brief</h1>', unsafe_allow_html=True)
     st.caption("Painel de preparação para reunião com Alberto Reuters e Stefan Lautenschlager.")
 
     # ── Controls ──────────────────────────────────────────────────────────────
@@ -1695,7 +1695,7 @@ elif page == "🗓️ Weekly Brief":
 
     # ── Section 1: Desenvolvimentos ───────────────────────────────────────────
     if _show_devs:
-        st.subheader("🚀 Desenvolvimentos da semana")
+        st.subheader("Desenvolvimentos da semana")
         _logs = _wb_read_logs(_start, _today)
         _seen, _devs = set(), []
         for e in _logs:
@@ -1736,7 +1736,7 @@ elif page == "🗓️ Weekly Brief":
 
     # ── Section 2: Em andamento ───────────────────────────────────────────────
     if _show_wip:
-        st.subheader("🔄 Em andamento")
+        st.subheader("Em andamento")
         _active = [i for i in _ideas if i.status in ("em desenvolvimento", "em validação", "aguardando desenvolvimento")]
         _wip_todos = [(i, t) for i in _ideas for t in i.todos if t.get("in_progress") and not t.get("done")]
         _upcoming  = [i for i in _ideas if i.due_date and _today <= i.due_date <= _today + timedelta(days=7)
@@ -1815,7 +1815,7 @@ elif page == "🗓️ Weekly Brief":
 
     # ── Section 3: Status do time ─────────────────────────────────────────────
     if _show_team:
-        st.subheader("👥 Status do time")
+        st.subheader("Status do time")
         _export.append("## 👥 Time")
         for _m in _TEAM:
             _folder = _TEAM_DIR / _m["folder"]
@@ -1851,7 +1851,7 @@ elif page == "🗓️ Weekly Brief":
 
     # ── Section 4: Calls ──────────────────────────────────────────────────────
     if _show_calls:
-        st.subheader("📞 Calls da semana")
+        st.subheader("Calls da semana")
         _export.append("## 📞 Calls")
         _calls = []
         for _m in _TEAM:
@@ -1877,7 +1877,7 @@ elif page == "🗓️ Weekly Brief":
         _export.append(""); st.divider()
 
     # ── Export ────────────────────────────────────────────────────────────────
-    st.subheader("📤 Exportar resumo")
+    st.subheader("Exportar resumo")
     _export_md = "\n".join(_export)
     _dl_col, _ = st.columns([1, 3])
     with _dl_col:
@@ -1891,8 +1891,8 @@ elif page == "🗓️ Weekly Brief":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 4 — TUTORIAL
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📖 Tutorial":
-    st.header("📖 Installation Tutorial")
+elif page == "Tutorial":
+    st.header("Installation Tutorial")
     st.caption("Complete guide to install and configure Personal Toolkit · Techco.lab on a new machine.")
 
     st.info("**Source code:** [github.com/keok-netzsch/techcolab-backlog](https://github.com/keok-netzsch/techcolab-backlog)", icon="📦")
@@ -2161,8 +2161,8 @@ If you want to update the report outside the agent schedule, click the button be
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 5 — DOCUMENTAÇÃO
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "📚 Documentation":
-    st.header("📚 Documentation & Context")
+elif page == "Documentation":
+    st.header("Documentation & Context")
     st.info("**Repository:** [github.com/keok-netzsch/techcolab-backlog](https://github.com/keok-netzsch/techcolab-backlog)", icon="📦")
 
     st.markdown("## Overview")
@@ -2253,7 +2253,7 @@ Anotações livres.
 - **Phase 6** — Voice recorder integration: auto-populate Weekly Brief calls section from call-recorder session notes
 """)
 
-elif page == "📈 Claude Pro":
+elif page == "Claude Pro":
     import streamlit.components.v1 as components
     from config import CLAUDE_PRO_REPORT_HTML
     st.markdown('<h1 style="margin-bottom:0.2rem">Claude Pro Report</h1>',
@@ -2272,14 +2272,14 @@ elif page == "📈 Claude Pro":
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 7 — ENGLISH COACH
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "🎙️ English Coach":
+elif page == "English Coach":
     import re as _ecre
 
     _EC_DIR      = VAULT_ROOT / "English-Coach"
     _EC_PROGRESS = _EC_DIR / "progress.md"
     _EC_SESSIONS = _EC_DIR / "sessions"
 
-    st.markdown('<h1 style="margin-bottom:0.2rem">🎙️ English Coach</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="margin-bottom:0.2rem">English Coach</h1>', unsafe_allow_html=True)
     st.caption("Evolução das sessões de prática de inglês · avaliadas por IA")
 
     if not _EC_DIR.exists() or not _EC_PROGRESS.exists():
@@ -2324,13 +2324,13 @@ elif page == "🎙️ English Coach":
             import pandas as _ecpd
             _df = _ecpd.DataFrame(_prog_rows).set_index("date")[["overall"]]
             _df.columns = ["Overall (0–10)"]
-            st.subheader("📈 Evolução da nota")
+            st.subheader("Evolução da nota")
             st.line_chart(_df, height=200)
 
             st.divider()
 
         # ── Recent sessions ───────────────────────────────────────────────────
-        st.subheader("📋 Sessões recentes")
+        st.subheader("Sessões recentes")
 
         _session_files = sorted(_EC_SESSIONS.glob("*_english-coach.md"), reverse=True) if _EC_SESSIONS.exists() else []
 
@@ -2356,5 +2356,5 @@ elif page == "🎙️ English Coach":
 
         if _prog_rows:
             st.divider()
-            st.subheader("📄 Log completo")
+            st.subheader("Log completo")
             st.markdown(_prog_text)
