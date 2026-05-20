@@ -74,24 +74,34 @@ h1 {
     font-family: 'Inter', sans-serif !important;
 }
 
+/* ── Prevent outer page scroll ───────────────────────────── */
+html, body { overflow: hidden !important; height: 100vh !important; }
+[data-testid="stAppViewContainer"] { height: 100vh !important; overflow: hidden !important; }
+[data-testid="stMain"] { height: 100vh !important; overflow: hidden !important; }
+[data-testid="stMainBlockContainer"] {
+    height: 100vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-bottom: 1rem !important;
+}
+
 /* ── Sidebar ─────────────────────────────────────────────── */
 [data-testid="stSidebar"] {
     background-color: #FFFFFF;
     border-right: 1px solid rgba(76,77,88,0.08);
     height: 100vh !important;
-    max-height: 100vh !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    overflow: hidden !important;
 }
 [data-testid="stSidebar"] > div:first-child {
-    height: 100% !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
 }
 [data-testid="stSidebarContent"] {
-    height: 100% !important;
-    overflow-y: auto !important;
-    padding-bottom: 1rem !important;
+    flex: 1 !important;
+    overflow: hidden !important;
+    padding-bottom: 0.5rem !important;
 }
 
 /* ── Sidebar nav buttons ─────────────────────────────────── */
@@ -99,10 +109,10 @@ h1 {
     text-align: left !important;
     justify-content: flex-start !important;
     border-radius: 8px !important;
-    font-size: 0.9rem !important;
+    font-size: 0.85rem !important;
     font-weight: 500 !important;
-    padding: 0.45rem 0.75rem !important;
-    margin-bottom: 2px !important;
+    padding: 0.3rem 0.75rem !important;
+    margin-bottom: 1px !important;
     border: none !important;
     width: 100% !important;
 }
@@ -188,7 +198,7 @@ if "page" not in st.session_state:
 
 with st.sidebar:
     st.markdown(
-        f'<div style="padding:1.2rem 0 0.8rem 0;display:flex;justify-content:center">{_LOGO_GREEN}</div>',
+        f'<div style="padding:0.6rem 0 0.5rem 0;display:flex;justify-content:center">{_LOGO_GREEN}</div>',
         unsafe_allow_html=True,
     )
     st.divider()
@@ -204,7 +214,6 @@ with st.sidebar:
     if st.button("🔄 Reload ideas", use_container_width=True, type="secondary"):
         st.rerun()
 
-    st.markdown("<br>" * 3, unsafe_allow_html=True)
     st.divider()
     st.markdown(
         '<p style="font-size:0.72rem;color:rgba(76,77,88,0.45);margin:0 0 6px 2px">Resources</p>',
