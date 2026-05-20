@@ -86,10 +86,35 @@ html, body { overflow: hidden !important; height: 100vh !important; }
 }
 
 /* ── Top navigation ──────────────────────────────────────── */
-[data-testid="stMainBlockContainer"] {
-    padding-top: 0.5rem !important;
-}
 div[data-testid="stSidebar"] { display: none !important; }
+
+/* Remove all padding/margin from the nav row area */
+[data-testid="stMainBlockContainer"] {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+[data-testid="stMainBlockContainer"] > div:first-child {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+[data-testid="stMainBlockContainer"] > div:first-child [data-testid="stHorizontalBlock"] {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
+}
+[data-testid="stMainBlockContainer"] > div:first-child [data-testid="stColumn"] {
+    padding-left: 0.15rem !important;
+    padding-right: 0.15rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+[data-testid="stMainBlockContainer"] > div:first-child [data-testid="stColumn"] > div {
+    padding: 0 !important;
+    margin: 0 !important;
+}
 
 /* ── Global: never wrap button text ──────────────────────── */
 button { white-space: nowrap !important; }
@@ -97,15 +122,18 @@ button { white-space: nowrap !important; }
 /* ── Top nav buttons ─────────────────────────────────────── */
 [data-testid="stMainBlockContainer"] > div:first-child button {
     border-radius: 6px !important;
-    font-size: 0.8rem !important;
+    font-size: 0.79rem !important;
     font-weight: 500 !important;
-    padding: 0.2rem 0.5rem !important;
+    padding: 0.12rem 0.45rem !important;
     border: none !important;
     line-height: 1.4 !important;
+    min-height: 0 !important;
+    height: auto !important;
 }
 [data-testid="stMainBlockContainer"] > div:first-child button[kind="secondary"] {
     background: transparent !important;
     color: #4A4A4A !important;
+    box-shadow: none !important;
 }
 [data-testid="stMainBlockContainer"] > div:first-child button[kind="secondary"]:hover {
     background: rgba(2,183,147,0.08) !important;
@@ -115,6 +143,7 @@ button { white-space: nowrap !important; }
     background: rgba(2,183,147,0.15) !important;
     color: #007167 !important;
     font-weight: 600 !important;
+    box-shadow: none !important;
 }
 
 /* ── Footer icon buttons ─────────────────────────────────── */
@@ -205,7 +234,7 @@ if _nc[9].button("📚", key="nav_docs", use_container_width=True, help="Documen
 if _nc[10].button("🔄", key="nav_refresh", use_container_width=True, help="Atualizar dados"):
     st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('<hr style="margin:0.2rem 0 1rem 0;border-color:rgba(0,0,0,0.1)">', unsafe_allow_html=True)
+st.markdown('<hr style="margin:0.1rem 0 0.75rem 0;border-color:rgba(0,0,0,0.1)">', unsafe_allow_html=True)
 
 page = st.session_state["page"]
 
