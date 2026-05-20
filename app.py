@@ -78,6 +78,20 @@ h1 {
 [data-testid="stSidebar"] {
     background-color: #FFFFFF;
     border-right: 1px solid rgba(76,77,88,0.08);
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+[data-testid="stSidebar"] > div:first-child {
+    height: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+}
+[data-testid="stSidebarContent"] {
+    height: 100% !important;
+    overflow-y: auto !important;
+    padding-bottom: 1rem !important;
 }
 
 /* ── Sidebar nav buttons ─────────────────────────────────── */
@@ -334,6 +348,10 @@ if page == "📋 Backlog":
             st.error(msg)
 
     # ── Toolbar: 3 botões lado a lado, painel abre abaixo ──────────────────────
+    st.markdown(
+        "<style>div[data-testid='stButton'] > button { white-space: nowrap !important; }</style>",
+        unsafe_allow_html=True,
+    )
     if "backlog_panel" not in st.session_state:
         st.session_state["backlog_panel"] = None
 
@@ -341,7 +359,7 @@ if page == "📋 Backlog":
         st.session_state["backlog_panel"] = None if st.session_state["backlog_panel"] == name else name
 
     _panel = st.session_state["backlog_panel"]
-    _tb1, _tb2, _tb3, _ = st.columns([1.1, 1.0, 1.1, 6.8])
+    _tb1, _tb2, _tb3, _ = st.columns([2.5, 2, 2, 3.5])
 
     with _tb1:
         _active = _panel == "legenda"
@@ -507,7 +525,7 @@ if page == "📋 Backlog":
     _CLOSED = {"concluído", "descartado"}
 
     # ── Filtros + toggle de view na mesma linha ─────────────────────────────────
-    col_f1, col_f2, col_f3, col_f4 = st.columns([1.2, 1.8, 4, 1])
+    col_f1, col_f2, col_f3, col_f4 = st.columns([1.2, 1.8, 1.4, 4.6])
     with col_f1:
         filter_priority = st.multiselect("Priority", VALID_PRIORITIES, placeholder="All",
                                          format_func=lambda x: PRIORITY_LABEL.get(x, x))
@@ -515,9 +533,9 @@ if page == "📋 Backlog":
         filter_status = st.multiselect("Status", VALID_STATUSES, placeholder="All statuses",
                                        format_func=lambda x: STATUS_LABEL.get(x, x))
     with col_f3:
-        filter_text = st.text_input("Search", placeholder="Title, description or notes...")
+        view_mode = st.radio("View", ["List", "Kanban"], horizontal=True, key="view_mode")
     with col_f4:
-        view_mode = st.radio("View", ["List", "Kanban"], horizontal=False, key="view_mode", label_visibility="hidden")
+        filter_text = st.text_input("Search", placeholder="Title, description or notes...")
 
     show_closed = st.checkbox("Show closed (Done · Discarded)", value=False)
 
@@ -558,8 +576,9 @@ if page == "📋 Backlog":
                 for idea in group:
                     picon = PRIORITY_ICON.get(idea.priority, "⚪")
                     card_col, edit_col = col.columns([5, 1])
+                    _ktitle = idea.title.replace("**", "").strip()
                     card_col.markdown(
-                        f"{picon} `{idea.id}`  \n**{idea.title[:45]}**"
+                        f"{picon} `{idea.id}`  \n**{_ktitle[:45]}**"
                         + (f"  \n📅 {idea.due_date.strftime('%d/%m/%y')}" if idea.due_date else "")
                     )
                     if edit_col.button("✏️", key=f"kb_edit_{idea.id}", help="Edit"):
@@ -574,7 +593,7 @@ if page == "📋 Backlog":
             st.caption(f"{len(filtered)} item(s)")
 
             # Column headers
-            _h1, _h2, _h3, _h4 = st.columns([0.06, 0.09, 0.05, 0.80])
+            _h1, _h2, _h3, _h4 = st.columns([0.06, 0.09, 0.04, 0.81])
             _h1.caption("ID")
             _h2.caption("Prio")
             _h3.caption("Status")
@@ -586,20 +605,23 @@ if page == "📋 Backlog":
                 status_icon = STATUS_COLOR.get(idea.status, _sdot("backlog"))
                 todos_done = sum(1 for t in idea.todos if t["done"])
                 todos_total = len(idea.todos)
+                bug_count = sum(1 for t in idea.todos if t.get("is_bug") and not t.get("done"))
                 due_flag = "  📅" if idea.due_date and idea.due_date < today else ""
                 badge = f"  `{todos_done}/{todos_total}`" if todos_total else ""
+                bug_badge = f"  🐛`{bug_count}`" if bug_count else ""
                 short_id = idea.id.replace("idea-", "")
+                _clean_title = idea.title.replace("**", "").strip()
 
                 exp_key = f"exp_{idea.id}"
                 if exp_key not in st.session_state:
                     st.session_state[exp_key] = False
 
-                c1, c2, c3, c4 = st.columns([0.06, 0.09, 0.05, 0.80])
+                c1, c2, c3, c4 = st.columns([0.06, 0.09, 0.04, 0.81])
                 c1.markdown(f"**{short_id}**")
                 c2.markdown(prio_icon, unsafe_allow_html=True)
                 c3.markdown(status_icon, unsafe_allow_html=True)
                 if c4.button(
-                    f"{idea.title}{badge}{due_flag}",
+                    f"{_clean_title}{badge}{bug_badge}{due_flag}",
                     key=f"row_btn_{idea.id}",
                     use_container_width=True,
                 ):
@@ -741,19 +763,24 @@ if page == "📋 Backlog":
 
                         st.markdown(
                             "<style>"
-                            ".todo-row-del button { padding:0 4px!important; min-height:24px!important;"
+                            ".todo-row-del + div[data-testid='stButton'] > button {"
+                            " padding:0 4px!important; min-height:24px!important;"
                             " background:transparent!important; border:none!important;"
-                            " box-shadow:none!important; color:#bbb!important; font-size:0.85rem!important; }"
-                            ".todo-row-del button:hover { color:#d44!important; }"
+                            " box-shadow:none!important; color:#bbb!important; font-size:0.85rem!important;"
+                            " margin-top:8px!important; width:100%!important; }"
+                            ".todo-row-del + div[data-testid='stButton'] > button:hover {"
+                            " color:#fff!important; background:rgba(185,28,28,0.85)!important;"
+                            " border-radius:4px!important; }"
                             "</style>",
                             unsafe_allow_html=True,
                         )
                         _TODO_STATE_OPTS = ["⬜", "🔄", "✅"]
-                        h_state, h_txt, h_date, h_auto, h_del = st.columns([1.5, 6, 2, 0.5, 0.5])
-                        h_state.caption("⬜ · 🔄 · ✅")
-                        h_txt.markdown("**To-dos**")
+                        h_state, h_txt, h_date, h_auto, h_bug, h_del = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5])
+                        h_state.caption("Status")
+                        h_txt.caption("To-dos")
                         h_date.caption("📅 Prazo")
                         h_auto.caption("🤖")
+                        h_bug.caption("🐛")
                         updated_todos = []
                         deleted_idx_key = f"deleted_todo_idx_{idea.id}"
                         if deleted_idx_key not in st.session_state:
@@ -762,7 +789,7 @@ if page == "📋 Backlog":
                         for idx, todo in enumerate(idea.todos):
                             if idx in st.session_state[deleted_idx_key]:
                                 continue
-                            c_state, c_txt, c_date, c_auto, c_del = st.columns([1.5, 6, 2, 0.5, 0.5])
+                            c_state, c_txt, c_date, c_auto, c_bug, c_del = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
                             with c_state:
                                 if todo.get("done"):
                                     cur_idx = 2
@@ -801,9 +828,14 @@ if page == "📋 Backlog":
                                     "", value=todo.get("agente_autorizado", False),
                                     key=f"bl_auto_{idea.id}_{idx}",
                                 )
+                            with c_bug:
+                                is_bug_todo = st.checkbox(
+                                    "", value=todo.get("is_bug", False),
+                                    key=f"bl_bug_{idea.id}_{idx}",
+                                )
                             with c_del:
                                 st.markdown('<div class="todo-row-del">', unsafe_allow_html=True)
-                                if st.button("×", key=f"del_todo_{idea.id}_{idx}"):
+                                if st.button("×", key=f"del_todo_{idea.id}_{idx}", use_container_width=True):
                                     st.session_state[deleted_idx_key].add(idx)
                                     st.rerun()
                                 st.markdown('</div>', unsafe_allow_html=True)
@@ -819,6 +851,7 @@ if page == "📋 Backlog":
                                 "due_date": str(todo_due) if todo_due else None,
                                 "completed_at": completed_at,
                                 "agente_autorizado": auto,
+                                "is_bug": is_bug_todo,
                             })
 
                         staged_key = f"staged_todos_{idea.id}"
@@ -833,40 +866,50 @@ if page == "📋 Backlog":
                                 st.session_state[staged_key].pop(_si)
                                 st.rerun()
 
-                        c_new_txt, c_new_date, c_new_auto, c_add = st.columns([4.5, 2, 0.6, 0.9])
-                        with c_new_txt:
+                        # New todo row — same columns as existing rows for alignment
+                        _nc0, _nc_txt, _nc_date, _nc_auto, _nc_bug, _nc_add = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
+                        with _nc0:
+                            st.markdown('<div style="padding-top:8px;color:#ccc;text-align:center;font-size:0.9rem">+</div>', unsafe_allow_html=True)
+                        with _nc_txt:
                             new_todo_text = st.text_input(
-                                "", placeholder="+ New to-do...",
+                                "", placeholder="New to-do...",
                                 key=f"bl_new_txt_{idea.id}",
                                 label_visibility="collapsed",
                             )
-                        with c_new_date:
+                        with _nc_date:
                             new_todo_due = st.date_input(
                                 "", value=None,
                                 key=f"bl_new_due_{idea.id}",
                                 format="DD/MM/YYYY",
                                 label_visibility="collapsed",
                             )
-                        with c_new_auto:
+                        with _nc_auto:
                             new_todo_auto = st.checkbox(
-                                "🤖", value=False,
+                                "", value=False,
                                 key=f"bl_new_auto_{idea.id}",
-                                help="Autorizar agente a executar esta tarefa",
                             )
-                        with c_add:
+                        with _nc_bug:
+                            new_todo_bug = st.checkbox(
+                                "", value=False,
+                                key=f"bl_new_bug_{idea.id}",
+                            )
+                        with _nc_add:
+                            st.markdown('<div class="todo-row-del">', unsafe_allow_html=True)
                             if st.button("➕", key=f"add_todo_btn_{idea.id}",
                                          disabled=not new_todo_text.strip(),
-                                         help="Stage this to-do (add another without saving)"):
+                                         use_container_width=True):
                                 st.session_state[staged_key].append({
                                     "text": new_todo_text.strip(),
                                     "done": False,
                                     "due_date": str(new_todo_due) if new_todo_due else None,
                                     "agente_autorizado": new_todo_auto,
+                                    "is_bug": new_todo_bug,
                                 })
                                 st.session_state.pop(f"bl_new_txt_{idea.id}", None)
                                 st.session_state.pop(f"bl_new_due_{idea.id}", None)
-                                st.session_state.pop(f"bl_new_auto_{idea.id}", None)
+                                st.session_state.pop(f"bl_new_bug_{idea.id}", None)
                                 st.rerun()
+                            st.markdown('</div>', unsafe_allow_html=True)
 
                         for _stgd in st.session_state.get(staged_key, []):
                             updated_todos.append(_stgd)
@@ -876,6 +919,7 @@ if page == "📋 Backlog":
                                 "done": False,
                                 "due_date": str(new_todo_due) if new_todo_due else None,
                                 "agente_autorizado": new_todo_auto,
+                                "is_bug": new_todo_bug,
                             })
 
                         if current_tips:
@@ -887,7 +931,22 @@ if page == "📋 Backlog":
                             )
                             st.info(current_tips)
 
-                        col_save, col_del, _ = st.columns([1, 1, 3])
+                        st.markdown(
+                            "<style>"
+                            "div[data-testid='stMarkdown']:has(.save-del-marker)"
+                            " ~ div[data-testid='stColumns']"
+                            " > div[data-testid='column']:nth-child(2) button"
+                            "{ border-color:rgba(185,28,28,0.5)!important; color:#B91C1C!important; }"
+                            "div[data-testid='stMarkdown']:has(.save-del-marker)"
+                            " ~ div[data-testid='stColumns']"
+                            " > div[data-testid='column']:nth-child(2) button:hover"
+                            "{ background:rgba(185,28,28,0.85)!important; color:#fff!important;"
+                            " border-color:#B91C1C!important; }"
+                            "</style>"
+                            '<div class="save-del-marker"></div>',
+                            unsafe_allow_html=True,
+                        )
+                        col_save, col_del, _ = st.columns([1, 1, 3], vertical_alignment="center")
                         with col_save:
                             if st.button("💾 Save", key=f"save_{idea.id}", type="primary"):
                                 old_status = idea.status
@@ -964,6 +1023,7 @@ elif page == "✅ To-Do List":
                 "priority": idea.priority,
                 "area": idea.area or "—",
                 "status": idea.status,
+                "is_bug": todo.get("is_bug", False),
                 "todo_idx": idx,
                 "text": todo["text"],
                 "done": todo["done"],
@@ -975,7 +1035,7 @@ elif page == "✅ To-Do List":
     if not all_todos:
         st.info("No to-dos found. Add to-dos to ideas in the Backlog.")
     else:
-        col_a, col_b, col_c = st.columns([2, 2, 2])
+        col_a, col_b, col_c, col_d = st.columns([2, 2, 2, 1])
         with col_a:
             show_filter = st.radio("Show", ["Pending", "Done", "All"], horizontal=True)
         with col_b:
@@ -983,6 +1043,8 @@ elif page == "✅ To-Do List":
             filter_area = st.selectbox("Area", ["All"] + areas)
         with col_c:
             group_by = st.radio("Group by", ["Priority", "Idea", "Area", "Date"], index=3, horizontal=True)
+        with col_d:
+            filter_bugs = st.checkbox("🐛 Bugs", value=False, key="tdl_bugs_only")
 
         filtered_todos = all_todos
         if show_filter == "Pending":
@@ -991,6 +1053,8 @@ elif page == "✅ To-Do List":
             filtered_todos = [t for t in filtered_todos if t["done"]]
         if filter_area != "All":
             filtered_todos = [t for t in filtered_todos if t["area"] == filter_area]
+        if filter_bugs:
+            filtered_todos = [t for t in filtered_todos if t.get("is_bug")]
 
         prio_order = {"alta": 0, "média": 1, "baixa": 2}
         filtered_todos.sort(key=lambda t: (prio_order.get(t["priority"], 9), t["idea_id"]))
@@ -1092,7 +1156,7 @@ elif page == "✅ To-Do List":
                 if not idea:
                     continue
 
-                c_id, c_prio, c_status, c_chk, c_text, c_info = st.columns([0.09, 0.07, 0.04, 0.12, 0.50, 0.18])
+                c_id, c_prio, c_status, c_chk, c_text, c_bug, c_info = st.columns([0.09, 0.07, 0.04, 0.12, 0.44, 0.06, 0.18])
 
                 short = str(int(item["idea_id"].replace("idea-", "")))
                 if c_id.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
@@ -1128,6 +1192,15 @@ elif page == "✅ To-Do List":
                         text_md = item["text"]
                     st.markdown(text_md)
                     st.caption(f"`{item['idea_id']}` {item['idea_title'][:45]}")
+
+                with c_bug:
+                    if item.get("is_bug"):
+                        st.markdown(
+                            '<span style="display:inline-block;background:#FEE2E2;color:#B91C1C;'
+                            'font-size:10px;font-weight:700;letter-spacing:.04em;padding:2px 5px;'
+                            'border-radius:3px;margin-top:4px">BUG</span>',
+                            unsafe_allow_html=True,
+                        )
 
                 with c_info:
                     due_str = ""
@@ -1244,10 +1317,13 @@ elif page == "📊 Dashboard":
             for idea in ranked[:8]:
                 s = _score(idea)
                 icon = PRIORITY_ICON.get(idea.priority, "⚪")
+                _clean_title = idea.title.replace("**", "").strip()
                 st.markdown(
-                    f"{icon} `{idea.id}` **{idea.title[:40]}**  \n"
-                    f"&nbsp;&nbsp;&nbsp;Impact: {IMPACT_LABEL.get(idea.impacto, idea.impacto)} · Effort: {EFFORT_LABEL.get(idea.esforco, idea.esforco)} · Score: **{s}**"
+                    f"{icon} `{idea.id}` **{_clean_title[:40]}**  \n"
+                    f"&nbsp;&nbsp;&nbsp;Impact: {IMPACT_LABEL.get(idea.impacto, idea.impacto)} · "
+                    f"Effort: {EFFORT_LABEL.get(idea.esforco, idea.esforco)} · Score: **{s}**"
                 )
+                st.markdown('<div style="margin-bottom:0.6rem"></div>', unsafe_allow_html=True)
 
     st.divider()
 
@@ -1489,10 +1565,10 @@ elif page == "🗓️ Weekly Brief":
     with _ctrl2:
         st.markdown("<br>", unsafe_allow_html=True)
         _c1, _c2, _c3, _c4 = st.columns(4)
-        _show_devs  = _c1.checkbox("🚀 Desenvolvimentos", value=True,  key="wb_devs")
-        _show_wip   = _c2.checkbox("🔄 Em andamento",     value=True,  key="wb_wip")
-        _show_team  = _c3.checkbox("👥 Time",             value=True,  key="wb_team")
-        _show_calls = _c4.checkbox("📞 Calls",            value=True,  key="wb_calls")
+        _show_devs  = _c1.checkbox("🚀 Devs",   value=True, key="wb_devs")
+        _show_wip   = _c2.checkbox("🔄 WIP",    value=True, key="wb_wip")
+        _show_team  = _c3.checkbox("👥 Time",   value=True, key="wb_team")
+        _show_calls = _c4.checkbox("📞 Calls",  value=True, key="wb_calls")
 
     st.caption(f"Período: **{_start.strftime('%d/%m/%Y')}** → **{date.today().strftime('%d/%m/%Y')}**")
     st.divider()
@@ -1551,16 +1627,35 @@ elif page == "🗓️ Weekly Brief":
             if ("status:" in e["detail"] or e["action"] == "CRIADA") and key not in _seen:
                 _seen.add(key); _devs.append(e)
 
-        _export.append("## 🚀 Desenvolvimentos")
+        _export.append("## Desenvolvimentos")
         if not _devs:
             st.info("Nenhum desenvolvimento registrado no período.")
             _export.append("_Sem desenvolvimentos registrados._")
         else:
+            _TH = "padding:7px 12px;text-align:left;font-weight:500;font-size:12px;color:rgba(76,77,88,0.55);border-bottom:1px solid rgba(76,77,88,0.18);white-space:nowrap"
+            _TD = "padding:7px 12px;font-size:13px;border-bottom:1px solid rgba(76,77,88,0.07);vertical-align:top"
+            _TD_ID = _TD + ";white-space:nowrap;font-family:monospace;font-size:12px;color:#02B793"
+            _rows = ""
             for e in _devs:
-                _icon = "🆕" if e["action"] == "CRIADA" else "🔄"
-                _detail = f" — `{e['detail'].replace('status:', '→').strip()}`" if e["detail"] else ""
-                st.markdown(f"{_icon} **[{e['idea_id']}]** {e['title']}{_detail}")
-                _export.append(f"- {_icon} [{e['idea_id']}] {e['title']}" + (f" ({e['detail']})" if e["detail"] else ""))
+                _tipo = "Criada" if e["action"] == "CRIADA" else "Status"
+                _mudanca = e["detail"].replace("status:", "").replace("->", "→").strip() if e["detail"] else "—"
+                _rows += (
+                    f'<tr><td style="{_TD_ID}">{e["idea_id"]}</td>'
+                    f'<td style="{_TD}">{e["title"]}</td>'
+                    f'<td style="{_TD}">{_tipo}</td>'
+                    f'<td style="{_TD}">{_mudanca}</td></tr>'
+                )
+                _export.append(f"| {e['idea_id']} | {e['title']} | {_tipo} | {_mudanca} |")
+            st.markdown(
+                f'<table style="width:100%;border-collapse:collapse">'
+                f'<thead><tr>'
+                f'<th style="{_TH}">ID</th>'
+                f'<th style="{_TH}">Título</th>'
+                f'<th style="{_TH}">Tipo</th>'
+                f'<th style="{_TH}">Mudança</th>'
+                f'</tr></thead><tbody>{_rows}</tbody></table>',
+                unsafe_allow_html=True,
+            )
         _export.append(""); st.divider()
 
     # ── Section 2: Em andamento ───────────────────────────────────────────────
@@ -1571,30 +1666,75 @@ elif page == "🗓️ Weekly Brief":
         _upcoming  = [i for i in _ideas if i.due_date and _today <= i.due_date <= _today + timedelta(days=7)
                       and i.status not in ("concluído", "descartado")]
 
-        _export.append("## 🔄 Em andamento")
+        _export.append("## Em andamento")
         if not _active and not _wip_todos and not _upcoming:
             st.info("Nenhum item em andamento no momento.")
             _export.append("_Sem itens em andamento._")
         else:
+            _TH2 = "padding:7px 12px;text-align:left;font-weight:500;font-size:12px;color:rgba(76,77,88,0.55);border-bottom:1px solid rgba(76,77,88,0.18);white-space:nowrap"
+            _TD2 = "padding:7px 12px;font-size:13px;border-bottom:1px solid rgba(76,77,88,0.07);vertical-align:top"
+            _TD2_ID = _TD2 + ";white-space:nowrap;font-family:monospace;font-size:12px;color:#02B793"
             if _active:
-                st.markdown("**Ideias em desenvolvimento:**")
+                st.caption("Ideias em desenvolvimento")
+                _rows2 = ""
                 for i in _active:
-                    dot = STATUS_COLOR.get(i.status, "")
-                    st.markdown(f"  {dot} **{i.id}** {i.title} — _{STATUS_LABEL.get(i.status, i.status)}_", unsafe_allow_html=True)
-                    _export.append(f"- [{i.id}] {i.title} — {STATUS_LABEL.get(i.status, i.status)}")
+                    _rows2 += (
+                        f'<tr><td style="{_TD2_ID}">{i.id}</td>'
+                        f'<td style="{_TD2}">{i.title.replace("**","").strip()}</td>'
+                        f'<td style="{_TD2}">{STATUS_LABEL.get(i.status, i.status)}</td></tr>'
+                    )
+                    _export.append(f"| {i.id} | {i.title} | {STATUS_LABEL.get(i.status, i.status)} |")
+                st.markdown(
+                    f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
+                    f'<thead><tr>'
+                    f'<th style="{_TH2}">ID</th>'
+                    f'<th style="{_TH2}">Título</th>'
+                    f'<th style="{_TH2}">Status</th>'
+                    f'</tr></thead><tbody>{_rows2}</tbody></table>',
+                    unsafe_allow_html=True,
+                )
             if _wip_todos:
-                st.markdown("**To-dos em andamento:**")
+                st.caption("To-dos em andamento")
+                _rows3 = ""
                 for i, t in _wip_todos:
-                    _due = f" _(vence {t['due_date']})_" if t.get("due_date") else ""
-                    st.markdown(f"  🔄 {t['text']}{_due} — `{i.id}`")
-                    _export.append(f"- 🔄 {t['text']} ({i.id})")
+                    _due_str = t["due_date"] if t.get("due_date") else "—"
+                    _rows3 += (
+                        f'<tr><td style="{_TD2}">{t["text"]}</td>'
+                        f'<td style="{_TD2_ID}">{i.id}</td>'
+                        f'<td style="{_TD2}">{_due_str}</td></tr>'
+                    )
+                    _export.append(f"| {t['text']} | {i.id} | {_due_str} |")
+                st.markdown(
+                    f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
+                    f'<thead><tr>'
+                    f'<th style="{_TH2}">To-do</th>'
+                    f'<th style="{_TH2}">Ideia</th>'
+                    f'<th style="{_TH2}">Prazo</th>'
+                    f'</tr></thead><tbody>{_rows3}</tbody></table>',
+                    unsafe_allow_html=True,
+                )
             if _upcoming:
-                st.markdown("**Vencendo em 7 dias:**")
+                st.caption("Vencendo em 7 dias")
+                _rows4 = ""
                 for i in _upcoming:
                     _dl = (i.due_date - _today).days
-                    _col = "#EF4444" if _dl <= 2 else "#F59E0B"
-                    st.markdown(f'  <span style="color:{_col}">⏰</span> **{i.id}** {i.title} — vence {i.due_date.strftime("%d/%m")}', unsafe_allow_html=True)
-                    _export.append(f"- ⏰ [{i.id}] {i.title} — vence {i.due_date.strftime('%d/%m')}")
+                    _urgency = "vermelho" if _dl <= 2 else "amarelo"
+                    _color = "#EF4444" if _dl <= 2 else "#F59E0B"
+                    _rows4 += (
+                        f'<tr><td style="{_TD2_ID}">{i.id}</td>'
+                        f'<td style="{_TD2}">{i.title.replace("**","").strip()}</td>'
+                        f'<td style="{_TD2};color:{_color};font-weight:500">{i.due_date.strftime("%d/%m")} ({_dl}d)</td></tr>'
+                    )
+                    _export.append(f"| {i.id} | {i.title} | vence {i.due_date.strftime('%d/%m')} |")
+                st.markdown(
+                    f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
+                    f'<thead><tr>'
+                    f'<th style="{_TH2}">ID</th>'
+                    f'<th style="{_TH2}">Título</th>'
+                    f'<th style="{_TH2}">Vence em</th>'
+                    f'</tr></thead><tbody>{_rows4}</tbody></table>',
+                    unsafe_allow_html=True,
+                )
         _export.append(""); st.divider()
 
     # ── Section 3: Status do time ─────────────────────────────────────────────

@@ -19,7 +19,8 @@ Write-Host ""
 
 # ── 1. Testes ─────────────────────────────────────────────────────────────────
 Write-Host "  [1/3] Rodando testes..." -ForegroundColor Cyan
-$result = & $PY -m pytest "$TB\tests" -q --tb=short --ignore="$TB\tests\test_config.py" 2>&1
+$env:TECHCOLAB_VAULT = "C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO"
+$result = & $PY -m pytest "$TB\tests" -q --tb=short 2>&1
 if ($LASTEXITCODE -eq 0) {
     $summary = ($result | Select-Object -Last 1)
     Write-Host "  [OK] Testes passaram -- $summary" -ForegroundColor Green

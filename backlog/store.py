@@ -41,7 +41,7 @@ _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 # Markers: [ ] = open, [>] = in progress, [x] = done
 # Optional suffixes (in order): @YYYY-MM-DD (due), ~YYYY-MM-DD (completed_at), {auto} (agent-authorised)
 _TODO_RE = re.compile(
-    r"^- \[(x|>| )\] (.+?)(?:\s+@(\d{4}-\d{2}-\d{2}))?(?:\s+~(\d{4}-\d{2}-\d{2}))?(?:\s+(\{auto\}))?$",
+    r"^- \[(x|>| )\] (.+?)(?:\s+@(\d{4}-\d{2}-\d{2}))?(?:\s+~(\d{4}-\d{2}-\d{2}))?(?:\s+(\{auto\}))?(?:\s+(\{bug\}))?$",
     re.MULTILINE,
 )
 
@@ -57,6 +57,7 @@ def _parse_todos(text: str) -> list[dict]:
             "due_date": m.group(3),
             "completed_at": m.group(4),
             "agente_autorizado": m.group(5) is not None,
+            "is_bug": m.group(6) is not None,
         })
     return results
 
@@ -77,6 +78,8 @@ def _render_todos(todos: list[dict]) -> str:
             line += f" ~{t['completed_at']}"
         if t.get("agente_autorizado"):
             line += " {auto}"
+        if t.get("is_bug"):
+            line += " {bug}"
         lines.append(line)
     return "\n".join(lines)
 
@@ -165,6 +168,7 @@ class BacklogStore:
             notes=notes,
             claude_tips=claude_tips or None,
             agente_autorizado=bool(fm.get("agente_autorizado", False)),
+            is_bug=bool(fm.get("is_bug", False)),
         )
 
     def load_by_id(self, idea_id: str) -> Optional[Idea]:

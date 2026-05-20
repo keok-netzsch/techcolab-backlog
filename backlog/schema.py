@@ -21,6 +21,7 @@ VALID_AREAS = [
     "negócio",
     "infraestrutura",
     "IA",
+    "call-recorder",
 ]
 
 VALID_STATUSES = [
@@ -56,6 +57,7 @@ class Idea:
     notes: Optional[str] = None          # free-form observations
     claude_tips: Optional[str] = None    # markdown bullets generated via Ollama
     agente_autorizado: bool = False      # pre-approves todos in the daily report
+    is_bug: bool = False                 # marks this idea as a bug/issue
 
     def to_frontmatter(self) -> dict:
         return {
@@ -71,4 +73,5 @@ class Idea:
             "impacto": self.impacto or "",
             "esforco": self.esforco or "",
             "agente_autorizado": self.agente_autorizado,
+            "is_bug": self.is_bug,
         }
