@@ -86,6 +86,7 @@ html, body { overflow: hidden !important; height: 100vh !important; }
 }
 
 /* ── Sidebar ─────────────────────────────────────────────── */
+[data-testid="stSidebarCollapseButton"] { display: none !important; }
 [data-testid="stSidebar"] {
     background-color: #FFFFFF;
     border-right: 1px solid rgba(76,77,88,0.08);
@@ -105,21 +106,25 @@ html, body { overflow: hidden !important; height: 100vh !important; }
     padding-bottom: 0.5rem !important;
     scrollbar-width: none !important;
 }
-[data-testid="stSidebarContent"]::-webkit-scrollbar {
-    display: none !important;
+[data-testid="stSidebarContent"]::-webkit-scrollbar { display: none !important; }
+
+/* ── Sidebar dividers ────────────────────────────────────── */
+[data-testid="stSidebar"] hr {
+    margin: 0.3rem 0 !important;
 }
 
 /* ── Sidebar nav buttons ─────────────────────────────────── */
 [data-testid="stSidebar"] .stButton > button {
     text-align: left !important;
     justify-content: flex-start !important;
-    border-radius: 8px !important;
-    font-size: 0.85rem !important;
+    border-radius: 6px !important;
+    font-size: 0.78rem !important;
     font-weight: 500 !important;
-    padding: 0.3rem 0.75rem !important;
-    margin-bottom: 1px !important;
+    padding: 0.18rem 0.6rem !important;
+    margin-bottom: 0 !important;
     border: none !important;
     width: 100% !important;
+    line-height: 1.6 !important;
 }
 [data-testid="stSidebar"] .stButton > button[kind="secondary"] {
     background: transparent !important;
@@ -203,7 +208,7 @@ if "page" not in st.session_state:
 
 with st.sidebar:
     st.markdown(
-        f'<div style="padding:0.6rem 0 0.5rem 0;display:flex;justify-content:center">{_LOGO_GREEN}</div>',
+        f'<div style="padding:0.4rem 0 0.3rem 0;display:flex;justify-content:center">{_LOGO_GREEN}</div>',
         unsafe_allow_html=True,
     )
     st.divider()
