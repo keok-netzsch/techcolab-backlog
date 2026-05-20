@@ -190,7 +190,7 @@ st.markdown(
 )
 
 # ── Sidebar: logo + navigation + reload ────────────────────────────────────────
-_PAGES_MAIN  = ["Backlog", "To-Do List", "Dashboard", "Claude Pro", "Weekly Brief", "English Coach"]
+_PAGES_MAIN  = ["Dashboard", "Backlog", "To-Do List", "Claude Pro", "Weekly Brief", "English Coach"]
 _PAGES_EXTRA = {"📖": "Tutorial", "📚": "Documentation"}
 
 if "page" not in st.session_state:
@@ -211,7 +211,7 @@ with st.sidebar:
             st.rerun()
 
     st.divider()
-    if st.button("🔄 Reload ideas", use_container_width=True, type="secondary"):
+    if st.button("🔄 Atualizar dados", use_container_width=True, type="secondary"):
         st.rerun()
 
     st.divider()
