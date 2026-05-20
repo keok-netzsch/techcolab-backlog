@@ -1,6 +1,5 @@
-# quick-push.ps1 — commit e push rápido durante o desenvolvimento
-# Sem rodar testes, sem pedir mensagem. Usa timestamp como mensagem.
-# Use durante o dia quando quiser salvar progresso no GitHub.
+# quick-push.ps1 — commit e push rapido sem testes
+# Uso: atalho "5. Push Rapido" no Desktop ou Raycast
 
 $TB  = "C:\Users\Kelvin.okuda\techcolab-backlog"
 $CR  = "C:\Users\Kelvin.okuda\Scripts\call-recorder"
@@ -15,17 +14,18 @@ function Push-Repo {
         git commit -m $MSG | Out-Null
         git push 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "  ✅ $Label pushed" -ForegroundColor Green
+            Write-Host "  [OK] $Label pushed" -ForegroundColor Green
         } else {
-            Write-Host "  ❌ $Label — erro no push" -ForegroundColor Red
+            Write-Host "  [ERR] $Label -- erro no push" -ForegroundColor Red
         }
     } else {
-        Write-Host "  ⬜ $Label — sem mudanças" -ForegroundColor DarkGray
+        Write-Host "  [--] $Label -- sem mudancas" -ForegroundColor DarkGray
     }
     Pop-Location
 }
 
+Write-Host ""
 Push-Repo -Dir $TB -Label "techcolab-backlog"
 Push-Repo -Dir $CR -Label "call-recorder"
-
+Write-Host ""
 Start-Sleep -Seconds 1

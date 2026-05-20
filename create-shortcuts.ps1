@@ -11,6 +11,8 @@ $psArgs   = "-ExecutionPolicy Bypass -NoExit -File"
 $ws       = New-Object -ComObject WScript.Shell
 
 New-Item -ItemType Directory -Force -Path $folder | Out-Null
+# Limpa atalhos antigos para evitar duplicatas ao renumerar
+Remove-Item "$folder\*.lnk" -Force -ErrorAction SilentlyContinue
 
 function New-Shortcut {
     param(
