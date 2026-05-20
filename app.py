@@ -194,7 +194,7 @@ _PAGES_MAIN  = ["Backlog", "To-Do List", "Dashboard", "Claude Pro", "Weekly Brie
 _PAGES_EXTRA = {"📖": "Tutorial", "📚": "Documentation"}
 
 if "page" not in st.session_state:
-    st.session_state["page"] = "Backlog"
+    st.session_state["page"] = "Dashboard"
 
 with st.sidebar:
     st.markdown(
@@ -1327,17 +1327,36 @@ elif page == "Dashboard":
     concluidas = sum(1 for i in ideas_all if i.status == "concluído")
     todos_done = sum(1 for t in todos_all if t["done"])
     todos_pending = sum(1 for t in todos_all if not t["done"])
+    bugs_open = sum(1 for t in todos_all if t.get("is_bug") and not t["done"])
 
-    m1, m2, m3, m4, m5 = st.columns(5)
+    m1, m2, m3, m4, m5, m6 = st.columns(6)
     m1.metric("Total ideas", total)
     m2.metric("Active", active)
-    m3.metric("Done", concluidas)
-    m4.metric("Pending to-dos", todos_pending)
-    m5.metric("Done to-dos", todos_done)
+    m3.metric("Concluídas", concluidas)
+    m4.metric("To-dos pendentes", todos_pending)
+    m5.metric("To-dos feitos", todos_done)
+    m6.metric("Bugs abertos", bugs_open)
 
     st.divider()
 
-    col_left, col_right = st.columns(2)
+    # ── To-dos com prazo hoje ou essa semana ─────────────────────────────────
+    _today_d = _date.today()
+    _week_end = _today_d + timedelta(days=7)
+    _due_soon: list[tuple] = []
+    for _t in todos_all:
+        if _t["done"]:
+            continue
+        _td = _t.get("due_date")
+        if _td:
+            try:
+                _d = _date.fromisoformat(str(_td)) if not isinstance(_td, _date) else _td
+                if _d <= _week_end:
+                    _due_soon.append((_d, _t))
+            except Exception:
+                pass
+    _due_soon.sort(key=lambda x: x[0])
+
+    col_left, col_right, col_due = st.columns(3)
 
     with col_left:
         st.subheader("By status")
@@ -1363,6 +1382,28 @@ elif page == "Dashboard":
             pct = count / total if total else 0
             st.markdown(f"{icon} **{PRIORITY_LABEL.get(p, p)}** — {count}")
             st.progress(pct)
+
+    with col_due:
+        st.subheader("Due this week")
+        if not _due_soon:
+            st.caption("Nenhum to-do vence hoje ou essa semana.")
+        else:
+            for _d, _t in _due_soon:
+                _is_overdue = _d < _today_d
+                _date_str = "Hoje" if _d == _today_d else _d.strftime("%d/%m")
+                _clr = "#EF4444" if _is_overdue else ("#F59E0B" if _d == _today_d else "#6B7280")
+                _bug_b = (
+                    ' <span style="background:#FEE2E2;color:#B91C1C;font-size:8px;'
+                    'font-weight:700;padding:1px 4px;border-radius:3px">BUG</span>'
+                    if _t.get("is_bug") else ""
+                )
+                st.markdown(
+                    f'<div style="padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.06)">'
+                    f'<span style="font-size:0.7rem;font-weight:600;color:{_clr}">{_date_str}</span>'
+                    f'&nbsp;<span style="font-size:0.81rem;color:#374151">{_t["text"][:48]}</span>{_bug_b}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
     st.divider()
 
@@ -1476,141 +1517,6 @@ elif page == "Dashboard":
     if st.button("📋 Generate period report"):
         _report_dialog()
 
-    st.divider()
-    st.subheader("Coach de Tokens")
-    st.caption("Analise seu padrão de uso e descubra onde você está deixando valor na mesa.")
-
-    with st.expander("Abrir coach", expanded=False):
-        with st.expander("❓ Como usar esta calculadora", expanded=False):
-            st.markdown(
-                "**Passo 1 — Ajuste os sliders** conforme seu uso real do Claude:\n\n"
-                "| Campo | O que preencher |\n"
-                "|---|---|\n"
-                "| **Mensagens/dia** | Conte quantas vezes você envia uma mensagem ao Claude em um dia típico de trabalho. Inclua todas as ferramentas (Claude.ai, Claude Code, API). |\n"
-                "| **Tipo de conversa** | Escolha o formato que representa a maioria das suas sessões. Dica: se você cola arquivos ou código inteiro, provavelmente é Longa ou Projeto. |\n\n"
-                "**Passo 2 — Leia o score** no painel direito. Ele combina dois fatores:\n"
-                "- *Aproveitamento de contexto* — o quanto da janela de 200K você usa por mensagem\n"
-                "- *Frequência* — quantas interações você realiza por dia\n\n"
-                "**Passo 3 — Leia o diagnóstico.** Cada erro listado abaixo tem uma correção prática. "
-                "Ajuste um slider de cada vez para ver como seu score muda conforme você adota o comportamento recomendado.\n\n"
-                "> 💡 **Dica:** os tipos de conversa usam tokens médios estimados — "
-                "Curta (~1.5K), Média (~8K), Longa (~30K), Projeto (~80K). "
-                "Quanto mais contexto você fornece (arquivos, histórico, exemplos), mais você sobe na escala."
-            )
-        col_tc_a, col_tc_b = st.columns([1, 1])
-        with col_tc_a:
-            msgs_day = st.slider("Mensagens/dia ao Claude", 1, 100, 20, key="tk_msgs")
-            conv_type = st.radio(
-                "Tipo de conversa predominante",
-                ["Curta (~1.5K tokens)", "Média (~8K)", "Longa (~30K)", "Projeto (~80K)"],
-                horizontal=True, key="tk_type",
-            )
-        _token_map = {
-            "Curta (~1.5K tokens)": 1_500,
-            "Média (~8K)": 8_000,
-            "Longa (~30K)": 30_000,
-            "Projeto (~80K)": 80_000,
-        }
-        tokens_per_msg = _token_map[conv_type]
-        day_tokens = msgs_day * tokens_per_msg
-        month_tokens = day_tokens * 22
-        ctx_pct = min(99.0, tokens_per_msg / 200_000 * 100)
-
-        # Scoring: context utilization (0-100)
-        if ctx_pct < 1:
-            ctx_score = 10
-        elif ctx_pct < 10:
-            ctx_score = 10 + int((ctx_pct - 1) / 9 * 50)
-        elif ctx_pct < 50:
-            ctx_score = 60 + int((ctx_pct - 10) / 40 * 40)
-        else:
-            ctx_score = 100
-
-        # Scoring: frequency
-        if msgs_day < 5:
-            freq_score = 20
-        elif msgs_day < 15:
-            freq_score = 20 + int((msgs_day - 5) / 10 * 60)
-        elif msgs_day <= 40:
-            freq_score = 80 + int((msgs_day - 15) / 25 * 20)
-        else:
-            freq_score = max(70, 100 - int((msgs_day - 40) / 60 * 30))
-
-        overall = (ctx_score + freq_score) // 2
-        score_color = "#059669" if overall >= 70 else ("#F59E0B" if overall >= 40 else "#EF4444")
-        score_label = "Excelente" if overall >= 80 else ("Bom" if overall >= 60 else ("Regular" if overall >= 40 else "Baixo"))
-
-        with col_tc_b:
-            r1, r2, r3 = st.columns(3)
-            r1.metric("Tokens/dia", f"{day_tokens/1000:.0f}K" if day_tokens >= 1000 else str(day_tokens))
-            r2.metric("Tokens/mês", f"{month_tokens/1_000_000:.1f}M" if month_tokens >= 1_000_000 else f"{month_tokens/1000:.0f}K")
-            r3.metric("% contexto/msg", f"{ctx_pct:.1f}%")
-            st.markdown(
-                f'<div style="margin-top:0.6rem;padding:0.5rem 0.75rem;border-radius:8px;'
-                f'background:rgba(0,0,0,0.05);border-left:4px solid {score_color}">'
-                f'<span style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:.04em">Aproveitamento geral</span><br>'
-                f'<span style="font-size:1.6rem;font-weight:800;color:{score_color}">{overall}/100</span>'
-                f'&nbsp;<span style="font-size:0.85rem;color:{score_color}">— {score_label}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            st.progress(overall / 100)
-
-        # Coach diagnosis
-        issues: list[tuple[str, str]] = []  # (error, tip)
-
-        if tokens_per_msg < 5_000:
-            issues.append((
-                f"**Contexto desperdiçado** — Cada mensagem usa apenas {ctx_pct:.1f}% dos 200K tokens disponíveis. "
-                f"Você está deixando {100 - ctx_pct:.0f}% do potencial ocioso.",
-                "Inclua o arquivo completo (não só o trecho relevante), descreva o contexto do projeto, "
-                "adicione exemplos do comportamento esperado. Claude responde proporcionalmente ao contexto que recebe.",
-            ))
-
-        if msgs_day < 8:
-            issues.append((
-                f"**Frequência muito baixa** — {msgs_day} mensagens/dia é uso esporádico. "
-                "Menos de 8 interações diárias indicam que o Claude ainda não está integrado ao seu fluxo real de trabalho.",
-                "Traga também problemas menores — revisão de e-mails, rascunho de mensagens, análise rápida de dados. "
-                "O valor do Claude Pro se acumula no hábito diário, não nos grandes projetos esporádicos.",
-            ))
-
-        if msgs_day > 50 and tokens_per_msg < 8_000:
-            issues.append((
-                f"**Fragmentação excessiva** — {msgs_day} mensagens curtas/dia indica que você quebra problemas em micro-perguntas. "
-                "Cada nova conversa descarta todo o contexto acumulado da sessão anterior.",
-                "Consolide: ao invés de 10 perguntas rápidas sobre um mesmo tema, abra uma sessão, explique tudo de uma vez "
-                "e conduza uma conversa longa e estruturada. 5 mensagens longas valem mais do que 50 curtas.",
-            ))
-
-        if tokens_per_msg >= 30_000:
-            issues.append((
-                "**Risco de truncamento de contexto** — Sessões de 30K+ tokens ocupam 15%+ da janela. "
-                "Em longas iterações, o Claude pode perder o início da conversa.",
-                "Use /clear (Claude Code) ou abra nova conversa ao mudar de subtópico. "
-                "Prefira sessões focadas por domínio a uma mega-sessão com tudo misturado.",
-            ))
-
-        st.markdown("---")
-        if not issues:
-            st.success("🏆 Padrão exemplar! Frequência e profundidade estão bem calibradas. Continue assim.")
-        else:
-            st.markdown(f"**⚠️ {len(issues)} erro(s) identificado(s) no seu padrão**")
-            for i, (err, tip) in enumerate(issues, 1):
-                st.markdown(
-                    f'<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;border-radius:6px;'
-                    f'border-left:3px solid #EF4444;background:rgba(239,68,68,0.05)">'
-                    f'<span style="font-size:0.72rem;color:#EF4444;font-weight:700">ERRO {i}</span><br>{err}'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div style="margin:-0.2rem 0 0.6rem 0;padding:0.5rem 0.75rem;border-radius:6px;'
-                    f'border-left:3px solid #059669;background:rgba(5,150,105,0.05)">'
-                    f'<span style="font-size:0.72rem;color:#059669;font-weight:700">COMO CORRIGIR</span><br>{tip}'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2267,6 +2173,139 @@ elif page == "Claude Pro":
             f"Relatório não encontrado em `{CLAUDE_PRO_REPORT_HTML}`. "
             "Execute o agente diário para gerar o arquivo."
         )
+
+    st.divider()
+    st.subheader("Coach de Tokens")
+    st.caption("Analise seu padrão de uso e descubra onde você está deixando valor na mesa.")
+
+    with st.expander("Abrir coach", expanded=False):
+        with st.expander("❓ Como usar esta calculadora", expanded=False):
+            st.markdown(
+                "**Passo 1 — Ajuste os sliders** conforme seu uso real do Claude:\n\n"
+                "| Campo | O que preencher |\n"
+                "|---|---|\n"
+                "| **Mensagens/dia** | Conte quantas vezes você envia uma mensagem ao Claude em um dia típico de trabalho. Inclua todas as ferramentas (Claude.ai, Claude Code, API). |\n"
+                "| **Tipo de conversa** | Escolha o formato que representa a maioria das suas sessões. Dica: se você cola arquivos ou código inteiro, provavelmente é Longa ou Projeto. |\n\n"
+                "**Passo 2 — Leia o score** no painel direito. Ele combina dois fatores:\n"
+                "- *Aproveitamento de contexto* — o quanto da janela de 200K você usa por mensagem\n"
+                "- *Frequência* — quantas interações você realiza por dia\n\n"
+                "**Passo 3 — Leia o diagnóstico.** Cada erro listado abaixo tem uma correção prática. "
+                "Ajuste um slider de cada vez para ver como seu score muda conforme você adota o comportamento recomendado.\n\n"
+                "> 💡 **Dica:** os tipos de conversa usam tokens médios estimados — "
+                "Curta (~1.5K), Média (~8K), Longa (~30K), Projeto (~80K). "
+                "Quanto mais contexto você fornece (arquivos, histórico, exemplos), mais você sobe na escala."
+            )
+        col_tc_a, col_tc_b = st.columns([1, 1])
+        with col_tc_a:
+            msgs_day = st.slider("Mensagens/dia ao Claude", 1, 100, 20, key="tk_msgs")
+            conv_type = st.radio(
+                "Tipo de conversa predominante",
+                ["Curta (~1.5K tokens)", "Média (~8K)", "Longa (~30K)", "Projeto (~80K)"],
+                horizontal=True, key="tk_type",
+            )
+        _token_map = {
+            "Curta (~1.5K tokens)": 1_500,
+            "Média (~8K)": 8_000,
+            "Longa (~30K)": 30_000,
+            "Projeto (~80K)": 80_000,
+        }
+        tokens_per_msg = _token_map[conv_type]
+        day_tokens = msgs_day * tokens_per_msg
+        month_tokens = day_tokens * 22
+        ctx_pct = min(99.0, tokens_per_msg / 200_000 * 100)
+
+        if ctx_pct < 1:
+            ctx_score = 10
+        elif ctx_pct < 10:
+            ctx_score = 10 + int((ctx_pct - 1) / 9 * 50)
+        elif ctx_pct < 50:
+            ctx_score = 60 + int((ctx_pct - 10) / 40 * 40)
+        else:
+            ctx_score = 100
+
+        if msgs_day < 5:
+            freq_score = 20
+        elif msgs_day < 15:
+            freq_score = 20 + int((msgs_day - 5) / 10 * 60)
+        elif msgs_day <= 40:
+            freq_score = 80 + int((msgs_day - 15) / 25 * 20)
+        else:
+            freq_score = max(70, 100 - int((msgs_day - 40) / 60 * 30))
+
+        overall = (ctx_score + freq_score) // 2
+        score_color = "#059669" if overall >= 70 else ("#F59E0B" if overall >= 40 else "#EF4444")
+        score_label = "Excelente" if overall >= 80 else ("Bom" if overall >= 60 else ("Regular" if overall >= 40 else "Baixo"))
+
+        with col_tc_b:
+            r1, r2, r3 = st.columns(3)
+            r1.metric("Tokens/dia", f"{day_tokens/1000:.0f}K" if day_tokens >= 1000 else str(day_tokens))
+            r2.metric("Tokens/mês", f"{month_tokens/1_000_000:.1f}M" if month_tokens >= 1_000_000 else f"{month_tokens/1000:.0f}K")
+            r3.metric("% contexto/msg", f"{ctx_pct:.1f}%")
+            st.markdown(
+                f'<div style="margin-top:0.6rem;padding:0.5rem 0.75rem;border-radius:8px;'
+                f'background:rgba(0,0,0,0.05);border-left:4px solid {score_color}">'
+                f'<span style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:.04em">Aproveitamento geral</span><br>'
+                f'<span style="font-size:1.6rem;font-weight:800;color:{score_color}">{overall}/100</span>'
+                f'&nbsp;<span style="font-size:0.85rem;color:{score_color}">— {score_label}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            st.progress(overall / 100)
+
+        issues: list[tuple[str, str]] = []
+
+        if tokens_per_msg < 5_000:
+            issues.append((
+                f"**Contexto desperdiçado** — Cada mensagem usa apenas {ctx_pct:.1f}% dos 200K tokens disponíveis. "
+                f"Você está deixando {100 - ctx_pct:.0f}% do potencial ocioso.",
+                "Inclua o arquivo completo (não só o trecho relevante), descreva o contexto do projeto, "
+                "adicione exemplos do comportamento esperado. Claude responde proporcionalmente ao contexto que recebe.",
+            ))
+
+        if msgs_day < 8:
+            issues.append((
+                f"**Frequência muito baixa** — {msgs_day} mensagens/dia é uso esporádico. "
+                "Menos de 8 interações diárias indicam que o Claude ainda não está integrado ao seu fluxo real de trabalho.",
+                "Traga também problemas menores — revisão de e-mails, rascunho de mensagens, análise rápida de dados. "
+                "O valor do Claude Pro se acumula no hábito diário, não nos grandes projetos esporádicos.",
+            ))
+
+        if msgs_day > 50 and tokens_per_msg < 8_000:
+            issues.append((
+                f"**Fragmentação excessiva** — {msgs_day} mensagens curtas/dia indica que você quebra problemas em micro-perguntas. "
+                "Cada nova conversa descarta todo o contexto acumulado da sessão anterior.",
+                "Consolide: ao invés de 10 perguntas rápidas sobre um mesmo tema, abra uma sessão, explique tudo de uma vez "
+                "e conduza uma conversa longa e estruturada. 5 mensagens longas valem mais do que 50 curtas.",
+            ))
+
+        if tokens_per_msg >= 30_000:
+            issues.append((
+                "**Risco de truncamento de contexto** — Sessões de 30K+ tokens ocupam 15%+ da janela. "
+                "Em longas iterações, o Claude pode perder o início da conversa.",
+                "Use /clear (Claude Code) ou abra nova conversa ao mudar de subtópico. "
+                "Prefira sessões focadas por domínio a uma mega-sessão com tudo misturado.",
+            ))
+
+        st.markdown("---")
+        if not issues:
+            st.success("Padrão exemplar! Frequência e profundidade estão bem calibradas. Continue assim.")
+        else:
+            st.markdown(f"**{len(issues)} erro(s) identificado(s) no seu padrão**")
+            for i, (err, tip) in enumerate(issues, 1):
+                st.markdown(
+                    f'<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;border-radius:6px;'
+                    f'border-left:3px solid #EF4444;background:rgba(239,68,68,0.05)">'
+                    f'<span style="font-size:0.72rem;color:#EF4444;font-weight:700">ERRO {i}</span><br>{err}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f'<div style="margin:-0.2rem 0 0.6rem 0;padding:0.5rem 0.75rem;border-radius:6px;'
+                    f'border-left:3px solid #059669;background:rgba(5,150,105,0.05)">'
+                    f'<span style="font-size:0.72rem;color:#059669;font-weight:700">COMO CORRIGIR</span><br>{tip}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 7 — ENGLISH COACH
