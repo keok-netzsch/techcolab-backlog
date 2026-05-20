@@ -85,57 +85,31 @@ html, body { overflow: hidden !important; height: 100vh !important; }
     padding-bottom: 1rem !important;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────── */
-[data-testid="stSidebarCollapseButton"] { display: none !important; }
-[data-testid="stSidebar"] {
-    background-color: #FFFFFF;
-    border-right: 1px solid rgba(76,77,88,0.08);
-    height: 100vh !important;
-    overflow: hidden !important;
+/* ── Top navigation ──────────────────────────────────────── */
+[data-testid="stMainBlockContainer"] {
+    padding-top: 0.5rem !important;
 }
-[data-testid="stSidebar"] > div:first-child {
-    height: 100vh !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-[data-testid="stSidebarContent"] {
-    flex: 1 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    padding-bottom: 0.5rem !important;
-    scrollbar-width: none !important;
-}
-[data-testid="stSidebarContent"]::-webkit-scrollbar { display: none !important; }
+div[data-testid="stSidebar"] { display: none !important; }
 
-/* ── Sidebar dividers ────────────────────────────────────── */
-[data-testid="stSidebar"] hr {
-    margin: 0.3rem 0 !important;
-}
-
-/* ── Sidebar nav buttons ─────────────────────────────────── */
-[data-testid="stSidebar"] .stButton > button {
-    text-align: left !important;
-    justify-content: flex-start !important;
+/* ── Top nav buttons ─────────────────────────────────────── */
+div.topnav button {
     border-radius: 6px !important;
-    font-size: 0.78rem !important;
+    font-size: 0.8rem !important;
     font-weight: 500 !important;
-    padding: 0.18rem 0.6rem !important;
-    margin-bottom: 0 !important;
+    padding: 0.2rem 0.5rem !important;
     border: none !important;
-    width: 100% !important;
-    line-height: 1.6 !important;
+    white-space: nowrap !important;
 }
-[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+div.topnav button[kind="secondary"] {
     background: transparent !important;
     color: #4A4A4A !important;
 }
-[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+div.topnav button[kind="secondary"]:hover {
     background: rgba(2,183,147,0.08) !important;
     color: #007167 !important;
 }
-[data-testid="stSidebar"] .stButton > button[kind="primary"] {
-    background: rgba(2,183,147,0.12) !important;
+div.topnav button[kind="primary"] {
+    background: rgba(2,183,147,0.15) !important;
     color: #007167 !important;
     font-weight: 600 !important;
 }
@@ -199,58 +173,35 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Sidebar: logo + navigation + reload ────────────────────────────────────────
-_PAGES_MAIN  = ["Dashboard", "Backlog", "To-Do List", "Claude Pro", "Weekly Brief", "English Coach"]
-_PAGES_EXTRA = {"📖": "Tutorial", "📚": "Documentation"}
+# ── Top navigation ─────────────────────────────────────────────────────────────
+_PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Claude Pro", "Weekly Brief", "English Coach"]
 
 if "page" not in st.session_state:
     st.session_state["page"] = "Dashboard"
 
-with st.sidebar:
-    st.markdown(
-        f'<div style="padding:0.4rem 0 0.3rem 0;display:flex;justify-content:center">{_LOGO_GREEN}</div>',
-        unsafe_allow_html=True,
-    )
-    st.divider()
-
-    for _p in _PAGES_MAIN:
-        _active = st.session_state["page"] == _p
-        if st.button(_p, key=f"nav_{_p}", use_container_width=True,
-                     type="primary" if _active else "secondary"):
-            st.session_state["page"] = _p
-            st.rerun()
-
-    st.divider()
-    if st.button("🔄 Atualizar dados", use_container_width=True, type="secondary"):
+st.markdown('<div class="topnav">', unsafe_allow_html=True)
+_nc = st.columns([1.6, 0.95, 0.8, 0.95, 0.95, 1.0, 1.05, 0.2, 0.4, 0.4, 0.55],
+                 vertical_alignment="center", gap="small")
+_nc[0].markdown(
+    f'<div style="padding:0.05rem 0 0 0.2rem">{_LOGO_GREEN}</div>',
+    unsafe_allow_html=True,
+)
+for _i, _p in enumerate(_PAGES_MAIN):
+    _active = st.session_state["page"] == _p
+    if _nc[_i + 1].button(_p, key=f"nav_{_p}", use_container_width=True,
+                          type="primary" if _active else "secondary"):
+        st.session_state["page"] = _p
         st.rerun()
-
-    st.divider()
-    st.markdown(
-        '<p style="font-size:0.72rem;color:rgba(76,77,88,0.45);margin:0 0 6px 2px">Resources</p>',
-        unsafe_allow_html=True,
-    )
-    with st.container():
-        st.markdown('<div class="sidebar-footer">', unsafe_allow_html=True)
-        _fc1, _fc2 = st.columns(2)
-        with _fc1:
-            if st.button("📖", key="nav_tutorial", use_container_width=True,
-                         help="Installation tutorial"):
-                st.session_state["page"] = "Tutorial"
-                st.rerun()
-            st.markdown(
-                '<p style="text-align:center;font-size:0.68rem;color:rgba(76,77,88,0.5);margin:0">Tutorial</p>',
-                unsafe_allow_html=True,
-            )
-        with _fc2:
-            if st.button("📚", key="nav_docs", use_container_width=True,
-                         help="Technical documentation"):
-                st.session_state["page"] = "Documentation"
-                st.rerun()
-            st.markdown(
-                '<p style="text-align:center;font-size:0.68rem;color:rgba(76,77,88,0.5);margin:0">Docs</p>',
-                unsafe_allow_html=True,
-            )
-        st.markdown('</div>', unsafe_allow_html=True)
+if _nc[8].button("📖", key="nav_tutorial", use_container_width=True, help="Tutorial"):
+    st.session_state["page"] = "Tutorial"
+    st.rerun()
+if _nc[9].button("📚", key="nav_docs", use_container_width=True, help="Documentation"):
+    st.session_state["page"] = "Documentation"
+    st.rerun()
+if _nc[10].button("🔄", key="nav_refresh", use_container_width=True, help="Atualizar dados"):
+    st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('<hr style="margin:0.2rem 0 1rem 0;border-color:rgba(0,0,0,0.1)">', unsafe_allow_html=True)
 
 page = st.session_state["page"]
 
