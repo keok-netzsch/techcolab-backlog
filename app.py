@@ -1,5 +1,5 @@
 ﻿"""
-TechColab Backlog — Streamlit UI
+Personal Toolkit · Techco.lab — Streamlit UI
 Run with: streamlit run app.py
 """
 
@@ -18,7 +18,7 @@ from backlog.daily_log import log_entry
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="TechColab Backlog",
+    page_title="Personal Toolkit · Techco.lab",
     page_icon="💡",
     layout="wide",
 )
@@ -166,7 +166,7 @@ st.markdown(
 )
 
 # ── Sidebar: logo + navigation + reload ────────────────────────────────────────
-_PAGES_MAIN  = ["📋 Backlog", "✅ To-Do List", "📊 Dashboard", "📈 Claude Pro", "🗓️ Weekly Brief"]
+_PAGES_MAIN  = ["📋 Backlog", "✅ To-Do List", "📊 Dashboard", "📈 Claude Pro", "🗓️ Weekly Brief", "🎙️ English Coach"]
 _PAGES_EXTRA = {"📖": "📖 Tutorial", "📚": "📚 Documentation"}
 
 if "page" not in st.session_state:
@@ -748,9 +748,9 @@ if page == "📋 Backlog":
                             "</style>",
                             unsafe_allow_html=True,
                         )
-                        _TODO_STATE_OPTS = ["⬜ Open", "🔄 In progress", "✅ Done"]
+                        _TODO_STATE_OPTS = ["⬜", "🔄", "✅"]
                         h_state, h_txt, h_date, h_auto, h_del = st.columns([1.5, 6, 2, 0.5, 0.5])
-                        h_state.caption("Estado")
+                        h_state.caption("⬜ · 🔄 · ✅")
                         h_txt.markdown("**To-dos**")
                         h_date.caption("📅 Prazo")
                         h_auto.caption("🤖")
@@ -775,8 +775,8 @@ if page == "📋 Backlog":
                                     key=f"bl_state_{idea.id}_{idx}",
                                     label_visibility="collapsed",
                                 )
-                                done = state_sel == "✅ Done"
-                                in_progress = state_sel == "🔄 In progress"
+                                done = state_sel == "✅"
+                                in_progress = state_sel == "🔄"
                             with c_txt:
                                 text = st.text_input(
                                     "", value=todo["text"],
@@ -1507,7 +1507,7 @@ elif page == "🗓️ Weekly Brief":
     def _wb_parse_1on1(path: Path):
         if not path.exists():
             return None
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8", errors="replace")
         parts = _wre.split(r"^## (\d{4}-\d{2}-\d{2})\b", text, flags=_wre.MULTILINE)
         if len(parts) < 3:
             return None
@@ -1532,7 +1532,7 @@ elif page == "🗓️ Weekly Brief":
         while cur <= end:
             lp = _LOG_DIR / f"diario-{cur.isoformat()}.md"
             if lp.exists():
-                for line in lp.read_text(encoding="utf-8").splitlines():
+                for line in lp.read_text(encoding="utf-8", errors="replace").splitlines():
                     m = _wre.match(r"^- (\d{2}:\d{2}) `([\w-]+)` \[(.+?)\] (.+?)(?:\s—\s(.+))?$", line)
                     if m:
                         entries.append({"date": cur, "time": m.group(1), "action": m.group(2),
@@ -1607,7 +1607,7 @@ elif page == "🗓️ Weekly Brief":
                 _role = ""
                 _ov = _folder / "Overview.md"
                 if _ov.exists():
-                    _rm = _wre.search(r"\*\*Role:\*\*\s*(.+)", _ov.read_text(encoding="utf-8"))
+                    _rm = _wre.search(r"\*\*Role:\*\*\s*(.+)", _ov.read_text(encoding="utf-8", errors="replace"))
                     if _rm: _role = _rm.group(1).strip()
 
                 _latest = _wb_parse_1on1(_folder / "1on1.md")
@@ -1655,7 +1655,7 @@ elif page == "🗓️ Weekly Brief":
         else:
             for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
                 with st.expander(f"📞 {_c['member']} — {_c['date'].strftime('%d/%m/%Y')}"):
-                    _body = _wre.sub(r"^---.*?---\n", "", _c["path"].read_text(encoding="utf-8"), flags=_wre.DOTALL).strip()
+                    _body = _wre.sub(r"^---.*?---\n", "", _c["path"].read_text(encoding="utf-8", errors="replace"), flags=_wre.DOTALL).strip()
                     st.markdown(_body[:2500] + ("…" if len(_body) > 2500 else ""))
                 _export.append(f"- Call com {_c['member']} em {_c['date'].strftime('%d/%m/%Y')}")
         _export.append(""); st.divider()
@@ -1677,7 +1677,7 @@ elif page == "🗓️ Weekly Brief":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "📖 Tutorial":
     st.header("📖 Installation Tutorial")
-    st.caption("Complete guide to install and configure TechColab Backlog on a new machine.")
+    st.caption("Complete guide to install and configure Personal Toolkit · Techco.lab on a new machine.")
 
     st.info("**Source code:** [github.com/keok-netzsch/techcolab-backlog](https://github.com/keok-netzsch/techcolab-backlog)", icon="📦")
 
@@ -1771,6 +1771,7 @@ Download ~2 GB. To verify: `ollama list` — the model should appear in the list
 | 📊 Dashboard | Metrics, scoring, period report and token coach |
 | 📈 Claude Pro | HTML report tracking Claude Pro adoption metrics |
 | 🗓️ Weekly Brief | Preparation panel for meetings with leadership |
+| 🎙️ English Coach | Progress tracker for AI-evaluated English practice sessions |
 
 **Status flow:**
 ```
@@ -1815,6 +1816,33 @@ Open **🗓️ Weekly Brief** before any meeting with Alberto Reuters or Stefan 
 
 ---
 
+## Raycast shortcuts
+
+All daily interactions are available directly via keyboard — no terminal needed.
+Scripts live in `C:\\Users\\Kelvin.okuda\\Scripts\\call-recorder\\` and are registered in Raycast → Settings → Script Commands.
+
+| Shortcut | Command | What it does |
+|---|---|---|
+| ⊞ Win + Space | **Call Recorder** | Opens menu: 1on1 com time / English Coach |
+| ⊞ Win + C | **Encerrar Sessão** | Runs tests, commits and pushes both repos |
+| *(assign)* | **Rodar Agente** | Runs Phase 1 — generates today's backlog report |
+| *(assign)* | **Executar Agente** | Copies Phase 2 command to clipboard + opens Claude Code |
+
+> **To assign a hotkey:** Raycast → Settings → Script Commands → click "Record Hotkey" next to the command.
+> **To add or change scripts:** edit the `.ps1` files in the `call-recorder` folder — Raycast picks them up automatically (click "Reload Script Commands" if needed).
+
+### Executar Agente — how it works
+
+When you trigger **Executar Agente**:
+1. The exact command is copied to your clipboard automatically
+2. A terminal opens showing the report path
+3. Claude Code launches in the project directory
+4. Press **Ctrl+V** then **Enter** — done
+
+No need to remember or type anything.
+
+---
+
 ## Daily agent
 
 The agent runs every morning at 08:00, analyses the backlog, and proposes actions.
@@ -1840,10 +1868,15 @@ Leave unchecked what you don't approve — the agent will not touch those.
 
 ### Step 2 — Execute approved items (Claude Code)
 
+**Easiest way — Raycast:**
+Trigger **Executar Agente** (assign a hotkey in Raycast → Script Commands).
+The command is copied to clipboard automatically — just paste in Claude Code and press Enter.
+
+**Manual way:**
 1. Double-click **`execute_agent.bat`** in the project folder
-2. A terminal opens showing today's report path and a confirmation prompt — press any key
+2. A terminal opens showing today's report path — press any key
 3. Claude Code opens in the project directory
-4. Type exactly:
+4. Type (or paste) exactly:
 
 ```
 Execute the approved items from today's agent report
@@ -1918,7 +1951,7 @@ elif page == "📚 Documentation":
 
     st.markdown("## Overview")
     st.markdown("""
-**TechColab Backlog** is a personal idea management system integrated with Obsidian.
+**Personal Toolkit · Techco.lab** is a personal productivity toolkit integrated with Obsidian.
 The goal is to capture and structure ideas using a local language model (Ollama) —
 no API key, no per-use cost, no data leaving your machine.
 """)
@@ -2019,3 +2052,93 @@ elif page == "📈 Claude Pro":
             f"Relatório não encontrado em `{CLAUDE_PRO_REPORT_HTML}`. "
             "Execute o agente diário para gerar o arquivo."
         )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE 7 — ENGLISH COACH
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "🎙️ English Coach":
+    import re as _ecre
+
+    _EC_DIR      = VAULT_ROOT / "English-Coach"
+    _EC_PROGRESS = _EC_DIR / "progress.md"
+    _EC_SESSIONS = _EC_DIR / "sessions"
+
+    st.markdown('<h1 style="margin-bottom:0.2rem">🎙️ English Coach</h1>', unsafe_allow_html=True)
+    st.caption("Evolução das sessões de prática de inglês · avaliadas por IA")
+
+    if not _EC_DIR.exists() or not _EC_PROGRESS.exists():
+        st.info(
+            "Nenhuma sessão registrada ainda. "
+            "Execute **english-coach.ps1** via Raycast (Win+Space → English Coach) para iniciar sua primeira sessão.",
+            icon="🎙️",
+        )
+    else:
+        # ── Parse progress table ──────────────────────────────────────────────
+        _prog_text = _EC_PROGRESS.read_text(encoding="utf-8")
+        _prog_rows = []
+        for _line in _prog_text.splitlines():
+            _m = _ecre.match(
+                r"\|\s*(\d{4}-\d{2}-\d{2})[^|]*\|\s*([\d.]+)/10\s*\|\s*(\w+)\s*\|([^|]+)\|([^|]*)\|",
+                _line,
+            )
+            if _m:
+                _prog_rows.append({
+                    "date":    _m.group(1),
+                    "overall": float(_m.group(2)),
+                    "level":   _m.group(3).strip(),
+                    "scores":  _m.group(4).strip(),
+                    "topic":   _m.group(5).strip(),
+                })
+
+        if _prog_rows:
+            # ── KPIs ─────────────────────────────────────────────────────────
+            _latest   = _prog_rows[-1]
+            _avg      = sum(r["overall"] for r in _prog_rows) / len(_prog_rows)
+            _best     = max(r["overall"] for r in _prog_rows)
+            _k1, _k2, _k3, _k4 = st.columns(4)
+            _k1.metric("Sessões", len(_prog_rows))
+            _k2.metric("Nota mais recente", f"{_latest['overall']:.1f}/10")
+            _k3.metric("Média geral", f"{_avg:.1f}/10")
+            _k4.metric("Melhor nota", f"{_best:.1f}/10")
+            _k1.caption(f"Nível atual: **{_latest['level']}**")
+
+            st.divider()
+
+            # ── Score trend chart ─────────────────────────────────────────────
+            import pandas as _ecpd
+            _df = _ecpd.DataFrame(_prog_rows).set_index("date")[["overall"]]
+            _df.columns = ["Overall (0–10)"]
+            st.subheader("📈 Evolução da nota")
+            st.line_chart(_df, height=200)
+
+            st.divider()
+
+        # ── Recent sessions ───────────────────────────────────────────────────
+        st.subheader("📋 Sessões recentes")
+
+        _session_files = sorted(_EC_SESSIONS.glob("*_english-coach.md"), reverse=True) if _EC_SESSIONS.exists() else []
+
+        if not _session_files:
+            st.info("Nenhum arquivo de sessão encontrado.")
+        else:
+            for _sf in _session_files[:10]:
+                _stext = _sf.read_text(encoding="utf-8")
+                _fm_m  = _ecre.match(r"^---\n(.*?)\n---", _stext, _ecre.DOTALL)
+                if not _fm_m:
+                    continue
+                import yaml as _ecyaml
+                _sfm = _ecyaml.safe_load(_fm_m.group(1))
+                _s_date    = _sfm.get("date", _sf.stem[:10])
+                _s_overall = _sfm.get("overall", "?")
+                _s_level   = _sfm.get("level", "?")
+                _s_body    = _stext[_fm_m.end():].strip()
+                _summary_m = _ecre.search(r"> (.+)", _s_body)
+                _summary   = _summary_m.group(1) if _summary_m else ""
+
+                with st.expander(f"**{_s_date}** — {_s_overall}/10 · {_s_level}  _{_summary[:80]}_"):
+                    st.markdown(_s_body, unsafe_allow_html=False)
+
+        if _prog_rows:
+            st.divider()
+            st.subheader("📄 Log completo")
+            st.markdown(_prog_text)

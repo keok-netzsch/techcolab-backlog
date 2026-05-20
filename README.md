@@ -1,4 +1,4 @@
-# TechColab Backlog
+# Personal Toolkit · Techco.lab
 
 Aplicativo local de gestao de backlog com inteligencia artificial, construido com **Streamlit**, integrado ao **Obsidian** e rodando um modelo de linguagem local via **Ollama**. Nenhuma chave de API externa e necessaria.
 
