@@ -524,8 +524,8 @@ if page == "📋 Backlog":
 
     _CLOSED = {"concluído", "descartado"}
 
-    # ── Filtros + toggle de view na mesma linha ─────────────────────────────────
-    col_f1, col_f2, col_f3, col_f4 = st.columns([1.2, 1.8, 1.4, 4.6])
+    # ── Filtros ──────────────────────────────────────────────────────────────────
+    col_f1, col_f2, col_f3 = st.columns([1.2, 1.8, 5])
     with col_f1:
         filter_priority = st.multiselect("Priority", VALID_PRIORITIES, placeholder="All",
                                          format_func=lambda x: PRIORITY_LABEL.get(x, x))
@@ -533,11 +533,16 @@ if page == "📋 Backlog":
         filter_status = st.multiselect("Status", VALID_STATUSES, placeholder="All statuses",
                                        format_func=lambda x: STATUS_LABEL.get(x, x))
     with col_f3:
-        view_mode = st.radio("View", ["List", "Kanban"], horizontal=True, key="view_mode")
-    with col_f4:
         filter_text = st.text_input("Search", placeholder="Title, description or notes...")
 
-    show_closed = st.checkbox("Show closed (Done · Discarded)", value=False)
+    # ── View toggle + Show closed na mesma linha ─────────────────────────────────
+    col_v1, col_v2 = st.columns([1.4, 6.6])
+    with col_v1:
+        view_mode = st.radio("View", ["List", "Kanban"], horizontal=True, key="view_mode")
+    with col_v2:
+        st.markdown("<div style='margin-top:28px'>", unsafe_allow_html=True)
+        show_closed = st.checkbox("Show closed (Done · Discarded)", value=False)
+        st.markdown("</div>", unsafe_allow_html=True)
 
     filtered = ideas if show_closed else [i for i in ideas if i.status not in _CLOSED]
     if filter_status:
