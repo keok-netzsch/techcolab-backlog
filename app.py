@@ -577,30 +577,31 @@ if page == "📋 Backlog":
 
         # ── KANBAN ──────────────────────────────────────────────────────────────
         if view_mode == "Kanban":
-            kanban_statuses = [
-                "backlog", "em análise", "em desenvolvimento", "em validação", "concluído", "descartado"
-            ]
-            visible = [s for s in kanban_statuses if any(i.status == s for i in filtered)]
-            cols = st.columns(len(visible)) if visible else []
-            for col, status in zip(cols, visible):
-                icon = STATUS_COLOR.get(status, _sdot("backlog"))
-                group = [i for i in filtered if i.status == status]
-                col.markdown(f"{icon} **{STATUS_LABEL.get(status, status.title())}** `{len(group)}`", unsafe_allow_html=True)
-                col.divider()
-                for idea in group:
-                    picon = PRIORITY_ICON.get(idea.priority, "⚪")
-                    card_col, edit_col = col.columns([5, 1])
-                    _ktitle = idea.title.replace("**", "").strip()
-                    card_col.markdown(
-                        f"{picon} `{idea.id}`  \n**{_ktitle[:45]}**"
-                        + (f"  \n📅 {idea.due_date.strftime('%d/%m/%y')}" if idea.due_date else "")
-                    )
-                    if edit_col.button("✏️", key=f"kb_edit_{idea.id}", help="Edit"):
-                        st.session_state[f"exp_{idea.id}"] = True
-                        st.session_state["view_mode"] = "List"
-                        st.session_state["return_to_kanban"] = idea.id
-                        st.rerun()
-                    col.markdown("---")
+            with st.container(height=600, border=False):
+                kanban_statuses = [
+                    "backlog", "em análise", "em desenvolvimento", "em validação", "concluído", "descartado"
+                ]
+                visible = [s for s in kanban_statuses if any(i.status == s for i in filtered)]
+                cols = st.columns(len(visible)) if visible else []
+                for col, status in zip(cols, visible):
+                    icon = STATUS_COLOR.get(status, _sdot("backlog"))
+                    group = [i for i in filtered if i.status == status]
+                    col.markdown(f"{icon} **{STATUS_LABEL.get(status, status.title())}** `{len(group)}`", unsafe_allow_html=True)
+                    col.divider()
+                    for idea in group:
+                        picon = PRIORITY_ICON.get(idea.priority, "⚪")
+                        card_col, edit_col = col.columns([5, 1])
+                        _ktitle = idea.title.replace("**", "").strip()
+                        card_col.markdown(
+                            f"{picon} `{idea.id}`  \n**{_ktitle[:45]}**"
+                            + (f"  \n📅 {idea.due_date.strftime('%d/%m/%y')}" if idea.due_date else "")
+                        )
+                        if edit_col.button("✏️", key=f"kb_edit_{idea.id}", help="Edit"):
+                            st.session_state[f"exp_{idea.id}"] = True
+                            st.session_state["view_mode"] = "List"
+                            st.session_state["return_to_kanban"] = idea.id
+                            st.rerun()
+                        col.markdown("---")
 
         # ── LIST ────────────────────────────────────────────────────────────────
         else:
@@ -614,407 +615,408 @@ if page == "📋 Backlog":
             _h4.caption("Backlog item")
             st.markdown('<hr style="margin:2px 0 6px 0;border-color:rgba(76,77,88,0.12)">', unsafe_allow_html=True)
 
-            for idea in filtered:
-                prio_icon = PRIORITY_NUM.get(idea.priority, "⚪")
-                status_icon = STATUS_COLOR.get(idea.status, _sdot("backlog"))
-                todos_done = sum(1 for t in idea.todos if t["done"])
-                todos_total = len(idea.todos)
-                bug_count = sum(1 for t in idea.todos if t.get("is_bug") and not t.get("done"))
-                due_flag = "  📅" if idea.due_date and idea.due_date < today else ""
-                badge = f"  `{todos_done}/{todos_total}`" if todos_total else ""
-                bug_badge = f"  🐛`{bug_count}`" if bug_count else ""
-                short_id = idea.id.replace("idea-", "")
-                _clean_title = idea.title.replace("**", "").strip()
+            with st.container(height=600, border=False):
+                for idea in filtered:
+                    prio_icon = PRIORITY_NUM.get(idea.priority, "⚪")
+                    status_icon = STATUS_COLOR.get(idea.status, _sdot("backlog"))
+                    todos_done = sum(1 for t in idea.todos if t["done"])
+                    todos_total = len(idea.todos)
+                    bug_count = sum(1 for t in idea.todos if t.get("is_bug") and not t.get("done"))
+                    due_flag = "  📅" if idea.due_date and idea.due_date < today else ""
+                    badge = f"  `{todos_done}/{todos_total}`" if todos_total else ""
+                    bug_badge = f"  🐛`{bug_count}`" if bug_count else ""
+                    short_id = idea.id.replace("idea-", "")
+                    _clean_title = idea.title.replace("**", "").strip()
 
-                exp_key = f"exp_{idea.id}"
-                if exp_key not in st.session_state:
-                    st.session_state[exp_key] = False
+                    exp_key = f"exp_{idea.id}"
+                    if exp_key not in st.session_state:
+                        st.session_state[exp_key] = False
 
-                c1, c2, c3, c4 = st.columns([0.06, 0.09, 0.04, 0.81])
-                c1.markdown(f"**{short_id}**")
-                c2.markdown(prio_icon, unsafe_allow_html=True)
-                c3.markdown(status_icon, unsafe_allow_html=True)
-                if c4.button(
-                    f"{_clean_title}{badge}{bug_badge}{due_flag}",
-                    key=f"row_btn_{idea.id}",
-                    use_container_width=True,
-                ):
-                    new_exp = not st.session_state[exp_key]
-                    st.session_state[exp_key] = new_exp
-                    if not new_exp and st.session_state.get("return_to_kanban") == idea.id:
-                        st.session_state["view_mode"] = "Kanban"
-                        st.session_state.pop("return_to_kanban", None)
+                    c1, c2, c3, c4 = st.columns([0.06, 0.09, 0.04, 0.81])
+                    c1.markdown(f"**{short_id}**")
+                    c2.markdown(prio_icon, unsafe_allow_html=True)
+                    c3.markdown(status_icon, unsafe_allow_html=True)
+                    if c4.button(
+                        f"{_clean_title}{badge}{bug_badge}{due_flag}",
+                        key=f"row_btn_{idea.id}",
+                        use_container_width=True,
+                    ):
+                        new_exp = not st.session_state[exp_key]
+                        st.session_state[exp_key] = new_exp
+                        if not new_exp and st.session_state.get("return_to_kanban") == idea.id:
+                            st.session_state["view_mode"] = "Kanban"
+                            st.session_state.pop("return_to_kanban", None)
 
-                if st.session_state[exp_key]:
-                    with st.container(border=True):
-                        new_title = st.text_input("Title", value=idea.title, key=f"title_{idea.id}")
+                    if st.session_state[exp_key]:
+                        with st.container(border=True):
+                            new_title = st.text_input("Title", value=idea.title, key=f"title_{idea.id}")
 
-                        col_config, col_text = st.columns([2, 3])
+                            col_config, col_text = st.columns([2, 3])
 
-                        with col_config:
-                            new_status = st.selectbox(
-                                "Status", VALID_STATUSES,
-                                index=VALID_STATUSES.index(idea.status) if idea.status in VALID_STATUSES else 0,
-                                key=f"status_{idea.id}",
-                                format_func=lambda x: STATUS_LABEL.get(x, x),
-                            )
-                            new_priority = st.selectbox(
-                                "Priority", VALID_PRIORITIES,
-                                index=VALID_PRIORITIES.index(idea.priority) if idea.priority in VALID_PRIORITIES else 0,
-                                key=f"priority_{idea.id}",
-                                format_func=lambda x: PRIORITY_LABEL.get(x, x),
-                            )
-                            _area_opts = [""] + VALID_AREAS
-                            _area_cur = idea.area or ""
-                            if _area_cur and _area_cur not in _area_opts:
-                                _area_opts = [""] + [_area_cur] + VALID_AREAS
-                            new_area = st.selectbox("Area", _area_opts,
-                                                    index=_area_opts.index(_area_cur) if _area_cur in _area_opts else 0,
-                                                    key=f"area_{idea.id}",
-                                                    format_func=lambda x: x if x else "— selecione —")
-                            new_due = st.date_input(
-                                "Due date",
-                                value=idea.due_date,
-                                key=f"due_date_{idea.id}",
-                                format="DD/MM/YYYY",
-                            )
-                            imp_opts = [""] + VALID_IMPACTS
-                            eff_opts = [""] + VALID_EFFORTS
-                            new_impacto = st.selectbox(
-                                "Impact", imp_opts,
-                                index=imp_opts.index(idea.impacto) if idea.impacto in imp_opts else 0,
-                                key=f"impacto_{idea.id}",
-                                format_func=lambda x: IMPACT_LABEL.get(x, x) if x else "",
-                            )
-                            new_esforco = st.selectbox(
-                                "Effort", eff_opts,
-                                index=eff_opts.index(idea.esforco) if idea.esforco in eff_opts else 0,
-                                key=f"esforco_{idea.id}",
-                                format_func=lambda x: EFFORT_LABEL.get(x, x) if x else "",
-                            )
-                            st.caption(
-                                f"Origin: `{idea.origin or '—'}`  \n"
-                                f"Created: {idea.created_at}  \n"
-                                f"Updated: {idea.updated_at}"
-                            )
+                            with col_config:
+                                new_status = st.selectbox(
+                                    "Status", VALID_STATUSES,
+                                    index=VALID_STATUSES.index(idea.status) if idea.status in VALID_STATUSES else 0,
+                                    key=f"status_{idea.id}",
+                                    format_func=lambda x: STATUS_LABEL.get(x, x),
+                                )
+                                new_priority = st.selectbox(
+                                    "Priority", VALID_PRIORITIES,
+                                    index=VALID_PRIORITIES.index(idea.priority) if idea.priority in VALID_PRIORITIES else 0,
+                                    key=f"priority_{idea.id}",
+                                    format_func=lambda x: PRIORITY_LABEL.get(x, x),
+                                )
+                                _area_opts = [""] + VALID_AREAS
+                                _area_cur = idea.area or ""
+                                if _area_cur and _area_cur not in _area_opts:
+                                    _area_opts = [""] + [_area_cur] + VALID_AREAS
+                                new_area = st.selectbox("Area", _area_opts,
+                                                        index=_area_opts.index(_area_cur) if _area_cur in _area_opts else 0,
+                                                        key=f"area_{idea.id}",
+                                                        format_func=lambda x: x if x else "— selecione —")
+                                new_due = st.date_input(
+                                    "Due date",
+                                    value=idea.due_date,
+                                    key=f"due_date_{idea.id}",
+                                    format="DD/MM/YYYY",
+                                )
+                                imp_opts = [""] + VALID_IMPACTS
+                                eff_opts = [""] + VALID_EFFORTS
+                                new_impacto = st.selectbox(
+                                    "Impact", imp_opts,
+                                    index=imp_opts.index(idea.impacto) if idea.impacto in imp_opts else 0,
+                                    key=f"impacto_{idea.id}",
+                                    format_func=lambda x: IMPACT_LABEL.get(x, x) if x else "",
+                                )
+                                new_esforco = st.selectbox(
+                                    "Effort", eff_opts,
+                                    index=eff_opts.index(idea.esforco) if idea.esforco in eff_opts else 0,
+                                    key=f"esforco_{idea.id}",
+                                    format_func=lambda x: EFFORT_LABEL.get(x, x) if x else "",
+                                )
+                                st.caption(
+                                    f"Origin: `{idea.origin or '—'}`  \n"
+                                    f"Created: {idea.created_at}  \n"
+                                    f"Updated: {idea.updated_at}"
+                                )
 
-                        with col_text:
-                            new_desc = st.text_area(
-                                "Description", value=idea.description or "",
-                                height=110, key=f"desc_{idea.id}",
-                            )
-                            new_notes = st.text_area(
-                                "Notes", value=idea.notes or "",
-                                height=90,
-                                placeholder="Observations, links, context...",
-                                key=f"notes_{idea.id}",
-                            )
+                            with col_text:
+                                new_desc = st.text_area(
+                                    "Description", value=idea.description or "",
+                                    height=110, key=f"desc_{idea.id}",
+                                )
+                                new_notes = st.text_area(
+                                    "Notes", value=idea.notes or "",
+                                    height=90,
+                                    placeholder="Observations, links, context...",
+                                    key=f"notes_{idea.id}",
+                                )
 
-                        re_col, tips_col, hist_col = st.columns([2, 2, 2])
-                        with re_col:
-                            if st.button("✨ Sugerir to-dos", key=f"regen_{idea.id}", help="Sugere próximos passos com base no título e descrição"):
-                                from ingestion.extractor import suggest_todos, build_client
-                                with st.spinner("Gerando..."):
-                                    try:
-                                        sugs = suggest_todos(new_title or idea.title, new_desc or idea.description or "", build_client())
-                                        st.session_state[f"regen_sugs_{idea.id}"] = sugs
-                                    except Exception as e:
-                                        st.error(f"Ollama indisponível: {e}")
+                            re_col, tips_col, hist_col = st.columns([2, 2, 2])
+                            with re_col:
+                                if st.button("✨ Sugerir to-dos", key=f"regen_{idea.id}", help="Sugere próximos passos com base no título e descrição"):
+                                    from ingestion.extractor import suggest_todos, build_client
+                                    with st.spinner("Gerando..."):
+                                        try:
+                                            sugs = suggest_todos(new_title or idea.title, new_desc or idea.description or "", build_client())
+                                            st.session_state[f"regen_sugs_{idea.id}"] = sugs
+                                        except Exception as e:
+                                            st.error(f"Ollama indisponível: {e}")
 
-                        tips_key = f"claude_tips_{idea.id}"
-                        current_tips = st.session_state.get(tips_key, idea.claude_tips)
-                        with tips_col:
-                            tips_label = "🤖 Regenerar dicas" if current_tips else "🤖 Dicas com Claude"
-                            if st.button(tips_label, key=f"tips_btn_{idea.id}",
-                                         help="Gera dicas de como usar o Claude para desenvolver este item"):
-                                from ingestion.extractor import suggest_claude_tips, build_client
-                                with st.spinner("Gerando dicas..."):
-                                    try:
-                                        tips_list = suggest_claude_tips(
-                                            new_title or idea.title,
-                                            new_desc or idea.description or "",
-                                            build_client(),
-                                        )
-                                        if tips_list:
-                                            tips_md = "\n".join(f"- {t}" for t in tips_list)
-                                            st.session_state[tips_key] = tips_md
-                                            idea.claude_tips = tips_md
-                                            fresh = store.load_by_id(idea.id)
-                                            if fresh:
-                                                fresh.claude_tips = tips_md
-                                                store.save(fresh)
-                                            st.rerun()
-                                        else:
-                                            st.warning("Nenhuma dica gerada. Adicione uma descrição ao item.")
-                                    except Exception as e:
-                                        st.error(f"Ollama indisponível: {e}")
+                            tips_key = f"claude_tips_{idea.id}"
+                            current_tips = st.session_state.get(tips_key, idea.claude_tips)
+                            with tips_col:
+                                tips_label = "🤖 Regenerar dicas" if current_tips else "🤖 Dicas com Claude"
+                                if st.button(tips_label, key=f"tips_btn_{idea.id}",
+                                             help="Gera dicas de como usar o Claude para desenvolver este item"):
+                                    from ingestion.extractor import suggest_claude_tips, build_client
+                                    with st.spinner("Gerando dicas..."):
+                                        try:
+                                            tips_list = suggest_claude_tips(
+                                                new_title or idea.title,
+                                                new_desc or idea.description or "",
+                                                build_client(),
+                                            )
+                                            if tips_list:
+                                                tips_md = "\n".join(f"- {t}" for t in tips_list)
+                                                st.session_state[tips_key] = tips_md
+                                                idea.claude_tips = tips_md
+                                                fresh = store.load_by_id(idea.id)
+                                                if fresh:
+                                                    fresh.claude_tips = tips_md
+                                                    store.save(fresh)
+                                                st.rerun()
+                                            else:
+                                                st.warning("Nenhuma dica gerada. Adicione uma descrição ao item.")
+                                        except Exception as e:
+                                            st.error(f"Ollama indisponível: {e}")
 
-                        regen_sugs = st.session_state.get(f"regen_sugs_{idea.id}", [])
-                        if regen_sugs:
-                            st.markdown("**To-dos sugeridos** — marque os que deseja adicionar:")
-                            for si, stxt in enumerate(regen_sugs):
-                                if st.checkbox(stxt, value=False, key=f"regen_chk_{idea.id}_{si}"):
-                                    if not any(t["text"] == stxt for t in idea.todos):
-                                        idea.todos.append({"text": stxt, "done": False, "due_date": None})
+                            regen_sugs = st.session_state.get(f"regen_sugs_{idea.id}", [])
+                            if regen_sugs:
+                                st.markdown("**To-dos sugeridos** — marque os que deseja adicionar:")
+                                for si, stxt in enumerate(regen_sugs):
+                                    if st.checkbox(stxt, value=False, key=f"regen_chk_{idea.id}_{si}"):
+                                        if not any(t["text"] == stxt for t in idea.todos):
+                                            idea.todos.append({"text": stxt, "done": False, "due_date": None})
 
-                        with hist_col:
-                            if st.button("🕓 Ver histórico", key=f"hist_{idea.id}"):
-                                st.session_state[f"show_hist_{idea.id}"] = not st.session_state.get(f"show_hist_{idea.id}", False)
+                            with hist_col:
+                                if st.button("🕓 Ver histórico", key=f"hist_{idea.id}"):
+                                    st.session_state[f"show_hist_{idea.id}"] = not st.session_state.get(f"show_hist_{idea.id}", False)
 
-                        if st.session_state.get(f"show_hist_{idea.id}"):
-                            log_dir = Path(VAULT_ROOT) / "Backlog - to do - app" / "Log"
-                            hist_lines = []
-                            for lf in sorted(log_dir.glob("diario-*.md")):
-                                for line in lf.read_text(encoding="utf-8").splitlines():
-                                    if idea.id in line and line.strip().startswith("-"):
-                                        hist_lines.append(f"`{lf.stem[7:]}` {line.strip()}")
-                            if hist_lines:
-                                st.markdown("**History:**")
-                                for hl in hist_lines[-20:]:
-                                    st.markdown(hl)
-                            else:
-                                st.caption("No events recorded yet.")
-
-                        st.markdown(
-                            "<style>"
-                            ".todo-row-del + div[data-testid='stButton'] > button {"
-                            " padding:0 4px!important; min-height:24px!important;"
-                            " background:transparent!important; border:none!important;"
-                            " box-shadow:none!important; color:#bbb!important; font-size:0.85rem!important;"
-                            " margin-top:8px!important; width:100%!important; }"
-                            ".todo-row-del + div[data-testid='stButton'] > button:hover {"
-                            " color:#fff!important; background:rgba(185,28,28,0.85)!important;"
-                            " border-radius:4px!important; }"
-                            "</style>",
-                            unsafe_allow_html=True,
-                        )
-                        _TODO_STATE_OPTS = ["⬜", "🔄", "✅"]
-                        h_state, h_txt, h_date, h_auto, h_bug, h_del = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5])
-                        h_state.caption("Status")
-                        h_txt.caption("To-dos")
-                        h_date.caption("📅 Prazo")
-                        h_auto.caption("🤖")
-                        h_bug.caption("🐛")
-                        updated_todos = []
-                        deleted_idx_key = f"deleted_todo_idx_{idea.id}"
-                        if deleted_idx_key not in st.session_state:
-                            st.session_state[deleted_idx_key] = set()
-
-                        for idx, todo in enumerate(idea.todos):
-                            if idx in st.session_state[deleted_idx_key]:
-                                continue
-                            c_state, c_txt, c_date, c_auto, c_bug, c_del = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
-                            with c_state:
-                                if todo.get("done"):
-                                    cur_idx = 2
-                                elif todo.get("in_progress"):
-                                    cur_idx = 1
+                            if st.session_state.get(f"show_hist_{idea.id}"):
+                                log_dir = Path(VAULT_ROOT) / "Backlog - to do - app" / "Log"
+                                hist_lines = []
+                                for lf in sorted(log_dir.glob("diario-*.md")):
+                                    for line in lf.read_text(encoding="utf-8").splitlines():
+                                        if idea.id in line and line.strip().startswith("-"):
+                                            hist_lines.append(f"`{lf.stem[7:]}` {line.strip()}")
+                                if hist_lines:
+                                    st.markdown("**History:**")
+                                    for hl in hist_lines[-20:]:
+                                        st.markdown(hl)
                                 else:
-                                    cur_idx = 0
-                                state_sel = st.selectbox(
-                                    "", _TODO_STATE_OPTS, index=cur_idx,
-                                    key=f"bl_state_{idea.id}_{idx}",
+                                    st.caption("No events recorded yet.")
+
+                            st.markdown(
+                                "<style>"
+                                ".todo-row-del + div[data-testid='stButton'] > button {"
+                                " padding:0 4px!important; min-height:24px!important;"
+                                " background:transparent!important; border:none!important;"
+                                " box-shadow:none!important; color:#bbb!important; font-size:0.85rem!important;"
+                                " margin-top:8px!important; width:100%!important; }"
+                                ".todo-row-del + div[data-testid='stButton'] > button:hover {"
+                                " color:#fff!important; background:rgba(185,28,28,0.85)!important;"
+                                " border-radius:4px!important; }"
+                                "</style>",
+                                unsafe_allow_html=True,
+                            )
+                            _TODO_STATE_OPTS = ["⬜", "🔄", "✅"]
+                            h_state, h_txt, h_date, h_auto, h_bug, h_del = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5])
+                            h_state.caption("Status")
+                            h_txt.caption("To-dos")
+                            h_date.caption("📅 Prazo")
+                            h_auto.caption("🤖")
+                            h_bug.caption("🐛")
+                            updated_todos = []
+                            deleted_idx_key = f"deleted_todo_idx_{idea.id}"
+                            if deleted_idx_key not in st.session_state:
+                                st.session_state[deleted_idx_key] = set()
+
+                            for idx, todo in enumerate(idea.todos):
+                                if idx in st.session_state[deleted_idx_key]:
+                                    continue
+                                c_state, c_txt, c_date, c_auto, c_bug, c_del = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
+                                with c_state:
+                                    if todo.get("done"):
+                                        cur_idx = 2
+                                    elif todo.get("in_progress"):
+                                        cur_idx = 1
+                                    else:
+                                        cur_idx = 0
+                                    state_sel = st.selectbox(
+                                        "", _TODO_STATE_OPTS, index=cur_idx,
+                                        key=f"bl_state_{idea.id}_{idx}",
+                                        label_visibility="collapsed",
+                                    )
+                                    done = state_sel == "✅"
+                                    in_progress = state_sel == "🔄"
+                                with c_txt:
+                                    text = st.text_input(
+                                        "", value=todo["text"],
+                                        key=f"bl_txt_{idea.id}_{idx}",
+                                        label_visibility="collapsed",
+                                    )
+                                with c_date:
+                                    existing_due = None
+                                    if todo.get("due_date"):
+                                        try:
+                                            existing_due = date.fromisoformat(todo["due_date"])
+                                        except (ValueError, TypeError):
+                                            pass
+                                    todo_due = st.date_input(
+                                        "", value=existing_due,
+                                        key=f"bl_due_{idea.id}_{idx}",
+                                        format="DD/MM/YYYY",
+                                        label_visibility="collapsed",
+                                    )
+                                with c_auto:
+                                    auto = st.checkbox(
+                                        "", value=todo.get("agente_autorizado", False),
+                                        key=f"bl_auto_{idea.id}_{idx}",
+                                    )
+                                with c_bug:
+                                    is_bug_todo = st.checkbox(
+                                        "", value=todo.get("is_bug", False),
+                                        key=f"bl_bug_{idea.id}_{idx}",
+                                    )
+                                with c_del:
+                                    st.markdown('<div class="todo-row-del">', unsafe_allow_html=True)
+                                    if st.button("×", key=f"del_todo_{idea.id}_{idx}", use_container_width=True):
+                                        st.session_state[deleted_idx_key].add(idx)
+                                        st.rerun()
+                                    st.markdown('</div>', unsafe_allow_html=True)
+                                completed_at = todo.get("completed_at")
+                                if done and not completed_at:
+                                    completed_at = date.today().isoformat()
+                                elif not done:
+                                    completed_at = None
+                                updated_todos.append({
+                                    "text": text,
+                                    "done": done,
+                                    "in_progress": in_progress,
+                                    "due_date": str(todo_due) if todo_due else None,
+                                    "completed_at": completed_at,
+                                    "agente_autorizado": auto,
+                                    "is_bug": is_bug_todo,
+                                })
+
+                            staged_key = f"staged_todos_{idea.id}"
+                            if staged_key not in st.session_state:
+                                st.session_state[staged_key] = []
+
+                            for _si, _stgd in enumerate(st.session_state[staged_key]):
+                                _sc1, _sc2, _sc3, _sc4 = st.columns([0.5, 6.5, 0.5, 0.5])
+                                _sc1.markdown("➕")
+                                _sc2.caption(("🤖 " if _stgd.get("agente_autorizado") else "") + _stgd["text"])
+                                if _sc3.button("✕", key=f"rm_staged_{idea.id}_{_si}", help="Remove"):
+                                    st.session_state[staged_key].pop(_si)
+                                    st.rerun()
+
+                            # New todo row — same columns as existing rows for alignment
+                            _nc0, _nc_txt, _nc_date, _nc_auto, _nc_bug, _nc_add = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
+                            with _nc0:
+                                st.markdown('<div style="padding-top:8px;color:#ccc;text-align:center;font-size:0.9rem">+</div>', unsafe_allow_html=True)
+                            with _nc_txt:
+                                new_todo_text = st.text_input(
+                                    "", placeholder="New to-do...",
+                                    key=f"bl_new_txt_{idea.id}",
                                     label_visibility="collapsed",
                                 )
-                                done = state_sel == "✅"
-                                in_progress = state_sel == "🔄"
-                            with c_txt:
-                                text = st.text_input(
-                                    "", value=todo["text"],
-                                    key=f"bl_txt_{idea.id}_{idx}",
-                                    label_visibility="collapsed",
-                                )
-                            with c_date:
-                                existing_due = None
-                                if todo.get("due_date"):
-                                    try:
-                                        existing_due = date.fromisoformat(todo["due_date"])
-                                    except (ValueError, TypeError):
-                                        pass
-                                todo_due = st.date_input(
-                                    "", value=existing_due,
-                                    key=f"bl_due_{idea.id}_{idx}",
+                            with _nc_date:
+                                new_todo_due = st.date_input(
+                                    "", value=None,
+                                    key=f"bl_new_due_{idea.id}",
                                     format="DD/MM/YYYY",
                                     label_visibility="collapsed",
                                 )
-                            with c_auto:
-                                auto = st.checkbox(
-                                    "", value=todo.get("agente_autorizado", False),
-                                    key=f"bl_auto_{idea.id}_{idx}",
+                            with _nc_auto:
+                                new_todo_auto = st.checkbox(
+                                    "", value=False,
+                                    key=f"bl_new_auto_{idea.id}",
                                 )
-                            with c_bug:
-                                is_bug_todo = st.checkbox(
-                                    "", value=todo.get("is_bug", False),
-                                    key=f"bl_bug_{idea.id}_{idx}",
+                            with _nc_bug:
+                                new_todo_bug = st.checkbox(
+                                    "", value=False,
+                                    key=f"bl_new_bug_{idea.id}",
                                 )
-                            with c_del:
+                            with _nc_add:
                                 st.markdown('<div class="todo-row-del">', unsafe_allow_html=True)
-                                if st.button("×", key=f"del_todo_{idea.id}_{idx}", use_container_width=True):
-                                    st.session_state[deleted_idx_key].add(idx)
+                                if st.button("➕", key=f"add_todo_btn_{idea.id}",
+                                             disabled=not new_todo_text.strip(),
+                                             use_container_width=True):
+                                    st.session_state[staged_key].append({
+                                        "text": new_todo_text.strip(),
+                                        "done": False,
+                                        "due_date": str(new_todo_due) if new_todo_due else None,
+                                        "agente_autorizado": new_todo_auto,
+                                        "is_bug": new_todo_bug,
+                                    })
+                                    st.session_state.pop(f"bl_new_txt_{idea.id}", None)
+                                    st.session_state.pop(f"bl_new_due_{idea.id}", None)
+                                    st.session_state.pop(f"bl_new_bug_{idea.id}", None)
                                     st.rerun()
                                 st.markdown('</div>', unsafe_allow_html=True)
-                            completed_at = todo.get("completed_at")
-                            if done and not completed_at:
-                                completed_at = date.today().isoformat()
-                            elif not done:
-                                completed_at = None
-                            updated_todos.append({
-                                "text": text,
-                                "done": done,
-                                "in_progress": in_progress,
-                                "due_date": str(todo_due) if todo_due else None,
-                                "completed_at": completed_at,
-                                "agente_autorizado": auto,
-                                "is_bug": is_bug_todo,
-                            })
 
-                        staged_key = f"staged_todos_{idea.id}"
-                        if staged_key not in st.session_state:
-                            st.session_state[staged_key] = []
-
-                        for _si, _stgd in enumerate(st.session_state[staged_key]):
-                            _sc1, _sc2, _sc3, _sc4 = st.columns([0.5, 6.5, 0.5, 0.5])
-                            _sc1.markdown("➕")
-                            _sc2.caption(("🤖 " if _stgd.get("agente_autorizado") else "") + _stgd["text"])
-                            if _sc3.button("✕", key=f"rm_staged_{idea.id}_{_si}", help="Remove"):
-                                st.session_state[staged_key].pop(_si)
-                                st.rerun()
-
-                        # New todo row — same columns as existing rows for alignment
-                        _nc0, _nc_txt, _nc_date, _nc_auto, _nc_bug, _nc_add = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
-                        with _nc0:
-                            st.markdown('<div style="padding-top:8px;color:#ccc;text-align:center;font-size:0.9rem">+</div>', unsafe_allow_html=True)
-                        with _nc_txt:
-                            new_todo_text = st.text_input(
-                                "", placeholder="New to-do...",
-                                key=f"bl_new_txt_{idea.id}",
-                                label_visibility="collapsed",
-                            )
-                        with _nc_date:
-                            new_todo_due = st.date_input(
-                                "", value=None,
-                                key=f"bl_new_due_{idea.id}",
-                                format="DD/MM/YYYY",
-                                label_visibility="collapsed",
-                            )
-                        with _nc_auto:
-                            new_todo_auto = st.checkbox(
-                                "", value=False,
-                                key=f"bl_new_auto_{idea.id}",
-                            )
-                        with _nc_bug:
-                            new_todo_bug = st.checkbox(
-                                "", value=False,
-                                key=f"bl_new_bug_{idea.id}",
-                            )
-                        with _nc_add:
-                            st.markdown('<div class="todo-row-del">', unsafe_allow_html=True)
-                            if st.button("➕", key=f"add_todo_btn_{idea.id}",
-                                         disabled=not new_todo_text.strip(),
-                                         use_container_width=True):
-                                st.session_state[staged_key].append({
+                            for _stgd in st.session_state.get(staged_key, []):
+                                updated_todos.append(_stgd)
+                            if new_todo_text.strip():
+                                updated_todos.append({
                                     "text": new_todo_text.strip(),
                                     "done": False,
                                     "due_date": str(new_todo_due) if new_todo_due else None,
                                     "agente_autorizado": new_todo_auto,
                                     "is_bug": new_todo_bug,
                                 })
-                                st.session_state.pop(f"bl_new_txt_{idea.id}", None)
-                                st.session_state.pop(f"bl_new_due_{idea.id}", None)
-                                st.session_state.pop(f"bl_new_bug_{idea.id}", None)
-                                st.rerun()
-                            st.markdown('</div>', unsafe_allow_html=True)
 
-                        for _stgd in st.session_state.get(staged_key, []):
-                            updated_todos.append(_stgd)
-                        if new_todo_text.strip():
-                            updated_todos.append({
-                                "text": new_todo_text.strip(),
-                                "done": False,
-                                "due_date": str(new_todo_due) if new_todo_due else None,
-                                "agente_autorizado": new_todo_auto,
-                                "is_bug": new_todo_bug,
-                            })
+                            if current_tips:
+                                st.markdown(
+                                    '<div style="margin-top:6px;margin-bottom:2px">'
+                                    '<span style="font-size:0.82em;font-weight:600;color:#02B793">🤖 Dicas com Claude</span>'
+                                    '</div>',
+                                    unsafe_allow_html=True,
+                                )
+                                st.info(current_tips)
 
-                        if current_tips:
                             st.markdown(
-                                '<div style="margin-top:6px;margin-bottom:2px">'
-                                '<span style="font-size:0.82em;font-weight:600;color:#02B793">🤖 Dicas com Claude</span>'
-                                '</div>',
+                                "<style>"
+                                "div[data-testid='stMarkdown']:has(.save-del-marker)"
+                                " ~ div[data-testid='stColumns']"
+                                " > div[data-testid='column']:nth-child(2) button"
+                                "{ border-color:rgba(185,28,28,0.5)!important; color:#B91C1C!important; }"
+                                "div[data-testid='stMarkdown']:has(.save-del-marker)"
+                                " ~ div[data-testid='stColumns']"
+                                " > div[data-testid='column']:nth-child(2) button:hover"
+                                "{ background:rgba(185,28,28,0.85)!important; color:#fff!important;"
+                                " border-color:#B91C1C!important; }"
+                                "</style>"
+                                '<div class="save-del-marker"></div>',
                                 unsafe_allow_html=True,
                             )
-                            st.info(current_tips)
-
-                        st.markdown(
-                            "<style>"
-                            "div[data-testid='stMarkdown']:has(.save-del-marker)"
-                            " ~ div[data-testid='stColumns']"
-                            " > div[data-testid='column']:nth-child(2) button"
-                            "{ border-color:rgba(185,28,28,0.5)!important; color:#B91C1C!important; }"
-                            "div[data-testid='stMarkdown']:has(.save-del-marker)"
-                            " ~ div[data-testid='stColumns']"
-                            " > div[data-testid='column']:nth-child(2) button:hover"
-                            "{ background:rgba(185,28,28,0.85)!important; color:#fff!important;"
-                            " border-color:#B91C1C!important; }"
-                            "</style>"
-                            '<div class="save-del-marker"></div>',
-                            unsafe_allow_html=True,
-                        )
-                        col_save, col_del, _ = st.columns([1, 1, 3], vertical_alignment="center")
-                        with col_save:
-                            if st.button("💾 Save", key=f"save_{idea.id}", type="primary"):
-                                old_status = idea.status
-                                idea.title = new_title.strip() or idea.title
-                                idea.status = new_status
-                                idea.priority = new_priority
-                                idea.area = new_area or None
-                                idea.due_date = new_due if new_due else None
-                                idea.impacto = new_impacto or None
-                                idea.esforco = new_esforco or None
-                                idea.description = new_desc
-                                idea.notes = new_notes
-                                idea.todos = updated_todos
-                                idea.claude_tips = st.session_state.get(tips_key) or idea.claude_tips
-                                store.save(idea)
-                                st.session_state.pop(f"deleted_todo_idx_{idea.id}", None)
-                                _rebuild_index(store)
-                                if new_status == "concluído":
-                                    log_entry("concluida", idea)
-                                elif old_status != new_status:
-                                    log_entry("alterada", idea, f"status: {old_status} -> {new_status}")
-                                else:
-                                    log_entry("alterada", idea)
-                                st.session_state.pop(f"bl_new_txt_{idea.id}", None)
-                                st.session_state.pop(f"bl_new_due_{idea.id}", None)
-                                st.session_state.pop(f"staged_todos_{idea.id}", None)
-                                st.session_state[exp_key] = False
-                                if st.session_state.get("return_to_kanban") == idea.id:
-                                    st.session_state["view_mode"] = "Kanban"
-                                    st.session_state.pop("return_to_kanban", None)
-                                st.session_state["backlog_flash"] = ("success", f"{idea.id} saved.")
-                                st.rerun()
-                        with col_del:
-                            if st.button("🗑️ Delete", key=f"del_{idea.id}"):
-                                st.session_state[f"confirm_del_{idea.id}"] = True
-                                st.rerun()
-
-                        if st.session_state.get(f"confirm_del_{idea.id}"):
-                            st.warning(f"Confirm deletion of **{idea.id} — {idea.title}**?")
-                            c_yes, c_no, _ = st.columns([1, 1, 4])
-                            with c_yes:
-                                if st.button("✅ Yes, delete", key=f"yes_del_{idea.id}"):
-                                    archive = Path(BACKLOG_ARCHIVE_DIR)
-                                    archive.mkdir(parents=True, exist_ok=True)
-                                    src = store.dir / f"{idea.id}.md"
-                                    src.rename(archive / f"{idea.id}.md")
+                            col_save, col_del, _ = st.columns([1, 1, 3], vertical_alignment="center")
+                            with col_save:
+                                if st.button("💾 Save", key=f"save_{idea.id}", type="primary"):
+                                    old_status = idea.status
+                                    idea.title = new_title.strip() or idea.title
+                                    idea.status = new_status
+                                    idea.priority = new_priority
+                                    idea.area = new_area or None
+                                    idea.due_date = new_due if new_due else None
+                                    idea.impacto = new_impacto or None
+                                    idea.esforco = new_esforco or None
+                                    idea.description = new_desc
+                                    idea.notes = new_notes
+                                    idea.todos = updated_todos
+                                    idea.claude_tips = st.session_state.get(tips_key) or idea.claude_tips
+                                    store.save(idea)
+                                    st.session_state.pop(f"deleted_todo_idx_{idea.id}", None)
                                     _rebuild_index(store)
-                                    st.session_state.pop(f"confirm_del_{idea.id}", None)
-                                    st.session_state["backlog_flash"] = ("success", f"{idea.id} moved to deleted.")
+                                    if new_status == "concluído":
+                                        log_entry("concluida", idea)
+                                    elif old_status != new_status:
+                                        log_entry("alterada", idea, f"status: {old_status} -> {new_status}")
+                                    else:
+                                        log_entry("alterada", idea)
+                                    st.session_state.pop(f"bl_new_txt_{idea.id}", None)
+                                    st.session_state.pop(f"bl_new_due_{idea.id}", None)
+                                    st.session_state.pop(f"staged_todos_{idea.id}", None)
+                                    st.session_state[exp_key] = False
+                                    if st.session_state.get("return_to_kanban") == idea.id:
+                                        st.session_state["view_mode"] = "Kanban"
+                                        st.session_state.pop("return_to_kanban", None)
+                                    st.session_state["backlog_flash"] = ("success", f"{idea.id} saved.")
                                     st.rerun()
-                            with c_no:
-                                if st.button("❌ Cancel", key=f"no_del_{idea.id}"):
-                                    st.session_state.pop(f"confirm_del_{idea.id}", None)
+                            with col_del:
+                                if st.button("🗑️ Delete", key=f"del_{idea.id}"):
+                                    st.session_state[f"confirm_del_{idea.id}"] = True
                                     st.rerun()
+
+                            if st.session_state.get(f"confirm_del_{idea.id}"):
+                                st.warning(f"Confirm deletion of **{idea.id} — {idea.title}**?")
+                                c_yes, c_no, _ = st.columns([1, 1, 4])
+                                with c_yes:
+                                    if st.button("✅ Yes, delete", key=f"yes_del_{idea.id}"):
+                                        archive = Path(BACKLOG_ARCHIVE_DIR)
+                                        archive.mkdir(parents=True, exist_ok=True)
+                                        src = store.dir / f"{idea.id}.md"
+                                        src.rename(archive / f"{idea.id}.md")
+                                        _rebuild_index(store)
+                                        st.session_state.pop(f"confirm_del_{idea.id}", None)
+                                        st.session_state["backlog_flash"] = ("success", f"{idea.id} moved to deleted.")
+                                        st.rerun()
+                                with c_no:
+                                    if st.button("❌ Cancel", key=f"no_del_{idea.id}"):
+                                        st.session_state.pop(f"confirm_del_{idea.id}", None)
+                                        st.rerun()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
