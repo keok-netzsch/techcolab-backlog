@@ -85,66 +85,15 @@ html, body { overflow: hidden !important; height: 100vh !important; }
     padding-bottom: 1rem !important;
 }
 
-/* ── Top navigation ──────────────────────────────────────── */
+/* ── Top navigation (pure HTML) ──────────────────────────── */
 div[data-testid="stSidebar"] { display: none !important; }
-
-/* Remove all padding/margin from the nav row area */
 [data-testid="stMainBlockContainer"] {
     padding-top: 0 !important;
-    padding-bottom: 0 !important;
-}
-[data-testid="stMainBlockContainer"] > div:first-child {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-}
-[data-testid="stMainBlockContainer"] > div:first-child [data-testid="stHorizontalBlock"] {
-    padding-top: 0.25rem !important;
-    padding-bottom: 0.25rem !important;
-    align-items: center !important;
-    gap: 0.25rem !important;
-}
-[data-testid="stMainBlockContainer"] > div:first-child [data-testid="stColumn"] {
-    padding-left: 0.15rem !important;
-    padding-right: 0.15rem !important;
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-}
-[data-testid="stMainBlockContainer"] > div:first-child [data-testid="stColumn"] > div {
-    padding: 0 !important;
-    margin: 0 !important;
+    padding-bottom: 0.5rem !important;
 }
 
 /* ── Global: never wrap button text ──────────────────────── */
 button { white-space: nowrap !important; }
-
-/* ── Top nav buttons ─────────────────────────────────────── */
-[data-testid="stMainBlockContainer"] > div:first-child button {
-    border-radius: 6px !important;
-    font-size: 0.79rem !important;
-    font-weight: 500 !important;
-    padding: 0.12rem 0.45rem !important;
-    border: none !important;
-    line-height: 1.4 !important;
-    min-height: 0 !important;
-    height: auto !important;
-}
-[data-testid="stMainBlockContainer"] > div:first-child button[kind="secondary"] {
-    background: transparent !important;
-    color: #4A4A4A !important;
-    box-shadow: none !important;
-}
-[data-testid="stMainBlockContainer"] > div:first-child button[kind="secondary"]:hover {
-    background: rgba(2,183,147,0.08) !important;
-    color: #007167 !important;
-}
-[data-testid="stMainBlockContainer"] > div:first-child button[kind="primary"] {
-    background: rgba(2,183,147,0.15) !important;
-    color: #007167 !important;
-    font-weight: 600 !important;
-    box-shadow: none !important;
-}
 
 /* ── Footer icon buttons ─────────────────────────────────── */
 .sidebar-footer .stButton > button {
@@ -205,38 +154,50 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Top navigation ─────────────────────────────────────────────────────────────
+# ── Top navigation (pure HTML — full height control) ───────────────────────
 _PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Claude Pro", "Weekly Brief", "English Coach"]
+_ALL_PAGES  = _PAGES_MAIN + ["Tutorial", "Documentation"]
 
-if "page" not in st.session_state:
-    st.session_state["page"] = "Dashboard"
+_qpage = st.query_params.get("page", "Dashboard")
+if _qpage not in _ALL_PAGES:
+    _qpage = "Dashboard"
+page = _qpage
 
-_LOGO_NAV = _LOGO_GREEN.replace('width="140" height="44"', 'width="100" height="31"')
-st.markdown('<div class="topnav">', unsafe_allow_html=True)
-_nc = st.columns([1.3, 0.9, 0.75, 0.9, 0.9, 1.1, 1.2, 0.15, 0.38, 0.38, 0.45],
-                 vertical_alignment="center", gap="small")
-_nc[0].markdown(
-    f'<div style="line-height:0;padding-left:0.2rem">{_LOGO_NAV}</div>',
+_LOGO_NAV = _LOGO_GREEN.replace('width="140" height="44"', 'width="88" height="27"')
+
+def _navlink(label: str, key: str) -> str:
+    _a = key == page
+    _s = (
+        "background:rgba(2,183,147,0.14);color:#007167;font-weight:600;"
+        if _a else
+        "color:#4C4D58;"
+    )
+    return (
+        f'<a href="?page={key}" style="display:inline-flex;align-items:center;'
+        f'padding:3px 10px;border-radius:6px;font-size:0.79rem;'
+        f'font-family:Inter,sans-serif;text-decoration:none;white-space:nowrap;{_s}">'
+        f'{label}</a>'
+    )
+
+_nav_items  = "".join(_navlink(p, p) for p in _PAGES_MAIN)
+_nav_extras = (
+    _navlink("📖", "Tutorial") +
+    _navlink("📚", "Documentation") +
+    f'<a href="?page={page}" title="Atualizar dados" style="display:inline-flex;'
+    f'align-items:center;padding:3px 8px;border-radius:6px;font-size:0.85rem;'
+    f'color:#9CA3AF;text-decoration:none">🔄</a>'
+)
+
+st.markdown(
+    f'<nav style="display:flex;align-items:center;padding:5px 16px;background:#FFFFFF;'
+    f'border-bottom:1px solid rgba(0,0,0,0.09);gap:2px;margin-bottom:0.9rem">'
+    f'<div style="line-height:0;margin-right:14px;flex-shrink:0">{_LOGO_NAV}</div>'
+    f'{_nav_items}'
+    f'<div style="flex:1"></div>'
+    f'{_nav_extras}'
+    f'</nav>',
     unsafe_allow_html=True,
 )
-for _i, _p in enumerate(_PAGES_MAIN):
-    _active = st.session_state["page"] == _p
-    if _nc[_i + 1].button(_p, key=f"nav_{_p}", use_container_width=True,
-                          type="primary" if _active else "secondary"):
-        st.session_state["page"] = _p
-        st.rerun()
-if _nc[8].button("📖", key="nav_tutorial", use_container_width=True, help="Tutorial"):
-    st.session_state["page"] = "Tutorial"
-    st.rerun()
-if _nc[9].button("📚", key="nav_docs", use_container_width=True, help="Documentation"):
-    st.session_state["page"] = "Documentation"
-    st.rerun()
-if _nc[10].button("🔄", key="nav_refresh", use_container_width=True, help="Atualizar dados"):
-    st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
-st.markdown('<hr style="margin:0.1rem 0 0.75rem 0;border-color:rgba(0,0,0,0.1)">', unsafe_allow_html=True)
-
-page = st.session_state["page"]
 
 PRIORITY_ICON = {"alta": "⭐⭐⭐", "média": "⭐⭐", "baixa": "⭐"}
 
