@@ -1071,23 +1071,38 @@ elif page == "✅ To-Do List":
         st.markdown(f"**{pending_count} pending**{ip_badge} · {done_count} done out of {len(filtered_todos)} shown")
         st.markdown(
             "<style>"
-            "div.tdl-sel div[data-testid='stSelectbox'] > div > div {"
-            " min-height:26px!important; padding:1px 6px!important; font-size:0.82rem!important; }"
-            "div.tdl-rows .stHorizontalBlock {"
-            " border-bottom:1px solid rgba(0,0,0,0.05); margin-bottom:0!important; padding:1px 0!important; }"
-            "div.tdl-header .stHorizontalBlock { border-bottom:2px solid rgba(0,0,0,0.10)!important; }"
-            "div.tdl-header button { background:none!important; border:none!important; box-shadow:none!important;"
+            /* header row — use :has() sibling selector since st.markdown div doesn't nest columns */
+            "div[data-testid='stMarkdown']:has(div.tdl-header)"
+            " + div[data-testid='stHorizontalBlock'] {"
+            " border-bottom:2px solid rgba(0,0,0,0.10)!important; padding-bottom:4px!important; }"
+            "div[data-testid='stMarkdown']:has(div.tdl-header)"
+            " + div[data-testid='stHorizontalBlock'] button {"
+            " background:none!important; border:none!important; box-shadow:none!important;"
             " color:#9CA3AF!important; font-size:0.68rem!important; font-weight:700!important;"
             " letter-spacing:.06em!important; text-transform:uppercase!important;"
-            " padding:2px 0!important; width:100%!important; text-align:left!important;"
-            " justify-content:flex-start!important; }"
-            "div.tdl-header button:hover { color:#374151!important; background:none!important; }"
-            "div.tdl-rows div.tdl-num button { background:#F3F4F6!important; border:none!important;"
-            " box-shadow:none!important; border-radius:4px!important; font-size:0.73rem!important;"
-            " font-weight:700!important; color:#6B7280!important; padding:1px 2px!important;"
+            " padding:2px 0!important; width:100%!important; justify-content:flex-start!important; }"
+            "div[data-testid='stMarkdown']:has(div.tdl-header)"
+            " + div[data-testid='stHorizontalBlock'] button:hover {"
+            " color:#374151!important; background:none!important; }"
+            /* data rows */
+            "div[data-testid='stMarkdown']:has(div.tdl-rows)"
+            " ~ div[data-testid='stHorizontalBlock'] {"
+            " border-bottom:1px solid rgba(0,0,0,0.05)!important; padding:1px 0!important; }"
+            /* compact selectbox in data rows */
+            "div[data-testid='stMarkdown']:has(div.tdl-rows)"
+            " ~ div[data-testid='stHorizontalBlock']"
+            " div[data-testid='stSelectbox'] > div > div {"
+            " min-height:26px!important; padding:1px 6px!important; font-size:0.82rem!important; }"
+            /* number button in data rows */
+            "div[data-testid='stMarkdown']:has(div.tdl-rows)"
+            " ~ div[data-testid='stHorizontalBlock'] div.tdl-num button {"
+            " background:#F3F4F6!important; border:none!important; box-shadow:none!important;"
+            " border-radius:4px!important; font-size:0.73rem!important; font-weight:700!important;"
+            " color:#6B7280!important; padding:1px 2px!important;"
             " min-height:22px!important; width:100%!important; }"
-            "div.tdl-rows div.tdl-num button:hover { background:rgba(2,183,147,0.12)!important;"
-            " color:#007167!important; }"
+            "div[data-testid='stMarkdown']:has(div.tdl-rows)"
+            " ~ div[data-testid='stHorizontalBlock'] div.tdl-num button:hover {"
+            " background:rgba(2,183,147,0.12)!important; color:#007167!important; }"
             "</style>",
             unsafe_allow_html=True,
         )
@@ -1189,7 +1204,7 @@ elif page == "✅ To-Do List":
         _hdrbtn("#", "id", _h1)
         _hdrbtn("Prio", "priority", _h2)
         _h3.caption("")
-        _h4.caption("Estado")
+        _hdrbtn("Estado", "state", _h4)
         _hdrbtn("To-Do · Backlog item", "text", _h5)
         _hdrbtn("Prazo", "due_date", _h6)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -1212,9 +1227,9 @@ elif page == "✅ To-Do List":
                 items.sort(key=lambda t: t.get("due_date") or "9999-12-31", reverse=(_sd == -1))
 
             st.markdown(
-                f'<div style="font-size:0.72rem;font-weight:700;letter-spacing:.06em;'
-                f'text-transform:uppercase;color:#6B7280;padding:10px 0 3px 0;'
-                f'border-top:1px solid rgba(0,0,0,0.07);margin-top:4px">{group_label}</div>',
+                f'<div style="font-size:0.78rem;font-weight:600;color:#6B7280;'
+                f'padding:10px 0 2px 0;border-top:1px solid rgba(0,0,0,0.07);'
+                f'margin-top:2px">{group_label}</div>',
                 unsafe_allow_html=True,
             )
 
