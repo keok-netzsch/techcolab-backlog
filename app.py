@@ -1378,9 +1378,9 @@ elif page == "Dashboard":
             prio_counts[i.priority] = prio_counts.get(i.priority, 0) + 1
         for p in VALID_PRIORITIES:
             count = prio_counts.get(p, 0)
-            icon = PRIORITY_ICON.get(p, "⚪")
+            badge = PRIORITY_NUM.get(p, "")
             pct = count / total if total else 0
-            st.markdown(f"{icon} **{PRIORITY_LABEL.get(p, p)}** — {count}")
+            st.markdown(f"{badge} **{PRIORITY_LABEL.get(p, p)}** — {count}", unsafe_allow_html=True)
             st.progress(pct)
 
     with col_due:
@@ -1405,42 +1405,41 @@ elif page == "Dashboard":
                     unsafe_allow_html=True,
                 )
 
-    st.divider()
+    with st.expander("By area · Scoring", expanded=False):
+        col_area, col_score = st.columns(2)
 
-    col_area, col_score = st.columns(2)
+        with col_area:
+            st.subheader("By area")
+            area_counts = {}
+            for i in ideas_all:
+                area = i.area or "—"
+                area_counts[area] = area_counts.get(area, 0) + 1
+            for area, count in sorted(area_counts.items(), key=lambda x: -x[1]):
+                pct = count / total if total else 0
+                st.markdown(f"🏷️ **{area}** — {count}")
+                st.progress(pct)
 
-    with col_area:
-        st.subheader("By area")
-        area_counts = {}
-        for i in ideas_all:
-            area = i.area or "—"
-            area_counts[area] = area_counts.get(area, 0) + 1
-        for area, count in sorted(area_counts.items(), key=lambda x: -x[1]):
-            pct = count / total if total else 0
-            st.markdown(f"🏷️ **{area}** — {count}")
-            st.progress(pct)
-
-    with col_score:
-        st.subheader("Scoring: Impact × Effort")
-        scored = [i for i in ideas_all if i.impacto and i.esforco]
-        if not scored:
-            st.info("No ideas with impact and effort filled in yet.")
-        else:
-            impact_val = {"alta": 3, "média": 2, "baixa": 1}
-            effort_val = {"baixo": 3, "médio": 2, "alto": 1}
-            def _score(idea):
-                return impact_val.get(idea.impacto, 0) * effort_val.get(idea.esforco, 0)
-            ranked = sorted(scored, key=_score, reverse=True)
-            for idea in ranked[:8]:
-                s = _score(idea)
-                icon = PRIORITY_ICON.get(idea.priority, "⚪")
-                _clean_title = idea.title.replace("**", "").strip()
-                st.markdown(
-                    f"{icon} `{idea.id}` **{_clean_title[:40]}**  \n"
-                    f"&nbsp;&nbsp;&nbsp;Impact: {IMPACT_LABEL.get(idea.impacto, idea.impacto)} · "
-                    f"Effort: {EFFORT_LABEL.get(idea.esforco, idea.esforco)} · Score: **{s}**"
-                )
-                st.markdown('<div style="margin-bottom:0.6rem"></div>', unsafe_allow_html=True)
+        with col_score:
+            st.subheader("Scoring: Impact × Effort")
+            scored = [i for i in ideas_all if i.impacto and i.esforco]
+            if not scored:
+                st.info("No ideas with impact and effort filled in yet.")
+            else:
+                impact_val = {"alta": 3, "média": 2, "baixa": 1}
+                effort_val = {"baixo": 3, "médio": 2, "alto": 1}
+                def _score(idea):
+                    return impact_val.get(idea.impacto, 0) * effort_val.get(idea.esforco, 0)
+                ranked = sorted(scored, key=_score, reverse=True)
+                for idea in ranked[:8]:
+                    s = _score(idea)
+                    icon = PRIORITY_NUM.get(idea.priority, "")
+                    _clean_title = idea.title.replace("**", "").strip()
+                    st.markdown(
+                        f"{icon} `{idea.id}` **{_clean_title[:40]}**  \n"
+                        f"&nbsp;&nbsp;&nbsp;Impact: {IMPACT_LABEL.get(idea.impacto, idea.impacto)} · "
+                        f"Effort: {EFFORT_LABEL.get(idea.esforco, idea.esforco)} · Score: **{s}**"
+                    )
+                    st.markdown('<div style="margin-bottom:0.6rem"></div>', unsafe_allow_html=True)
 
     st.divider()
 
