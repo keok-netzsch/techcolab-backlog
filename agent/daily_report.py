@@ -485,9 +485,17 @@ def main():
     report_path.write_text(report_md, encoding="utf-8")
     print(f"[agent] Report written: {report_path}")
 
-    # Update Claude Pro Report
+    # Update Claude Pro Report (counters + timeline from commits)
     print("[agent] Updating Claude Pro Report...")
     _update_claude_pro_report()
+
+    # Enrich Claude Pro Report with session-based summaries
+    print("[agent] Scraping Claude Code sessions...")
+    try:
+        from agent.scrape_sessions import main as _scrape_main
+        _scrape_main()
+    except Exception as _exc:
+        print(f"[agent] Session scraping skipped: {_exc}")
 
     # Notify
     all_good = tests["ok"] and not data["overdue"]
