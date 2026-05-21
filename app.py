@@ -1840,14 +1840,18 @@ Download ~2 GB. To verify: `ollama list` — the model should appear in the list
 
 ## Using the app
 
-| Section | Purpose |
+The app has a **top navigation bar** with the logo on the left and page links across the top. Click any link to navigate. The 🔄 icon on the far right refreshes all data from disk.
+
+| Page | Purpose |
 |---|---|
-| 📋 Backlog | Create, edit and view ideas |
-| ✅ To-Do List | All action items consolidated across all ideas |
-| 📊 Dashboard | Metrics, scoring, period report and token coach |
-| 📈 Claude Pro | HTML report tracking Claude Pro adoption metrics |
-| 🗓️ Weekly Brief | Preparation panel for meetings with leadership |
-| 🎙️ English Coach | Progress tracker for AI-evaluated English practice sessions |
+| Dashboard | Home — metrics overview, status/priority breakdown, to-dos due this week |
+| Backlog | Create, edit and view ideas (list or kanban view) |
+| To-Do List | All action items consolidated across all ideas, sortable and filterable |
+| Claude Pro | HTML adoption report + Token Coach calculator |
+| Weekly Brief | Preparation panel for meetings with leadership |
+| English Coach | Progress tracker for AI-evaluated English practice sessions |
+| 📖 (Tutorial) | This page |
+| 📚 (Documentation) | Technical architecture and planned phases |
 
 **Status flow:**
 ```
@@ -1883,7 +1887,7 @@ You can set this during to-do creation or by editing the idea card later.
 
 ### Weekly Brief
 
-Open **🗓️ Weekly Brief** before any meeting with Alberto Reuters or Stefan Lautenschlager.
+Open **Weekly Brief** before any meeting with Alberto Reuters or Stefan Lautenschlager.
 
 - Use the period slider (default 7 days) to set the reporting window
 - Toggle sections on/off with the checkboxes
@@ -1971,7 +1975,7 @@ Execute the approved items from today's agent report
 | Issue | Solution |
 |---|---|
 | Connection error when suggesting to-dos | Start Ollama (tray icon) |
-| App shows stale data | Click **🔄 Reload ideas** in the sidebar |
+| App shows stale data | Click **🔄** in the top navigation bar (far right) |
 | Port 8501 in use | `streamlit run app.py --server.port 8502` |
 | "python not recognized" | Reinstall Python with "Add to PATH" checked |
 | pip install error | Activate `.venv` first: `.venv\\Scripts\\activate` |
@@ -1982,7 +1986,7 @@ Execute the approved items from today's agent report
 
 ## Claude Pro Report
 
-The **Claude Pro Report** (`📈 Claude Pro` tab) is a live HTML report that tracks Claude Pro usage and adoption metrics for the NBS D&A team.
+The **Claude Pro Report** (**Claude Pro** page) is a live HTML report that tracks Claude Pro usage and adoption metrics for the NBS D&A team. The page also includes the **Token Coach** calculator.
 
 It is stored as an HTML file inside the project repository (`reports/claude-pro-report.html`) and published automatically via GitHub Pages.
 
