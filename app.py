@@ -2140,49 +2140,46 @@ elif page == "Claude Pro":
 
     st.divider()
     st.subheader("Atividade no Claude Code")
-    st.caption("Prompts enviados via Claude Code CLI · baseado em `~/.claude/projects/`")
+    st.caption("Atividade real baseada nos arquivos de sessão `~/.claude/projects/`")
 
-    def _load_cc_activity(window_days: int = 14):
-        import json
+    # ── Session state for period filter ──────────────────────────────
+    if "cc_window" not in st.session_state:
+        st.session_state["cc_window"] = 0  # 0 = todos, 30, 7
+
+    # ── All-time stats loader ─────────────────────────────────────────
+    def _load_full_cc_stats():
+        import json, re as _re2
         from collections import Counter
-        from datetime import timedelta, datetime as _dt
-        cutoff = date.today() - timedelta(days=window_days - 1)
-        msgs_by_day: Counter = Counter()
-        projects: Counter = Counter()
+        from datetime import datetime as _dt
+
+        msgs_by_day:   Counter = Counter()
+        msgs_by_hour:  Counter = Counter()
         tokens_by_day: Counter = Counter()
         output_by_day: Counter = Counter()
-        cache_read_total = 0
-        cache_create_total = 0
+        cache_read = cache_create = 0
+        model_counts: Counter = Counter()
+        sessions: set = set()
+        projects: Counter = Counter()
 
-        # Project names from history.jsonl (has full project paths, easy to decode)
-        history_path = Path.home() / ".claude" / "history.jsonl"
-        if history_path.exists():
+        _hist = Path.home() / ".claude" / "history.jsonl"
+        if _hist.exists():
             try:
-                with open(history_path, encoding="utf-8") as _hf:
+                with open(_hist, encoding="utf-8") as _hf:
                     for _line in _hf:
                         try:
                             _e = json.loads(_line)
-                            _d = date.fromtimestamp(_e["timestamp"] / 1000)
-                            if _d >= cutoff:
-                                _proj = _e.get("project", "")
-                                if _proj:
-                                    projects[Path(_proj).name] += 1
+                            _p = _e.get("project", "")
+                            if _p:
+                                projects[Path(_p).name] += 1
                         except Exception:
                             continue
             except Exception:
                 pass
 
-        # Session JSONL files: count real user messages + token data
-        # User message = type "user" with string content (list = tool_result, not a prompt)
-        projects_dir = Path.home() / ".claude" / "projects"
-        cutoff_ts = _dt.combine(cutoff, _dt.min.time()).timestamp()
-        if projects_dir.exists():
-            for _jf in projects_dir.glob("**/*.jsonl"):
-                try:
-                    if _jf.stat().st_mtime < cutoff_ts:
-                        continue
-                except Exception:
-                    continue
+        _pdir = Path.home() / ".claude" / "projects"
+        if _pdir.exists():
+            for _jf in _pdir.glob("**/*.jsonl"):
+                sessions.add(_jf.stem)
                 try:
                     with open(_jf, encoding="utf-8") as _sf:
                         for _line in _sf:
@@ -2191,109 +2188,292 @@ elif page == "Claude Pro":
                                 _ts = _e.get("timestamp", "")
                                 if not _ts:
                                     continue
-                                _d = _dt.fromisoformat(_ts.replace("Z", "+00:00")).date()
-                                if _d < cutoff:
-                                    continue
+                                _dobj = _dt.fromisoformat(_ts.replace("Z", "+00:00"))
+                                _d = _dobj.date()
                                 _etype = _e.get("type", "")
                                 if _etype == "user":
-                                    # Only count text prompts, not tool_result callbacks
                                     _msg = _e.get("message", _e)
-                                    _content = _msg.get("content", "")
-                                    if isinstance(_content, str) and _content.strip():
+                                    _cnt = _msg.get("content", "")
+                                    if isinstance(_cnt, str) and _cnt.strip():
                                         msgs_by_day[_d] += 1
+                                        msgs_by_hour[_dobj.hour] += 1
                                 elif _etype == "assistant":
+                                    _mod = _e.get("message", {}).get("model", "")
+                                    if _mod and _mod != "<synthetic>":
+                                        model_counts[_mod] += 1
                                     _usage = _e.get("message", {}).get("usage")
                                     if _usage:
                                         _inp = _usage.get("input_tokens", 0)
                                         _out = _usage.get("output_tokens", 0)
                                         _cr  = _usage.get("cache_read_input_tokens", 0)
-                                        _cc  = _usage.get("cache_creation_input_tokens", 0)
-                                        tokens_by_day[_d] += _inp + _out + _cr + _cc
+                                        _cc2 = _usage.get("cache_creation_input_tokens", 0)
+                                        tokens_by_day[_d] += _inp + _out + _cr + _cc2
                                         output_by_day[_d] += _out
-                                        cache_read_total  += _cr
-                                        cache_create_total += _cc
+                                        cache_read  += _cr
+                                        cache_create += _cc2
                             except Exception:
                                 continue
                 except Exception:
                     continue
 
-        return msgs_by_day, projects, tokens_by_day, output_by_day, cache_read_total, cache_create_total
+        return dict(
+            sessions=len(sessions),
+            msgs_by_day=msgs_by_day,
+            msgs_by_hour=msgs_by_hour,
+            tokens_by_day=tokens_by_day,
+            output_by_day=output_by_day,
+            cache_read=cache_read,
+            cache_create=cache_create,
+            models=model_counts,
+            projects=projects,
+        )
 
-    _cc_msgs, _cc_projects, _tk_total, _tk_out, _cr_total, _cc_total = _load_cc_activity(14)
+    def _fmt_model(m: str) -> str:
+        import re as _re3
+        m2 = m.lower().removeprefix("claude-")
+        m2 = _re3.sub(r"-\d{8,}$", "", m2)
+        parts = m2.split("-")
+        if len(parts) >= 3:
+            return f"{parts[0].capitalize()} {parts[1]}.{parts[2]}"
+        if len(parts) == 2:
+            return f"{parts[0].capitalize()} {parts[1]}"
+        return m2.capitalize()
 
-    if not _cc_msgs and not _tk_total:
+    def _fmt_tok(n: int) -> str:
+        if n >= 1_000_000: return f"{n/1_000_000:.1f}M"
+        if n >= 1_000:     return f"{n/1_000:.1f}K"
+        return str(n)
+
+    def _compute_streaks(active_days):
+        from datetime import timedelta as _td3
+        if not active_days:
+            return 0, 0
+        _sd = sorted(active_days)
+        _max_s = _cur_s = 1
+        for _i in range(1, len(_sd)):
+            if (_sd[_i] - _sd[_i - 1]).days == 1:
+                _cur_s += 1
+                _max_s = max(_max_s, _cur_s)
+            else:
+                _cur_s = 1
+        _today2 = date.today()
+        _streak = 0
+        _start = _today2 if _today2 in active_days else (
+            _today2 - _td3(days=1) if (_today2 - _td3(days=1)) in active_days else None
+        )
+        if _start:
+            _dd = _start
+            while _dd in active_days:
+                _streak += 1
+                _dd -= _td3(days=1)
+        return _streak, _max_s
+
+    def _fun_tagline(total_tokens: int) -> str:
+        _refs = [
+            (95_000,  "O Hobbit"),
+            (100_000, "Harry Potter e a Pedra Filosofal"),
+            (120_000, "1984, de Orwell"),
+            (163_000, "Pride and Prejudice"),
+            (775_000, "Guerra e Paz"),
+        ]
+        for _tok, _name in _refs:
+            if total_tokens >= _tok * 1.5:
+                _ratio = round(total_tokens / _tok)
+                return f'Você usou ~{_ratio}&times; mais tokens do que <em>{_name}</em>.'
+        if total_tokens >= 50_000:
+            return 'Você acumulou tokens suficientes para escrever um romance.'
+        return f'Você acumulou {_fmt_tok(total_tokens)} tokens até agora.'
+
+    # ── Load all-time data ────────────────────────────────────────────
+    _all_stats = _load_full_cc_stats()
+
+    # ── Period filter buttons ─────────────────────────────────────────
+    _w = st.session_state.get("cc_window", 0)
+    _pc1, _pc2, _pc3, _pc4 = st.columns([6, 1, 1, 1])
+    with _pc2:
+        if st.button("Todos", type="primary" if _w == 0 else "secondary",
+                     use_container_width=True, key="cc_all"):
+            st.session_state["cc_window"] = 0
+            st.rerun()
+    with _pc3:
+        if st.button("30d", type="primary" if _w == 30 else "secondary",
+                     use_container_width=True, key="cc_30d"):
+            st.session_state["cc_window"] = 30
+            st.rerun()
+    with _pc4:
+        if st.button("7d", type="primary" if _w == 7 else "secondary",
+                     use_container_width=True, key="cc_7d"):
+            st.session_state["cc_window"] = 7
+            st.rerun()
+
+    # Apply period filter to displayed metrics
+    from datetime import timedelta as _td
+    if _w > 0:
+        _cutoff_disp  = date.today() - _td(days=_w - 1)
+        _msgs_by_day  = {d: c for d, c in _all_stats["msgs_by_day"].items()   if d >= _cutoff_disp}
+        _tk_total     = {d: c for d, c in _all_stats["tokens_by_day"].items() if d >= _cutoff_disp}
+        _tk_out       = {d: c for d, c in _all_stats["output_by_day"].items() if d >= _cutoff_disp}
+    else:
+        _msgs_by_day  = dict(_all_stats["msgs_by_day"])
+        _tk_total     = dict(_all_stats["tokens_by_day"])
+        _tk_out       = dict(_all_stats["output_by_day"])
+    _cr_total    = _all_stats["cache_read"]
+    _cc_total    = _all_stats["cache_create"]
+    _cc_projects = _all_stats["projects"]
+
+    if not _all_stats["msgs_by_day"] and not _all_stats["tokens_by_day"]:
         st.info("Nenhum dado encontrado em `~/.claude/`.")
     else:
-        from datetime import timedelta as _td
+        _total_msgs   = sum(_msgs_by_day.values())
+        _total_tk_val = sum(_tk_total.values())
+        _active_days  = set(_msgs_by_day.keys())
+        _streak_cur, _streak_max = _compute_streaks(_active_days)
+        _peak_h       = max(_all_stats["msgs_by_hour"], key=_all_stats["msgs_by_hour"].get) \
+                        if _all_stats["msgs_by_hour"] else 0
+        _fav_mod      = max(_all_stats["models"], key=_all_stats["models"].get) \
+                        if _all_stats["models"] else ""
+        _fav_mod_str  = _fmt_model(_fav_mod) if _fav_mod else "—"
 
-        # ── Prompts row ───────────────────────────────────────────────
-        _total_msgs = sum(_cc_msgs.values())
-        _avg_day    = _total_msgs / 14
-        _peak       = max(_cc_msgs, key=lambda d: _cc_msgs[d]) if _cc_msgs else date.today()
+        # ── Stats grid 2×4 ────────────────────────────────────────────
+        _sg_html = (
+            '<style>'
+            '.cc-sg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:.5rem 0}'
+            '.cc-sc{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px}'
+            '.cc-sl{font-size:.7rem;color:#6B7280;font-weight:500;margin-bottom:2px;white-space:nowrap}'
+            '.cc-sv{font-size:1.2rem;font-weight:700;color:#111827;line-height:1.2}'
+            '</style>'
+            '<div class="cc-sg">'
+            f'<div class="cc-sc"><div class="cc-sl">Sessões</div>'
+            f'<div class="cc-sv">{_all_stats["sessions"]}</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Mensagens</div>'
+            f'<div class="cc-sv">{_total_msgs:,}</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Total de tokens</div>'
+            f'<div class="cc-sv">{_fmt_tok(_total_tk_val)}</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Dias ativos</div>'
+            f'<div class="cc-sv">{len(_active_days)}</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Sequência atual</div>'
+            f'<div class="cc-sv">{_streak_cur}d</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Maior sequência</div>'
+            f'<div class="cc-sv">{_streak_max}d</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Horário de pico</div>'
+            f'<div class="cc-sv">{_peak_h:02d}h</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Modelo favorito</div>'
+            f'<div class="cc-sv" style="font-size:.9rem">{_fav_mod_str}</div></div>'
+            '</div>'
+        )
+        st.markdown(_sg_html, unsafe_allow_html=True)
 
-        _ma1, _ma2, _ma3 = st.columns(3)
-        _ma1.metric("Prompts (14 dias)", _total_msgs)
-        _ma2.metric("Média/dia", f"{_avg_day:.1f}")
-        _ma3.metric("Dia mais ativo", f"{_peak.strftime('%d/%b')} · {_cc_msgs.get(_peak, 0)}")
+        # ── Contribution heatmap (52 weeks) ───────────────────────────
+        _today_d  = date.today()
+        _hm_start = _today_d - _td(days=364)
+        _hm_start = _hm_start - _td(days=_hm_start.weekday())  # align to Monday
 
-        # ── Bar chart ─────────────────────────────────────────────────
-        _today_d   = date.today()
-        _chart_days = [_today_d - _td(days=i) for i in range(13, -1, -1)]
-        _chart_vals = [_cc_msgs.get(d, 0) for d in _chart_days]
-        _max_v = max(_chart_vals) if max(_chart_vals) > 0 else 1
-        _bar_html = '<div style="display:flex;align-items:flex-end;gap:3px;height:72px;margin:0.5rem 0 2px">'
-        for _v in _chart_vals:
-            _h   = max(2, int(_v / _max_v * 68))
-            _clr = "#02B793" if _v == max(_chart_vals) else "#99E6D8"
-            _bar_html += f'<div title="{_v} prompts" style="flex:1;height:{_h}px;background:{_clr};border-radius:2px 2px 0 0"></div>'
-        _bar_html += '</div><div style="display:flex;gap:3px;font-size:9px;color:#9CA3AF">'
-        for _d in _chart_days:
-            _bar_html += f'<div style="flex:1;text-align:center">{_d.strftime("%d")}</div>'
-        _bar_html += '</div>'
-        st.markdown(_bar_html, unsafe_allow_html=True)
+        def _hm_clr(n):
+            if n == 0:  return "#E9ECEF"
+            if n <= 2:  return "#A7F3D0"
+            if n <= 6:  return "#34D399"
+            if n <= 14: return "#059669"
+            return "#02B793"
+
+        _hm_weeks = []
+        _cur = _hm_start
+        while _cur <= _today_d:
+            _wk = []
+            for _dow in range(7):
+                _d2 = _cur + _td(days=_dow)
+                _n2 = _all_stats["msgs_by_day"].get(_d2, 0) if _d2 <= _today_d else 0
+                _wk.append((_d2 if _d2 <= _today_d else None, _n2))
+            _hm_weeks.append(_wk)
+            _cur += _td(days=7)
+
+        # Month labels
+        _mo_labels = [""] * len(_hm_weeks)
+        _last_mo = -1
+        for _wi2, _wk2 in enumerate(_hm_weeks):
+            for _d3, _ in _wk2:
+                if _d3 and _d3.month != _last_mo:
+                    _mo_labels[_wi2] = _d3.strftime("%b")
+                    _last_mo = _d3.month
+                    break
+
+        _mo_html = "".join(
+            f'<div style="min-width:12px;font-size:9px;color:#9CA3AF;text-align:left">{m}</div>'
+            for m in _mo_labels
+        )
+        _dow_html = "".join(
+            f'<div style="height:12px;font-size:9px;color:#9CA3AF;line-height:12px">{lb}</div>'
+            for lb in ["Mon", "", "Wed", "", "Fri", "", ""]
+        )
+        _cells_html = ""
+        for _wk3 in _hm_weeks:
+            _cells_html += '<div style="display:flex;flex-direction:column;gap:1px">'
+            for _d4, _n4 in _wk3:
+                if _d4 is None:
+                    _cells_html += '<div style="width:11px;height:11px"></div>'
+                else:
+                    _border = "2px solid #047857" if _d4 == _today_d else "none"
+                    _tip = f"{_d4.strftime('%d/%b')}: {_n4} msg"
+                    _cells_html += (
+                        f'<div title="{_tip}" style="width:11px;height:11px;border-radius:2px;'
+                        f'background:{_hm_clr(_n4)};border:{_border}"></div>'
+                    )
+            _cells_html += "</div>"
+
+        _hm_html = (
+            '<div style="margin:.75rem 0 .25rem;overflow-x:auto">'
+            f'<div style="display:flex;gap:1px;margin-left:26px;margin-bottom:2px">{_mo_html}</div>'
+            '<div style="display:flex;gap:3px">'
+            f'<div style="display:flex;flex-direction:column;gap:1px;padding-right:2px">{_dow_html}</div>'
+            f'<div style="display:flex;gap:1px">{_cells_html}</div>'
+            '</div></div>'
+        )
+        st.markdown(_hm_html, unsafe_allow_html=True)
+
+        # ── Fun tagline ───────────────────────────────────────────────
+        _total_all_tk = sum(_all_stats["tokens_by_day"].values())
+        if _total_all_tk > 0:
+            st.markdown(
+                f'<p style="font-size:.78rem;color:#9CA3AF;margin:.1rem 0 .6rem;font-style:italic">'
+                f'{_fun_tagline(_total_all_tk)}</p>',
+                unsafe_allow_html=True,
+            )
 
         # ── Token analysis row ────────────────────────────────────────
         if _tk_total:
-            def _fmt_tok(n: int) -> str:
-                if n >= 1_000_000: return f"{n/1_000_000:.1f}M"
-                if n >= 1_000:     return f"{n/1_000:.0f}K"
-                return str(n)
-
-            _total_tk  = sum(_tk_total.values())
             _total_out = sum(_tk_out.values())
-            _cache_pct = round(_cr_total / (_cr_total + _cc_total) * 100) if (_cr_total + _cc_total) > 0 else 0
-
-            st.markdown("<hr style='margin:0.6rem 0;border:none;border-top:1px solid #E5E7EB'>", unsafe_allow_html=True)
+            _cache_pct = round(_cr_total / (_cr_total + _cc_total) * 100) \
+                         if (_cr_total + _cc_total) > 0 else 0
+            st.markdown("<hr style='margin:.6rem 0;border:none;border-top:1px solid #E5E7EB'>",
+                        unsafe_allow_html=True)
             _tb1, _tb2, _tb3, _tb4 = st.columns(4)
-            _tb1.metric("Tokens totais", _fmt_tok(_total_tk))
+            _tb1.metric("Tokens totais", _fmt_tok(_total_tk_val))
             _tb2.metric("Output gerado", _fmt_tok(_total_out))
             _tb3.metric("Cache hits", _fmt_tok(_cr_total))
             _tb4.metric("Eficiência cache", f"{_cache_pct}%",
-                        help="% de tokens lidos do cache vs. criados. Quanto maior, menos processamento novo.")
+                        help="% de tokens lidos do cache vs. criados.")
 
         if _cc_projects:
             _proj_str = " · ".join(
                 f"**{n}** {c}" for n, c in sorted(_cc_projects.items(), key=lambda x: -x[1])[:4]
             )
             st.caption(f"Projetos: {_proj_str}")
-
         st.caption("ℹ️ Claude Code CLI apenas. Claude.ai web/desktop não deixa log local.")
 
         # ── Diagnóstico ───────────────────────────────────────────────
-        st.markdown("<hr style='margin:0.8rem 0;border:none;border-top:1px solid #E5E7EB'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin:.8rem 0;border:none;border-top:1px solid #E5E7EB'>",
+                    unsafe_allow_html=True)
 
-        _total_tk_sum  = sum(_tk_total.values()) if _tk_total else 0
-        _total_out_sum = sum(_tk_out.values())   if _tk_out   else 0
-        _sessions_approx = max(1, len(set(
-            d for d, c in _cc_msgs.items() for _ in range(c)
-        )))
-        _avg_tk_per_prompt = (_total_tk_sum / _total_msgs) if _total_msgs > 0 else 0
-        _cache_pct_diag = round(_cr_total / (_cr_total + _cc_total) * 100) if (_cr_total + _cc_total) > 0 else 0
+        _last14_msgs   = sum(_all_stats["msgs_by_day"].get(date.today() - _td(days=i), 0) for i in range(14))
+        _avg_day       = _last14_msgs / 14
+        _total_tk_sum  = sum(_all_stats["tokens_by_day"].values())
+        _total_msgs_all = sum(_all_stats["msgs_by_day"].values())
+        _avg_tk_per_prompt = (_total_tk_sum / _total_msgs_all) if _total_msgs_all > 0 else 0
+        _cache_pct_diag = round(_cr_total / (_cr_total + _cc_total) * 100) \
+                          if (_cr_total + _cc_total) > 0 else 0
 
-        _issues: list[tuple[str, str]] = []     # (problema, correção)
-        _opps:   list[tuple[str, str]] = []     # (oportunidade, contexto para Ollama)
+        _issues: list[tuple[str, str]] = []
+        _opps:   list[tuple[str, str]] = []
 
-        # — Regras de problema ─────────────────────────────────────────
         if _avg_day < 5:
             _issues.append((
                 f"**Frequência muito baixa** — {_avg_day:.1f} prompts/dia em média. "
@@ -2324,7 +2504,6 @@ elif page == "Claude Pro":
                 "Use /clear só ao mudar de assunto, não entre subtarefas relacionadas.",
             ))
 
-        # — Regras de oportunidade ─────────────────────────────────────
         if _avg_day >= 5 and _avg_tk_per_prompt >= 10_000:
             _opps.append((
                 "Padrão de sessões profundas",
@@ -2347,28 +2526,26 @@ elif page == "Claude Pro":
                 "Identifique se faz sentido centralizar contexto entre projetos ou manter separado.",
             ))
 
-        # — Render issues ─────────────────────────────────────────────
         if _issues:
             st.markdown(f"**{len(_issues)} problema(s) identificado(s)**")
             for _err, _fix in _issues:
                 st.markdown(
-                    f'<div style="margin:0.4rem 0;padding:0.5rem 0.75rem;border-radius:6px;'
-                    f'border-left:3px solid #EF4444;background:rgba(239,68,68,0.05)">'
-                    f'<span style="font-size:0.7rem;color:#EF4444;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Problema</span><br>{_err}'
-                    f'</div>',
-                    unsafe_allow_html=True,
+                    f'<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
+                    f'border-left:3px solid #EF4444;background:rgba(239,68,68,.05)">'
+                    f'<span style="font-size:.7rem;color:#EF4444;font-weight:700;'
+                    f'text-transform:uppercase;letter-spacing:.04em">Problema</span><br>{_err}'
+                    f'</div>', unsafe_allow_html=True,
                 )
                 st.markdown(
-                    f'<div style="margin:-0.2rem 0 0.5rem;padding:0.5rem 0.75rem;border-radius:6px;'
-                    f'border-left:3px solid #059669;background:rgba(5,150,105,0.05)">'
-                    f'<span style="font-size:0.7rem;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Como corrigir</span><br>{_fix}'
-                    f'</div>',
-                    unsafe_allow_html=True,
+                    f'<div style="margin:-.2rem 0 .5rem;padding:.5rem .75rem;border-radius:6px;'
+                    f'border-left:3px solid #059669;background:rgba(5,150,105,.05)">'
+                    f'<span style="font-size:.7rem;color:#059669;font-weight:700;'
+                    f'text-transform:uppercase;letter-spacing:.04em">Como corrigir</span><br>{_fix}'
+                    f'</div>', unsafe_allow_html=True,
                 )
         else:
             st.success("Nenhum problema identificado no padrão de uso atual.")
 
-        # — Análise de oportunidades via Ollama ───────────────────────
         if _opps:
             st.markdown(f"**{len(_opps)} oportunidade(s) para análise**")
             _opp_ctx = "\n".join(f"- {title}: {ctx}" for title, ctx in _opps)
