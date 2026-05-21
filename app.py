@@ -2145,76 +2145,134 @@ elif page == "Claude Pro":
     def _load_cc_activity(window_days: int = 14):
         import json
         from collections import Counter
-        from datetime import timedelta
+        from datetime import timedelta, datetime as _dt
         history_path = Path.home() / ".claude" / "history.jsonl"
-        if not history_path.exists():
-            return {}, Counter()
         cutoff = date.today() - timedelta(days=window_days - 1)
         msgs_by_day: Counter = Counter()
         seen_sessions: set = set()
-        sessions_by_day: Counter = Counter()
         projects: Counter = Counter()
-        try:
-            with open(history_path, encoding="utf-8") as _hf:
-                for _line in _hf:
-                    try:
-                        _e = json.loads(_line)
-                        _d = date.fromtimestamp(_e["timestamp"] / 1000)
-                        if _d >= cutoff:
-                            msgs_by_day[_d] += 1
-                            _sid = _e.get("sessionId", "")
-                            if _sid and _sid not in seen_sessions:
-                                sessions_by_day[_d] += 1
-                                seen_sessions.add(_sid)
-                            _proj = _e.get("project", "")
-                            if _proj:
-                                projects[Path(_proj).name] += 1
-                    except Exception:
+        if history_path.exists():
+            try:
+                with open(history_path, encoding="utf-8") as _hf:
+                    for _line in _hf:
+                        try:
+                            _e = json.loads(_line)
+                            _d = date.fromtimestamp(_e["timestamp"] / 1000)
+                            if _d >= cutoff:
+                                msgs_by_day[_d] += 1
+                                _sid = _e.get("sessionId", "")
+                                if _sid:
+                                    seen_sessions.add(_sid)
+                                _proj = _e.get("project", "")
+                                if _proj:
+                                    projects[Path(_proj).name] += 1
+                        except Exception:
+                            continue
+            except Exception:
+                pass
+
+        # Token data from session JSONL files
+        tokens_by_day: Counter = Counter()   # total effective tokens
+        output_by_day: Counter = Counter()
+        cache_read_total = 0
+        cache_create_total = 0
+        projects_dir = Path.home() / ".claude" / "projects"
+        cutoff_ts = _dt.combine(cutoff, _dt.min.time()).timestamp()
+        if projects_dir.exists():
+            for _jf in projects_dir.glob("**/*.jsonl"):
+                try:
+                    if _jf.stat().st_mtime < cutoff_ts:
                         continue
-        except Exception:
-            return {}, Counter()
-        return msgs_by_day, projects
+                except Exception:
+                    continue
+                try:
+                    with open(_jf, encoding="utf-8") as _sf:
+                        for _line in _sf:
+                            try:
+                                _e = json.loads(_line)
+                                if _e.get("type") != "assistant":
+                                    continue
+                                _usage = _e.get("message", {}).get("usage")
+                                if not _usage:
+                                    continue
+                                _ts = _e.get("timestamp", "")
+                                _d = _dt.fromisoformat(_ts.replace("Z", "+00:00")).date()
+                                if _d < cutoff:
+                                    continue
+                                _inp = _usage.get("input_tokens", 0)
+                                _out = _usage.get("output_tokens", 0)
+                                _cr  = _usage.get("cache_read_input_tokens", 0)
+                                _cc  = _usage.get("cache_creation_input_tokens", 0)
+                                tokens_by_day[_d] += _inp + _out + _cr + _cc
+                                output_by_day[_d] += _out
+                                cache_read_total  += _cr
+                                cache_create_total += _cc
+                            except Exception:
+                                continue
+                except Exception:
+                    continue
 
-    _cc_msgs, _cc_projects = _load_cc_activity(14)
+        return msgs_by_day, projects, tokens_by_day, output_by_day, cache_read_total, cache_create_total
 
-    if not _cc_msgs:
-        st.info("Nenhum dado encontrado em `~/.claude/history.jsonl`.")
+    _cc_msgs, _cc_projects, _tk_total, _tk_out, _cr_total, _cc_total = _load_cc_activity(14)
+
+    if not _cc_msgs and not _tk_total:
+        st.info("Nenhum dado encontrado em `~/.claude/`.")
     else:
         from datetime import timedelta as _td
+
+        # ── Prompts row ───────────────────────────────────────────────
         _total_msgs = sum(_cc_msgs.values())
-        _avg_day = _total_msgs / 14
-        _peak = max(_cc_msgs, key=lambda d: _cc_msgs[d])
+        _avg_day    = _total_msgs / 14
+        _peak       = max(_cc_msgs, key=lambda d: _cc_msgs[d]) if _cc_msgs else date.today()
 
         _ma1, _ma2, _ma3 = st.columns(3)
         _ma1.metric("Prompts (14 dias)", _total_msgs)
         _ma2.metric("Média/dia", f"{_avg_day:.1f}")
-        _ma3.metric("Dia mais ativo", f"{_peak.strftime('%d/%b')} · {_cc_msgs[_peak]}")
+        _ma3.metric("Dia mais ativo", f"{_peak.strftime('%d/%b')} · {_cc_msgs.get(_peak, 0)}")
 
-        # Bar chart via HTML (no pandas needed)
-        _today = date.today()
-        _chart_days = [_today - _td(days=i) for i in range(13, -1, -1)]
+        # ── Bar chart ─────────────────────────────────────────────────
+        _today_d   = date.today()
+        _chart_days = [_today_d - _td(days=i) for i in range(13, -1, -1)]
         _chart_vals = [_cc_msgs.get(d, 0) for d in _chart_days]
-        _max_val = max(_chart_vals) if max(_chart_vals) > 0 else 1
+        _max_v = max(_chart_vals) if max(_chart_vals) > 0 else 1
         _bar_html = '<div style="display:flex;align-items:flex-end;gap:3px;height:72px;margin:0.5rem 0 2px">'
         for _v in _chart_vals:
-            _h = max(2, int(_v / _max_val * 68))
+            _h   = max(2, int(_v / _max_v * 68))
             _clr = "#02B793" if _v == max(_chart_vals) else "#99E6D8"
-            _bar_html += f'<div title="{_v}" style="flex:1;height:{_h}px;background:{_clr};border-radius:2px 2px 0 0"></div>'
-        _bar_html += '</div>'
-        _label_html = '<div style="display:flex;gap:3px;font-size:9px;color:#9CA3AF">'
+            _bar_html += f'<div title="{_v} prompts" style="flex:1;height:{_h}px;background:{_clr};border-radius:2px 2px 0 0"></div>'
+        _bar_html += '</div><div style="display:flex;gap:3px;font-size:9px;color:#9CA3AF">'
         for _d in _chart_days:
-            _label_html += f'<div style="flex:1;text-align:center">{_d.strftime("%d")}</div>'
-        _label_html += '</div>'
-        st.markdown(_bar_html + _label_html, unsafe_allow_html=True)
+            _bar_html += f'<div style="flex:1;text-align:center">{_d.strftime("%d")}</div>'
+        _bar_html += '</div>'
+        st.markdown(_bar_html, unsafe_allow_html=True)
+
+        # ── Token analysis row ────────────────────────────────────────
+        if _tk_total:
+            def _fmt_tok(n: int) -> str:
+                if n >= 1_000_000: return f"{n/1_000_000:.1f}M"
+                if n >= 1_000:     return f"{n/1_000:.0f}K"
+                return str(n)
+
+            _total_tk  = sum(_tk_total.values())
+            _total_out = sum(_tk_out.values())
+            _cache_pct = round(_cr_total / (_cr_total + _cc_total) * 100) if (_cr_total + _cc_total) > 0 else 0
+
+            st.markdown("<hr style='margin:0.6rem 0;border:none;border-top:1px solid #E5E7EB'>", unsafe_allow_html=True)
+            _tb1, _tb2, _tb3, _tb4 = st.columns(4)
+            _tb1.metric("Tokens totais", _fmt_tok(_total_tk))
+            _tb2.metric("Output gerado", _fmt_tok(_total_out))
+            _tb3.metric("Cache hits", _fmt_tok(_cr_total))
+            _tb4.metric("Eficiência cache", f"{_cache_pct}%",
+                        help="% de tokens lidos do cache vs. criados. Quanto maior, menos processamento novo.")
 
         if _cc_projects:
-            _proj_parts = " · ".join(
-                f"**{n}** {c}" for n, c in
-                sorted(_cc_projects.items(), key=lambda x: -x[1])[:4]
+            _proj_str = " · ".join(
+                f"**{n}** {c}" for n, c in sorted(_cc_projects.items(), key=lambda x: -x[1])[:4]
             )
-            st.caption(f"Projetos: {_proj_parts}")
+            st.caption(f"Projetos: {_proj_str}")
 
-        st.caption("ℹ️ Inclui apenas Claude Code CLI. Claude.ai web/desktop não é rastreado localmente.")
+        st.caption("ℹ️ Claude Code CLI apenas. Claude.ai web/desktop não deixa log local.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 7 — ENGLISH COACH
