@@ -2140,17 +2140,22 @@ elif page == "Claude Pro":
 
     st.divider()
     st.subheader("Atividade no Claude Code")
-    st.caption("Prompts enviados via Claude Code CLI · baseado em `~/.claude/history.jsonl`")
+    st.caption("Prompts enviados via Claude Code CLI · baseado em `~/.claude/projects/`")
 
     def _load_cc_activity(window_days: int = 14):
         import json
         from collections import Counter
         from datetime import timedelta, datetime as _dt
-        history_path = Path.home() / ".claude" / "history.jsonl"
         cutoff = date.today() - timedelta(days=window_days - 1)
         msgs_by_day: Counter = Counter()
-        seen_sessions: set = set()
         projects: Counter = Counter()
+        tokens_by_day: Counter = Counter()
+        output_by_day: Counter = Counter()
+        cache_read_total = 0
+        cache_create_total = 0
+
+        # Project names from history.jsonl (has full project paths, easy to decode)
+        history_path = Path.home() / ".claude" / "history.jsonl"
         if history_path.exists():
             try:
                 with open(history_path, encoding="utf-8") as _hf:
@@ -2159,10 +2164,6 @@ elif page == "Claude Pro":
                             _e = json.loads(_line)
                             _d = date.fromtimestamp(_e["timestamp"] / 1000)
                             if _d >= cutoff:
-                                msgs_by_day[_d] += 1
-                                _sid = _e.get("sessionId", "")
-                                if _sid:
-                                    seen_sessions.add(_sid)
                                 _proj = _e.get("project", "")
                                 if _proj:
                                     projects[Path(_proj).name] += 1
@@ -2171,11 +2172,8 @@ elif page == "Claude Pro":
             except Exception:
                 pass
 
-        # Token data from session JSONL files
-        tokens_by_day: Counter = Counter()   # total effective tokens
-        output_by_day: Counter = Counter()
-        cache_read_total = 0
-        cache_create_total = 0
+        # Session JSONL files: count real user messages + token data
+        # User message = type "user" with string content (list = tool_result, not a prompt)
         projects_dir = Path.home() / ".claude" / "projects"
         cutoff_ts = _dt.combine(cutoff, _dt.min.time()).timestamp()
         if projects_dir.exists():
@@ -2190,23 +2188,30 @@ elif page == "Claude Pro":
                         for _line in _sf:
                             try:
                                 _e = json.loads(_line)
-                                if _e.get("type") != "assistant":
-                                    continue
-                                _usage = _e.get("message", {}).get("usage")
-                                if not _usage:
-                                    continue
                                 _ts = _e.get("timestamp", "")
+                                if not _ts:
+                                    continue
                                 _d = _dt.fromisoformat(_ts.replace("Z", "+00:00")).date()
                                 if _d < cutoff:
                                     continue
-                                _inp = _usage.get("input_tokens", 0)
-                                _out = _usage.get("output_tokens", 0)
-                                _cr  = _usage.get("cache_read_input_tokens", 0)
-                                _cc  = _usage.get("cache_creation_input_tokens", 0)
-                                tokens_by_day[_d] += _inp + _out + _cr + _cc
-                                output_by_day[_d] += _out
-                                cache_read_total  += _cr
-                                cache_create_total += _cc
+                                _etype = _e.get("type", "")
+                                if _etype == "user":
+                                    # Only count text prompts, not tool_result callbacks
+                                    _msg = _e.get("message", _e)
+                                    _content = _msg.get("content", "")
+                                    if isinstance(_content, str) and _content.strip():
+                                        msgs_by_day[_d] += 1
+                                elif _etype == "assistant":
+                                    _usage = _e.get("message", {}).get("usage")
+                                    if _usage:
+                                        _inp = _usage.get("input_tokens", 0)
+                                        _out = _usage.get("output_tokens", 0)
+                                        _cr  = _usage.get("cache_read_input_tokens", 0)
+                                        _cc  = _usage.get("cache_creation_input_tokens", 0)
+                                        tokens_by_day[_d] += _inp + _out + _cr + _cc
+                                        output_by_day[_d] += _out
+                                        cache_read_total  += _cr
+                                        cache_create_total += _cc
                             except Exception:
                                 continue
                 except Exception:
