@@ -2096,9 +2096,25 @@ Anotações livres.
 elif page == "Claude Pro":
     import streamlit.components.v1 as components
     from config import CLAUDE_PRO_REPORT_HTML
-    st.markdown('<h1 style="margin-bottom:0.4rem">Claude Pro Report</h1>', unsafe_allow_html=True)
-    st.caption("Relatório vivo de uso do Claude Pro · NBS D&A · Techco.lab — "
-               "atualizado automaticamente pelo agente diário")
+
+    _cp_title_col, _cp_btn_col = st.columns([5, 1], vertical_alignment="bottom")
+    with _cp_title_col:
+        st.markdown('<h1 style="margin-bottom:0.2rem">Claude Pro Report</h1>', unsafe_allow_html=True)
+        st.caption("Relatório vivo de uso do Claude Pro · NBS D&A · Techco.lab — "
+                   "atualizado automaticamente pelo agente diário")
+    with _cp_btn_col:
+        if CLAUDE_PRO_REPORT_HTML.exists():
+            if st.button("🔄 Atualizar agora", type="primary", key="cp_update_btn",
+                         use_container_width=True):
+                from agent.daily_report import _update_claude_pro_report
+                with st.spinner("Atualizando..."):
+                    ok = _update_claude_pro_report()
+                if ok:
+                    st.success("✅ Atualizado.")
+                    st.rerun()
+                else:
+                    st.error("❌ Falha. Verifique o Git.")
+
     # ── Auto-update if stale (agent may not have run today) ──────────────────
     if CLAUDE_PRO_REPORT_HTML.exists():
         import re as _re
@@ -2111,20 +2127,7 @@ elif page == "Claude Pro":
             with st.spinner("Atualizando relatório..."):
                 _update_claude_pro_report()
             _raw = CLAUDE_PRO_REPORT_HTML.read_text(encoding="utf-8")
-            st.caption(f"ℹ️ Relatório atualizado automaticamente (estava em {_report_date_str or 'data desconhecida'}).")
-
-    _cp_col_report, _cp_col_btn = st.columns([6, 1], vertical_alignment="bottom")
-    with _cp_col_btn:
-        if CLAUDE_PRO_REPORT_HTML.exists():
-            if st.button("🔄 Atualizar agora", type="primary", key="cp_update_btn"):
-                from agent.daily_report import _update_claude_pro_report
-                with st.spinner("Atualizando..."):
-                    ok = _update_claude_pro_report()
-                if ok:
-                    st.success("✅ Atualizado.")
-                    st.rerun()
-                else:
-                    st.error("❌ Falha. Verifique o Git.")
+            st.caption(f"ℹ️ Atualizado automaticamente (estava em {_report_date_str or 'data desconhecida'}).")
 
     if CLAUDE_PRO_REPORT_HTML.exists():
         _report_html = CLAUDE_PRO_REPORT_HTML.read_text(encoding="utf-8")
