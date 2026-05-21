@@ -1006,7 +1006,7 @@ elif page == "To-Do List":
     if not all_todos:
         st.info("No to-dos found. Add to-dos to ideas in the Backlog.")
     else:
-        col_a, col_b, col_c, col_d, _ = st.columns([1.5, 2.2, 1.6, 0.6, 2.1], vertical_alignment="bottom", gap="small")
+        col_a, col_b, col_c, col_d, _ = st.columns([1.5, 2.2, 1.6, 1.1, 1.6], vertical_alignment="bottom", gap="small")
         with col_a:
             areas = sorted(set(t["area"] for t in all_todos if t["area"] != "—"))
             filter_area = st.selectbox("Area", ["All"] + areas)
@@ -2002,23 +2002,8 @@ Every morning when the daily agent runs, it updates three values in the HTML fil
 
 After updating, the agent commits the file to the repository and pushes it — GitHub Pages then serves the new version within ~1 minute.
 
-### Manual update
-
-If you want to update the report outside the agent schedule, click the button below:
+To update manually outside the agent schedule, use the **Atualizar agora** button on the **Claude Pro** page.
 """)
-
-    from config import CLAUDE_PRO_REPORT_HTML
-    if CLAUDE_PRO_REPORT_HTML.exists():
-        if st.button("🔄 Atualizar Claude Pro Report agora", type="primary"):
-            from agent.daily_report import _update_claude_pro_report
-            with st.spinner("Atualizando e enviando para o GitHub..."):
-                ok = _update_claude_pro_report()
-            if ok:
-                st.success("✅ Relatório atualizado e publicado.")
-            else:
-                st.error("❌ Falha ao atualizar. Verifique se o Git está configurado e o repositório está acessível.")
-    else:
-        st.warning(f"Arquivo do relatório não encontrado: `{CLAUDE_PRO_REPORT_HTML}`")
 
 
 
@@ -2107,15 +2092,6 @@ Anotações livres.
 
     st.caption("To change settings, edit the `config.py` file in the project root.")
 
-    st.divider()
-    st.markdown("## Planned next phases")
-    st.markdown("""
-- **Phase 2** — Analysis agent: given an idea "under review", researches, validates hypotheses and generates a structured report
-- **Phase 3** — Parallel orchestrator: runs multiple analyses simultaneously
-- **Phase 4** — Notion integration (optional bidirectional sync)
-- **Phase 5** — Stakeholder pages: vault folders for Alberto Reuters and Stefan Lautenschlager, surfaced in Weekly Brief
-- **Phase 6** — Voice recorder integration: auto-populate Weekly Brief calls section from call-recorder session notes
-""")
 
 elif page == "Claude Pro":
     import streamlit.components.v1 as components
@@ -2123,6 +2099,19 @@ elif page == "Claude Pro":
     st.markdown('<h1 style="margin-bottom:0.4rem">Claude Pro Report</h1>', unsafe_allow_html=True)
     st.caption("Relatório vivo de uso do Claude Pro · NBS D&A · Techco.lab — "
                "atualizado automaticamente pelo agente diário")
+    _cp_col_report, _cp_col_btn = st.columns([6, 1], vertical_alignment="bottom")
+    with _cp_col_btn:
+        if CLAUDE_PRO_REPORT_HTML.exists():
+            if st.button("🔄 Atualizar agora", type="primary", key="cp_update_btn"):
+                from agent.daily_report import _update_claude_pro_report
+                with st.spinner("Atualizando..."):
+                    ok = _update_claude_pro_report()
+                if ok:
+                    st.success("✅ Atualizado.")
+                    st.rerun()
+                else:
+                    st.error("❌ Falha. Verifique o Git.")
+
     if CLAUDE_PRO_REPORT_HTML.exists():
         _report_html = CLAUDE_PRO_REPORT_HTML.read_text(encoding="utf-8")
         components.html(_report_html, height=900, scrolling=True)
@@ -2153,9 +2142,44 @@ elif page == "Claude Pro":
                 "Curta (~1.5K), Média (~8K), Longa (~30K), Projeto (~80K). "
                 "Quanto mais contexto você fornece (arquivos, histórico, exemplos), mais você sobe na escala."
             )
+        def _get_cc_msgs_per_day() -> int:
+            import json
+            from collections import Counter
+            from datetime import timedelta
+            history_path = Path.home() / ".claude" / "history.jsonl"
+            if not history_path.exists():
+                return 0
+            cutoff = date.today() - timedelta(days=7)
+            days: Counter = Counter()
+            try:
+                with open(history_path, encoding="utf-8") as _f:
+                    for _line in _f:
+                        try:
+                            _e = json.loads(_line)
+                            _d = date.fromtimestamp(_e["timestamp"] / 1000)
+                            if _d >= cutoff:
+                                days[_d] += 1
+                        except Exception:
+                            continue
+            except Exception:
+                return 0
+            return round(sum(days.values()) / 7) if days else 0
+
+        if "tk_msgs_init" not in st.session_state:
+            _cc = _get_cc_msgs_per_day()
+            st.session_state["tk_msgs"] = max(1, _cc) if _cc > 0 else 20
+            st.session_state["tk_msgs_init"] = True
+            st.session_state["tk_msgs_cc"] = _get_cc_msgs_per_day()
+
         col_tc_a, col_tc_b = st.columns([1, 1])
         with col_tc_a:
-            msgs_day = st.slider("Mensagens/dia ao Claude", 1, 100, 20, key="tk_msgs")
+            _cc_measured = st.session_state.get("tk_msgs_cc", 0)
+            if _cc_measured > 0:
+                st.caption(
+                    f"📊 Claude Code detectado: **{_cc_measured} msgs/dia** (últimos 7 dias). "
+                    "Ajuste para incluir Claude.ai e outras ferramentas."
+                )
+            msgs_day = st.slider("Mensagens/dia ao Claude (todas as ferramentas)", 1, 100, key="tk_msgs")
             conv_type = st.radio(
                 "Tipo de conversa predominante",
                 ["Curta (~1.5K tokens)", "Média (~8K)", "Longa (~30K)", "Projeto (~80K)"],

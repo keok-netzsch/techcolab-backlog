@@ -545,6 +545,33 @@
   // init
   calcTime();
   calcTokens();
+
+  // ── Dynamic "hoje" badge on timeline ──────────────────────────────────────
+  // Parses the date of the most-recent timeline item and hides the badge if it
+  // doesn't match today's date, so the tag never gets stale.
+  (function() {
+    var PT_MONTHS = {
+      'Jan':0,'Fev':1,'Mar':2,'Abr':3,'Mai':4,'Jun':5,
+      'Jul':6,'Ago':7,'Set':8,'Out':9,'Nov':10,'Dez':11
+    };
+    var latest = document.querySelector('.timeline-item.latest');
+    if (!latest) return;
+    var badge = latest.querySelector('.timeline-new-badge');
+    if (!badge) return;
+    var dateEl = latest.querySelector('.timeline-date');
+    if (!dateEl) return;
+    // Strip the badge text to get just the date part
+    var dateText = dateEl.textContent.replace(/hoje/i, '').trim();
+    var parts = dateText.split(/[\s–\-]+/); // handle "11–12 Mai 2026" as well
+    var day = parseInt(parts[0], 10);
+    var month = PT_MONTHS[parts[1]];
+    var year = parseInt(parts[parts.length - 1], 10);
+    if (isNaN(day) || month === undefined || isNaN(year)) { badge.style.display = 'none'; return; }
+    var itemDate = new Date(year, month, day);
+    var today = new Date(); today.setHours(0,0,0,0);
+    itemDate.setHours(0,0,0,0);
+    badge.style.display = (itemDate.getTime() === today.getTime()) ? '' : 'none';
+  })();
 </script>
 </body>
 </html>
