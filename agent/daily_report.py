@@ -286,11 +286,91 @@ def build_report(tests: dict, data: dict) -> str:
 
 # ── Claude Pro Report updater ─────────────────────────────────────────────────
 
+_PT_MONTHS = {
+    1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
+    7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
+}
+
+def _today_timeline_str() -> str:
+    return f"{TODAY.day} {_PT_MONTHS[TODAY.month]} {TODAY.year}"
+
+
+def _get_todays_commits(project_root) -> list[str]:
+    """Returns meaningful commit messages made today (excludes auto-update commits)."""
+    _SKIP = {"auto-update claude pro report", "auto-update"}
+    try:
+        result = subprocess.run(
+            ["git", "log", f"--since={TODAY.isoformat()} 00:00:00",
+             "--until=tomorrow", "--format=%s", "--no-merges"],
+            cwd=str(project_root), capture_output=True, text=True,
+        )
+        msgs = []
+        for line in result.stdout.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if any(skip in line for skip in _SKIP):
+                continue
+            msgs.append(line)
+        return msgs
+    except Exception:
+        return []
+
+
+def _build_timeline_entry(commits: list[str]) -> tuple[str, str]:
+    """Returns (title, detail) for a timeline entry given today's commit messages."""
+    _PREFIXES = ("feat:", "fix:", "docs:", "refactor:", "chore:", "test:", "style:", "perf:")
+
+    def _clean(msg: str) -> str:
+        for p in _PREFIXES:
+            if msg.lower().startswith(p):
+                return msg[len(p):].strip()
+        return msg
+
+    cleaned = [_clean(c) for c in commits]
+
+    if len(cleaned) == 1:
+        title = cleaned[0][0].upper() + cleaned[0][1:]
+        detail = ""
+    else:
+        # Use the longest/most descriptive message as the title
+        title_src = max(cleaned, key=len)
+        title = title_src[0].upper() + title_src[1:]
+        rest = [c for c in cleaned if c != title_src]
+        detail = "; ".join(rest)
+
+    return title, detail
+
+
+def _inject_timeline_entry(html: str, title: str, detail: str) -> str:
+    """Inserts a new .latest timeline entry and demotes the previous one."""
+    today_str = _today_timeline_str()
+
+    detail_html = f'\n        <div class="timeline-detail">{detail}</div>' if detail else ""
+    new_entry = (
+        f'      <div class="timeline-item latest">\n'
+        f'        <div class="timeline-date">{today_str} <span class="timeline-new-badge">hoje</span></div>\n'
+        f'        <div class="timeline-title">{title}</div>{detail_html}\n'
+        f'      </div>\n'
+    )
+
+    # Strip the "hoje" badge from the current .latest (it will become a plain item)
+    html = re.sub(r' <span class="timeline-new-badge">hoje</span>', '', html, count=1)
+    # Demote current .latest → plain .timeline-item
+    html = html.replace('class="timeline-item latest"', 'class="timeline-item"', 1)
+    # Insert new entry at the top of the timeline
+    html = html.replace('<div class="timeline">\n', '<div class="timeline">\n' + new_entry, 1)
+
+    return html
+
+
 def _update_claude_pro_report() -> bool:
     """
-    Update date fields in the Claude Pro Report HTML (local file inside the project).
-    The file is committed to the techcolab-backlog repo — no separate external repo needed.
-    Returns True on success, False on any error (non-fatal — agent continues).
+    Update the Claude Pro Report HTML:
+    - Refreshes all date/counter fields
+    - Adds a new timeline entry for today if there are meaningful commits
+    Commits the result and pushes to GitHub.
+    Returns True on success, False on any error (non-fatal).
     """
     html_path = CLAUDE_PRO_REPORT_HTML
     if not html_path.exists():
@@ -299,29 +379,24 @@ def _update_claude_pro_report() -> bool:
 
     try:
         html = html_path.read_text(encoding="utf-8")
+        project_root = html_path.parent.parent  # reports/ → project root
 
         # Compute days since adoption
         start = date.fromisoformat(CLAUDE_PRO_START_DATE)
         days_since = (TODAY - start).days
-
-        # Formatted date in Brazilian format
         today_br = TODAY.strftime("%d/%m/%Y")
 
-        # Update "Atualizado em" in header (meta column)
-        html = re.sub(
-            r"Atualizado em: \d{2}/\d{2}/\d{4}",
-            f"Atualizado em: {today_br}",
-            html,
-        )
+        # Update header "Atualizado em"
+        html = re.sub(r"Atualizado em: \d{2}/\d{2}/\d{4}", f"Atualizado em: {today_br}", html)
 
-        # Update "Dias desde adoção" stat number
+        # Update "Dias desde adoção" stat counter
         html = re.sub(
             r'(<div class="stat-number">)\d+(</div>\s*<div class="stat-label">Dias desde adoção)',
             rf"\g<1>{days_since}\g<2>",
             html,
         )
 
-        # Update "Em X dias," in the executive paragraph
+        # Update "Em X dias," in executive paragraph
         html = re.sub(r"Em \d+ dias,", f"Em {days_since} dias,", html)
 
         # Update footer date
@@ -331,24 +406,32 @@ def _update_claude_pro_report() -> bool:
             html,
         )
 
+        # Add timeline entry for today if not already present
+        today_str = _today_timeline_str()
+        if today_str not in html:
+            commits = _get_todays_commits(project_root)
+            if commits:
+                title, detail = _build_timeline_entry(commits)
+                html = _inject_timeline_entry(html, title, detail)
+                print(f"[agent] Timeline entry added: {title}")
+            else:
+                print(f"[agent] No meaningful commits today — timeline unchanged")
+        else:
+            print(f"[agent] Timeline already has entry for {today_str}")
+
         html_path.write_text(html, encoding="utf-8")
 
-        # Git commit and push from the project root (reports/ is inside techcolab-backlog)
-        project_root = html_path.parent.parent  # reports/ → project root
         subprocess.run(["git", "add", str(html_path)], cwd=str(project_root), check=True)
-        result = subprocess.run(
-            ["git", "diff", "--cached", "--quiet"],
-            cwd=str(project_root),
-        )
-        if result.returncode != 0:
+        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(project_root))
+        if diff.returncode != 0:
             subprocess.run(
                 ["git", "commit", "-m", f"chore: auto-update claude pro report to {TODAY}"],
                 cwd=str(project_root), check=True,
             )
             subprocess.run(["git", "push"], cwd=str(project_root), check=True)
-            print(f"[agent] Claude Pro Report updated and pushed ({today_br}, {days_since} days)")
+            print(f"[agent] Claude Pro Report pushed ({today_br}, {days_since} days)")
         else:
-            print(f"[agent] Claude Pro Report: no date changes needed")
+            print(f"[agent] Claude Pro Report: no changes to commit")
 
         return True
 
