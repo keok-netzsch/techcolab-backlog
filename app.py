@@ -1480,8 +1480,12 @@ elif page == "Dashboard":
         _fav_mod      = max(_all_stats["models"], key=_all_stats["models"].get) \
                         if _all_stats["models"] else ""
         _fav_mod_str  = _fmt_model(_fav_mod) if _fav_mod else "—"
+        _total_out    = sum(_tk_out.values())
+        _cache_pct    = round(_cr_total / (_cr_total + _cc_total) * 100) \
+                        if (_cr_total + _cc_total) > 0 else 0
+        _num_projects = len(_cc_projects)
 
-        # ── Stats grid 2×4 ────────────────────────────────────────────
+        # ── Stats grid 3×4 ────────────────────────────────────────────
         _sg_html = (
             '<style>'
             '.cc-sg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:.5rem 0}'
@@ -1490,22 +1494,33 @@ elif page == "Dashboard":
             '.cc-sv{font-size:1.2rem;font-weight:700;color:#111827;line-height:1.2}'
             '</style>'
             '<div class="cc-sg">'
+            # Row 1 — atividade
             f'<div class="cc-sc"><div class="cc-sl">Sessões</div>'
             f'<div class="cc-sv">{_all_stats["sessions"]}</div></div>'
             f'<div class="cc-sc"><div class="cc-sl">Mensagens</div>'
             f'<div class="cc-sv">{_total_msgs:,}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Total de tokens</div>'
-            f'<div class="cc-sv">{_fmt_tok(_total_tk_val)}</div></div>'
             f'<div class="cc-sc"><div class="cc-sl">Dias ativos</div>'
             f'<div class="cc-sv">{len(_active_days)}</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Horário de pico</div>'
+            f'<div class="cc-sv">{_peak_h:02d}h</div></div>'
+            # Row 2 — tokens
+            f'<div class="cc-sc"><div class="cc-sl">Total de tokens</div>'
+            f'<div class="cc-sv">{_fmt_tok(_total_tk_val)}</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Output gerado</div>'
+            f'<div class="cc-sv">{_fmt_tok(_total_out)}</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Cache hits</div>'
+            f'<div class="cc-sv">{_fmt_tok(_cr_total)}</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Eficiência cache</div>'
+            f'<div class="cc-sv">{_cache_pct}%</div></div>'
+            # Row 3 — streaks, modelo, projetos
             f'<div class="cc-sc"><div class="cc-sl">Sequência atual</div>'
             f'<div class="cc-sv">{_streak_cur}d</div></div>'
             f'<div class="cc-sc"><div class="cc-sl">Maior sequência</div>'
             f'<div class="cc-sv">{_streak_max}d</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Horário de pico</div>'
-            f'<div class="cc-sv">{_peak_h:02d}h</div></div>'
             f'<div class="cc-sc"><div class="cc-sl">Modelo favorito</div>'
             f'<div class="cc-sv" style="font-size:.9rem">{_fav_mod_str}</div></div>'
+            f'<div class="cc-sc"><div class="cc-sl">Projetos</div>'
+            f'<div class="cc-sv">{_num_projects}</div></div>'
             '</div>'
         )
         st.markdown(_sg_html, unsafe_allow_html=True)
@@ -1584,20 +1599,6 @@ elif page == "Dashboard":
                 f'{_fun_tagline(_total_all_tk)}</p>',
                 unsafe_allow_html=True,
             )
-
-        # ── Token analysis row ────────────────────────────────────────
-        if _tk_total:
-            _total_out = sum(_tk_out.values())
-            _cache_pct = round(_cr_total / (_cr_total + _cc_total) * 100) \
-                         if (_cr_total + _cc_total) > 0 else 0
-            st.markdown("<hr style='margin:.6rem 0;border:none;border-top:1px solid #E5E7EB'>",
-                        unsafe_allow_html=True)
-            _tb1, _tb2, _tb3, _tb4 = st.columns(4)
-            _tb1.metric("Tokens totais", _fmt_tok(_total_tk_val))
-            _tb2.metric("Output gerado", _fmt_tok(_total_out))
-            _tb3.metric("Cache hits", _fmt_tok(_cr_total))
-            _tb4.metric("Eficiência cache", f"{_cache_pct}%",
-                        help="% de tokens lidos do cache vs. criados.")
 
         if _cc_projects:
             _proj_str = " · ".join(
