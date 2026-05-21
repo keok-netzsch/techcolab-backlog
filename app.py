@@ -2274,6 +2274,132 @@ elif page == "Claude Pro":
 
         st.caption("ℹ️ Claude Code CLI apenas. Claude.ai web/desktop não deixa log local.")
 
+        # ── Diagnóstico ───────────────────────────────────────────────
+        st.markdown("<hr style='margin:0.8rem 0;border:none;border-top:1px solid #E5E7EB'>", unsafe_allow_html=True)
+
+        _total_tk_sum  = sum(_tk_total.values()) if _tk_total else 0
+        _total_out_sum = sum(_tk_out.values())   if _tk_out   else 0
+        _sessions_approx = max(1, len(set(
+            d for d, c in _cc_msgs.items() for _ in range(c)
+        )))
+        _avg_tk_per_prompt = (_total_tk_sum / _total_msgs) if _total_msgs > 0 else 0
+        _cache_pct_diag = round(_cr_total / (_cr_total + _cc_total) * 100) if (_cr_total + _cc_total) > 0 else 0
+
+        _issues: list[tuple[str, str]] = []     # (problema, correção)
+        _opps:   list[tuple[str, str]] = []     # (oportunidade, contexto para Ollama)
+
+        # — Regras de problema ─────────────────────────────────────────
+        if _avg_day < 5:
+            _issues.append((
+                f"**Frequência muito baixa** — {_avg_day:.1f} prompts/dia em média. "
+                "Claude Code ainda não está integrado ao fluxo diário.",
+                "Traga tarefas menores: revisão de e-mails, rascunhos, análise rápida de dados, geração de scripts. "
+                "O hábito se forma no uso cotidiano, não nos grandes projetos.",
+            ))
+        elif _avg_day < 10:
+            _issues.append((
+                f"**Frequência abaixo do potencial** — {_avg_day:.1f} prompts/dia. "
+                "Há espaço para expandir o uso para mais tipos de tarefa.",
+                "Identifique tarefas recorrentes que você ainda faz manualmente e experimente delegar ao Claude.",
+            ))
+
+        if _avg_tk_per_prompt > 0 and _avg_tk_per_prompt < 3_000:
+            _issues.append((
+                f"**Contexto subutilizado** — média de {_avg_tk_per_prompt/1000:.1f}K tokens/prompt. "
+                "Sessões muito curtas aproveitam pouco o contexto de 200K disponível.",
+                "Inclua o arquivo completo, não só o trecho. Descreva o projeto, dê exemplos. "
+                "Claude responde proporcionalmente ao contexto que recebe.",
+            ))
+
+        if _cache_pct_diag < 30 and (_cr_total + _cc_total) > 10_000:
+            _issues.append((
+                f"**Cache pouco aproveitado** — {_cache_pct_diag}% de eficiência. "
+                "Poucas sessões reaproveitam contexto de sessões anteriores.",
+                "Abra sessões mais longas em vez de várias curtas sobre o mesmo tema. "
+                "Use /clear só ao mudar de assunto, não entre subtarefas relacionadas.",
+            ))
+
+        # — Regras de oportunidade ─────────────────────────────────────
+        if _avg_day >= 5 and _avg_tk_per_prompt >= 10_000:
+            _opps.append((
+                "Padrão de sessões profundas",
+                f"Usuário faz {_avg_day:.1f} prompts/dia com média de {_avg_tk_per_prompt/1000:.0f}K tokens cada. "
+                "Identifique onde sessões mais longas trariam ainda mais valor vs. onde a profundidade atual é suficiente.",
+            ))
+
+        if _cache_pct_diag >= 60:
+            _opps.append((
+                "Alta reutilização de contexto",
+                f"Cache efficiency de {_cache_pct_diag}%. "
+                "Sugira como estruturar projetos recorrentes para maximizar ainda mais esse padrão.",
+            ))
+
+        if len(_cc_projects) >= 3:
+            _top_proj = ", ".join(n for n, _ in sorted(_cc_projects.items(), key=lambda x: -x[1])[:3])
+            _opps.append((
+                "Multi-projeto",
+                f"Uso distribuído em {len(_cc_projects)} projetos ({_top_proj}). "
+                "Identifique se faz sentido centralizar contexto entre projetos ou manter separado.",
+            ))
+
+        # — Render issues ─────────────────────────────────────────────
+        if _issues:
+            st.markdown(f"**{len(_issues)} problema(s) identificado(s)**")
+            for _err, _fix in _issues:
+                st.markdown(
+                    f'<div style="margin:0.4rem 0;padding:0.5rem 0.75rem;border-radius:6px;'
+                    f'border-left:3px solid #EF4444;background:rgba(239,68,68,0.05)">'
+                    f'<span style="font-size:0.7rem;color:#EF4444;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Problema</span><br>{_err}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f'<div style="margin:-0.2rem 0 0.5rem;padding:0.5rem 0.75rem;border-radius:6px;'
+                    f'border-left:3px solid #059669;background:rgba(5,150,105,0.05)">'
+                    f'<span style="font-size:0.7rem;color:#059669;font-weight:700;text-transform:uppercase;letter-spacing:.04em">Como corrigir</span><br>{_fix}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+        else:
+            st.success("Nenhum problema identificado no padrão de uso atual.")
+
+        # — Análise de oportunidades via Ollama ───────────────────────
+        if _opps:
+            st.markdown(f"**{len(_opps)} oportunidade(s) para análise**")
+            _opp_ctx = "\n".join(f"- {title}: {ctx}" for title, ctx in _opps)
+            _metrics_summary = (
+                f"Prompts/dia (14d): {_avg_day:.1f} | "
+                f"Tokens/prompt: {_avg_tk_per_prompt/1000:.1f}K | "
+                f"Cache: {_cache_pct_diag}% | "
+                f"Projetos: {', '.join(list(_cc_projects.keys())[:3])}"
+            )
+            with st.expander("Ver análise detalhada (Ollama)", expanded=False):
+                if st.button("Gerar análise", key="cc_ollama_btn"):
+                    _prompt = (
+                        "Você é um consultor de produtividade com IA. "
+                        "Analise o padrão de uso do Claude Code abaixo e forneça insights acionáveis.\n\n"
+                        f"Métricas reais (últimos 14 dias):\n{_metrics_summary}\n\n"
+                        f"Oportunidades identificadas:\n{_opp_ctx}\n\n"
+                        "Para cada oportunidade: explique quando usar Claude nesse contexto e quando NÃO usar. "
+                        "Seja específico e prático. Máximo 200 palavras no total. Responda em português."
+                    )
+                    try:
+                        from openai import OpenAI as _OAI
+                        _client = _OAI(base_url=OLLAMA_BASE_URL, api_key="ollama")
+                        with st.spinner("Ollama analisando..."):
+                            _resp = _client.chat.completions.create(
+                                model=EXTRACTION_MODEL,
+                                messages=[{"role": "user", "content": _prompt}],
+                                temperature=0.4,
+                                max_tokens=350,
+                            )
+                        st.markdown(_resp.choices[0].message.content)
+                    except Exception as _e:
+                        st.warning(
+                            f"Ollama não disponível (`{OLLAMA_BASE_URL}`). "
+                            "Inicie o serviço com `ollama serve` para usar esta análise."
+                        )
+
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 7 — ENGLISH COACH
 # ══════════════════════════════════════════════════════════════════════════════
