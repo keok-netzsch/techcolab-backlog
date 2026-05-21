@@ -165,43 +165,51 @@ page = _qpage
 
 _LOGO_NAV = _LOGO_GREEN.replace('width="140" height="44"', 'width="88" height="27"')
 
-def _navlink(label: str, key: str) -> str:
-    _a = key == page
-    _s = (
-        "background:rgba(2,183,147,0.14);color:#007167;font-weight:600;"
-        if _a else
-        "color:#4C4D58;"
-    )
-    # Use onclick+window.top to avoid Streamlit opening links in new tab
-    _nav_js = f"window.top.location.href='?page={key}'; return false;"
-    return (
-        f'<a href="?page={key}" onclick="{_nav_js}" '
-        f'style="display:inline-flex;align-items:center;'
-        f'padding:3px 10px;border-radius:6px;font-size:0.79rem;'
-        f'font-family:Inter,sans-serif;text-decoration:none;white-space:nowrap;cursor:pointer;{_s}">'
-        f'{label}</a>'
-    )
+import streamlit.components.v1 as _nav_comp
 
-_nav_items  = "".join(_navlink(p, p) for p in _PAGES_MAIN)
-_nav_extras = (
-    _navlink("📖", "Tutorial") +
-    _navlink("📚", "Documentation") +
-    f'<a href="?page={page}" onclick="window.top.location.href=\'?page={page}\'; return false;" '
-    f'title="Atualizar dados" style="display:inline-flex;'
-    f'align-items:center;padding:3px 8px;border-radius:6px;font-size:0.85rem;'
-    f'color:#9CA3AF;text-decoration:none;cursor:pointer">🔄</a>'
-)
+def _build_nav_html(current_page: str) -> str:
+    _links = ""
+    for _p in _PAGES_MAIN:
+        _cls = "active" if _p == current_page else ""
+        _links += (
+            f'<a class="{_cls}" onclick="parent.location.href='
+            f"'?page={_p}'"
+            f'">{_p}</a>'
+        )
+    _extras = (
+        f'<a class="icon" onclick="parent.location.href='
+        f"'?page=Tutorial'"
+        f'">📖</a>'
+        f'<a class="icon" onclick="parent.location.href='
+        f"'?page=Documentation'"
+        f'">📚</a>'
+        f'<a class="icon" onclick="parent.location.href='
+        f"'?page={current_page}'"
+        f'">🔄</a>'
+    )
+    _logo_svg = _LOGO_NAV.replace("'", "\'")
+    return f"""<!DOCTYPE html><html><head><style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Inter',sans-serif;background:#fff;height:44px;overflow:hidden}}
+nav{{display:flex;align-items:center;padding:4px 16px;background:#fff;
+     border-bottom:1px solid rgba(0,0,0,0.09);gap:2px;height:44px}}
+.logo{{margin-right:14px;line-height:0;flex-shrink:0;cursor:pointer}}
+a{{display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;
+   font-size:0.79rem;text-decoration:none;white-space:nowrap;color:#4C4D58;
+   cursor:pointer;border:none;background:transparent;font-family:'Inter',sans-serif}}
+a:hover{{background:rgba(2,183,147,0.08);color:#007167}}
+a.active{{background:rgba(2,183,147,0.14);color:#007167;font-weight:600}}
+.spacer{{flex:1}}
+.icon{{font-size:1rem;padding:3px 8px;color:#9CA3AF}}
+</style></head><body>
+<nav>
+<div class="logo" onclick="parent.location.href='?page=Dashboard'">{_logo_svg}</div>
+{_links}
+<div class="spacer"></div>
+{_extras}
+</nav></body></html>"""
 
-st.markdown(
-    f'<nav style="display:flex;align-items:center;padding:5px 16px;background:#FFFFFF;'
-    f'border-bottom:1px solid rgba(0,0,0,0.09);gap:2px;margin-bottom:0.9rem">'
-    f'<div style="line-height:0;margin-right:14px;flex-shrink:0">{_LOGO_NAV}</div>'
-    f'{_nav_items}'
-    f'<div style="flex:1"></div>'
-    f'{_nav_extras}'
-    f'</nav>',
-    unsafe_allow_html=True,
-)
+_nav_comp.html(_build_nav_html(page), height=48, scrolling=False)
 
 PRIORITY_ICON = {"alta": "⭐⭐⭐", "média": "⭐⭐", "baixa": "⭐"}
 
@@ -1278,204 +1286,6 @@ elif page == "Dashboard":
 
     st.markdown('<h1 style="margin-bottom:0.4rem">Dashboard</h1>', unsafe_allow_html=True)
 
-    ideas_all = load_ideas()
-    todos_all = [t for idea in ideas_all for t in idea.todos]
-
-    total = len(ideas_all)
-    active = sum(1 for i in ideas_all if i.status not in ("concluído", "descartado"))
-    concluidas = sum(1 for i in ideas_all if i.status == "concluído")
-    todos_done = sum(1 for t in todos_all if t["done"])
-    todos_pending = sum(1 for t in todos_all if not t["done"])
-    bugs_open = sum(1 for t in todos_all if t.get("is_bug") and not t["done"])
-
-    m1, m2, m3, m4, m5, m6 = st.columns(6)
-    m1.metric("Total ideas", total)
-    m2.metric("Active", active)
-    m3.metric("Concluídas", concluidas)
-    m4.metric("To-dos pendentes", todos_pending)
-    m5.metric("To-dos feitos", todos_done)
-    m6.metric("Bugs abertos", bugs_open)
-
-    st.divider()
-
-    # ── To-dos com prazo hoje ou essa semana ─────────────────────────────────
-    _today_d = _date.today()
-    _week_end = _today_d + timedelta(days=7)
-    _due_soon: list[tuple] = []
-    for _t in todos_all:
-        if _t["done"]:
-            continue
-        _td = _t.get("due_date")
-        if _td:
-            try:
-                _d = _date.fromisoformat(str(_td)) if not isinstance(_td, _date) else _td
-                if _d <= _week_end:
-                    _due_soon.append((_d, _t))
-            except Exception:
-                pass
-    _due_soon.sort(key=lambda x: x[0])
-
-    col_left, col_right, col_due = st.columns(3)
-
-    with col_left:
-        st.subheader("By status")
-        status_counts = {}
-        for i in ideas_all:
-            status_counts[i.status] = status_counts.get(i.status, 0) + 1
-        for status in VALID_STATUSES:
-            count = status_counts.get(status, 0)
-            if count:
-                icon = STATUS_COLOR.get(status, _sdot("backlog"))
-                pct = count / total if total else 0
-                st.markdown(f"{icon} **{STATUS_LABEL.get(status, status)}** — {count}", unsafe_allow_html=True)
-                st.progress(pct)
-
-    with col_right:
-        st.subheader("By priority")
-        prio_counts = {}
-        for i in ideas_all:
-            prio_counts[i.priority] = prio_counts.get(i.priority, 0) + 1
-        for p in VALID_PRIORITIES:
-            count = prio_counts.get(p, 0)
-            badge = PRIORITY_NUM.get(p, "")
-            pct = count / total if total else 0
-            st.markdown(f"{badge} **{PRIORITY_LABEL.get(p, p)}** — {count}", unsafe_allow_html=True)
-            st.progress(pct)
-
-    with col_due:
-        st.subheader("Due this week")
-        if not _due_soon:
-            st.caption("Nenhum to-do vence hoje ou essa semana.")
-        else:
-            for _d, _t in _due_soon:
-                _is_overdue = _d < _today_d
-                _date_str = "Hoje" if _d == _today_d else _d.strftime("%d/%m")
-                _clr = "#EF4444" if _is_overdue else ("#F59E0B" if _d == _today_d else "#6B7280")
-                _bug_b = (
-                    ' <span style="background:#FEE2E2;color:#B91C1C;font-size:8px;'
-                    'font-weight:700;padding:1px 4px;border-radius:3px">BUG</span>'
-                    if _t.get("is_bug") else ""
-                )
-                st.markdown(
-                    f'<div style="padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.06)">'
-                    f'<span style="font-size:0.7rem;font-weight:600;color:{_clr}">{_date_str}</span>'
-                    f'&nbsp;<span style="font-size:0.81rem;color:#374151">{_t["text"][:48]}</span>{_bug_b}'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-
-    with st.expander("By area · Scoring", expanded=False):
-        col_area, col_score = st.columns(2)
-
-        with col_area:
-            st.subheader("By area")
-            area_counts = {}
-            for i in ideas_all:
-                area = i.area or "—"
-                area_counts[area] = area_counts.get(area, 0) + 1
-            for area, count in sorted(area_counts.items(), key=lambda x: -x[1]):
-                pct = count / total if total else 0
-                st.markdown(f"🏷️ **{area}** — {count}")
-                st.progress(pct)
-
-        with col_score:
-            st.subheader("Scoring: Impact × Effort")
-            scored = [i for i in ideas_all if i.impacto and i.esforco]
-            if not scored:
-                st.info("No ideas with impact and effort filled in yet.")
-            else:
-                impact_val = {"alta": 3, "média": 2, "baixa": 1}
-                effort_val = {"baixo": 3, "médio": 2, "alto": 1}
-                def _score(idea):
-                    return impact_val.get(idea.impacto, 0) * effort_val.get(idea.esforco, 0)
-                ranked = sorted(scored, key=_score, reverse=True)
-                for idea in ranked[:8]:
-                    s = _score(idea)
-                    icon = PRIORITY_NUM.get(idea.priority, "")
-                    _clean_title = idea.title.replace("**", "").strip()
-                    st.markdown(
-                        f"{icon} `{idea.id}` **{_clean_title[:40]}**  \n"
-                        f"&nbsp;&nbsp;&nbsp;Impact: {IMPACT_LABEL.get(idea.impacto, idea.impacto)} · "
-                        f"Effort: {EFFORT_LABEL.get(idea.esforco, idea.esforco)} · Score: **{s}**"
-                    )
-                    st.markdown('<div style="margin-bottom:0.6rem"></div>', unsafe_allow_html=True)
-
-    st.divider()
-
-    st.subheader("Period report")
-
-    @st.dialog("Generate period report", width="large")
-    def _report_dialog():
-        from pathlib import Path as _Path
-        from config import VAULT_ROOT as _VAULT_ROOT
-
-        today = _date.today()
-        preset = st.selectbox("Period", [
-            "Last 7 days", "Last 30 days", "Current week",
-            "Current month", "Current year", "Custom",
-        ])
-        if preset == "Last 7 days":
-            start, end = today - timedelta(days=7), today
-        elif preset == "Last 30 days":
-            start, end = today - timedelta(days=30), today
-        elif preset == "Current week":
-            start = today - timedelta(days=today.weekday())
-            end = today
-        elif preset == "Current month":
-            start = today.replace(day=1)
-            end = today
-        elif preset == "Current year":
-            start = today.replace(month=1, day=1)
-            end = today
-        else:
-            col_s, col_e = st.columns(2)
-            start = col_s.date_input("From", value=today - timedelta(days=30), format="DD/MM/YYYY")
-            end = col_e.date_input("To", value=today, format="DD/MM/YYYY")
-
-        if st.button("Generate report", type="primary"):
-            log_dir = _Path(_VAULT_ROOT) / "Backlog - to do - app" / "Log"
-            entries = {"CRIADA": [], "ALTERADA": [], "CONCLUÍDA": [], "TO-DO": []}
-            current = start
-            while current <= end:
-                log_file = log_dir / f"diario-{current.isoformat()}.md"
-                if log_file.exists():
-                    for line in log_file.read_text(encoding="utf-8").splitlines():
-                        for label in entries:
-                            if f"`{label}`" in line:
-                                entries[label].append(line.strip())
-                current += timedelta(days=1)
-
-            total_events = sum(len(v) for v in entries.values())
-            period_str = f"{start.strftime('%d/%m/%Y')} to {end.strftime('%d/%m/%Y')}"
-
-            report_md = f"# Report — {period_str}\n\n"
-            report_md += f"**Period:** {period_str}  \n"
-            report_md += f"**Total events:** {total_events}\n\n"
-            report_md += f"| Type | Count |\n|---|---|\n"
-            for label, items in entries.items():
-                report_md += f"| {label} | {len(items)} |\n"
-            for label, items in entries.items():
-                if items:
-                    report_md += f"\n## {label} ({len(items)})\n"
-                    for item in items:
-                        report_md += f"{item}\n"
-
-            st.markdown(report_md)
-            st.divider()
-
-            col_save, _ = st.columns([2, 3])
-            with col_save:
-                if st.button("💾 Save to vault"):
-                    fname = f"report-{start.isoformat()}-{end.isoformat()}.md"
-                    out = log_dir / fname
-                    frontmatter = f"---\ndate: {today.isoformat()}\ntype: report\nperiodo: {period_str}\ntags: [report, backlog]\n---\n\n"
-                    out.write_text(frontmatter + report_md, encoding="utf-8")
-                    st.success(f"Saved to Log/{fname}")
-
-    if st.button("📋 Generate period report"):
-        _report_dialog()
-
-    st.divider()
     st.subheader("Atividade no Claude Code")
     st.caption("Atividade real baseada nos arquivos de sessão `~/.claude/projects/`")
 
@@ -1923,6 +1733,205 @@ elif page == "Dashboard":
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+
+    st.divider()
+    ideas_all = load_ideas()
+    todos_all = [t for idea in ideas_all for t in idea.todos]
+
+    total = len(ideas_all)
+    active = sum(1 for i in ideas_all if i.status not in ("concluído", "descartado"))
+    concluidas = sum(1 for i in ideas_all if i.status == "concluído")
+    todos_done = sum(1 for t in todos_all if t["done"])
+    todos_pending = sum(1 for t in todos_all if not t["done"])
+    bugs_open = sum(1 for t in todos_all if t.get("is_bug") and not t["done"])
+
+    m1, m2, m3, m4, m5, m6 = st.columns(6)
+    m1.metric("Total ideas", total)
+    m2.metric("Active", active)
+    m3.metric("Concluídas", concluidas)
+    m4.metric("To-dos pendentes", todos_pending)
+    m5.metric("To-dos feitos", todos_done)
+    m6.metric("Bugs abertos", bugs_open)
+
+    st.divider()
+
+    # ── To-dos com prazo hoje ou essa semana ─────────────────────────────────
+    _today_d = _date.today()
+    _week_end = _today_d + timedelta(days=7)
+    _due_soon: list[tuple] = []
+    for _t in todos_all:
+        if _t["done"]:
+            continue
+        _td = _t.get("due_date")
+        if _td:
+            try:
+                _d = _date.fromisoformat(str(_td)) if not isinstance(_td, _date) else _td
+                if _d <= _week_end:
+                    _due_soon.append((_d, _t))
+            except Exception:
+                pass
+    _due_soon.sort(key=lambda x: x[0])
+
+    col_left, col_right, col_due = st.columns(3)
+
+    with col_left:
+        st.subheader("By status")
+        status_counts = {}
+        for i in ideas_all:
+            status_counts[i.status] = status_counts.get(i.status, 0) + 1
+        for status in VALID_STATUSES:
+            count = status_counts.get(status, 0)
+            if count:
+                icon = STATUS_COLOR.get(status, _sdot("backlog"))
+                pct = count / total if total else 0
+                st.markdown(f"{icon} **{STATUS_LABEL.get(status, status)}** — {count}", unsafe_allow_html=True)
+                st.progress(pct)
+
+    with col_right:
+        st.subheader("By priority")
+        prio_counts = {}
+        for i in ideas_all:
+            prio_counts[i.priority] = prio_counts.get(i.priority, 0) + 1
+        for p in VALID_PRIORITIES:
+            count = prio_counts.get(p, 0)
+            badge = PRIORITY_NUM.get(p, "")
+            pct = count / total if total else 0
+            st.markdown(f"{badge} **{PRIORITY_LABEL.get(p, p)}** — {count}", unsafe_allow_html=True)
+            st.progress(pct)
+
+    with col_due:
+        st.subheader("Due this week")
+        if not _due_soon:
+            st.caption("Nenhum to-do vence hoje ou essa semana.")
+        else:
+            for _d, _t in _due_soon:
+                _is_overdue = _d < _today_d
+                _date_str = "Hoje" if _d == _today_d else _d.strftime("%d/%m")
+                _clr = "#EF4444" if _is_overdue else ("#F59E0B" if _d == _today_d else "#6B7280")
+                _bug_b = (
+                    ' <span style="background:#FEE2E2;color:#B91C1C;font-size:8px;'
+                    'font-weight:700;padding:1px 4px;border-radius:3px">BUG</span>'
+                    if _t.get("is_bug") else ""
+                )
+                st.markdown(
+                    f'<div style="padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.06)">'
+                    f'<span style="font-size:0.7rem;font-weight:600;color:{_clr}">{_date_str}</span>'
+                    f'&nbsp;<span style="font-size:0.81rem;color:#374151">{_t["text"][:48]}</span>{_bug_b}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+    with st.expander("By area · Scoring", expanded=False):
+        col_area, col_score = st.columns(2)
+
+        with col_area:
+            st.subheader("By area")
+            area_counts = {}
+            for i in ideas_all:
+                area = i.area or "—"
+                area_counts[area] = area_counts.get(area, 0) + 1
+            for area, count in sorted(area_counts.items(), key=lambda x: -x[1]):
+                pct = count / total if total else 0
+                st.markdown(f"🏷️ **{area}** — {count}")
+                st.progress(pct)
+
+        with col_score:
+            st.subheader("Scoring: Impact × Effort")
+            scored = [i for i in ideas_all if i.impacto and i.esforco]
+            if not scored:
+                st.info("No ideas with impact and effort filled in yet.")
+            else:
+                impact_val = {"alta": 3, "média": 2, "baixa": 1}
+                effort_val = {"baixo": 3, "médio": 2, "alto": 1}
+                def _score(idea):
+                    return impact_val.get(idea.impacto, 0) * effort_val.get(idea.esforco, 0)
+                ranked = sorted(scored, key=_score, reverse=True)
+                for idea in ranked[:8]:
+                    s = _score(idea)
+                    icon = PRIORITY_NUM.get(idea.priority, "")
+                    _clean_title = idea.title.replace("**", "").strip()
+                    st.markdown(
+                        f"{icon} `{idea.id}` **{_clean_title[:40]}**  \n"
+                        f"&nbsp;&nbsp;&nbsp;Impact: {IMPACT_LABEL.get(idea.impacto, idea.impacto)} · "
+                        f"Effort: {EFFORT_LABEL.get(idea.esforco, idea.esforco)} · Score: **{s}**"
+                    )
+                    st.markdown('<div style="margin-bottom:0.6rem"></div>', unsafe_allow_html=True)
+
+    st.divider()
+
+    st.subheader("Period report")
+
+    @st.dialog("Generate period report", width="large")
+    def _report_dialog():
+        from pathlib import Path as _Path
+        from config import VAULT_ROOT as _VAULT_ROOT
+
+        today = _date.today()
+        preset = st.selectbox("Period", [
+            "Last 7 days", "Last 30 days", "Current week",
+            "Current month", "Current year", "Custom",
+        ])
+        if preset == "Last 7 days":
+            start, end = today - timedelta(days=7), today
+        elif preset == "Last 30 days":
+            start, end = today - timedelta(days=30), today
+        elif preset == "Current week":
+            start = today - timedelta(days=today.weekday())
+            end = today
+        elif preset == "Current month":
+            start = today.replace(day=1)
+            end = today
+        elif preset == "Current year":
+            start = today.replace(month=1, day=1)
+            end = today
+        else:
+            col_s, col_e = st.columns(2)
+            start = col_s.date_input("From", value=today - timedelta(days=30), format="DD/MM/YYYY")
+            end = col_e.date_input("To", value=today, format="DD/MM/YYYY")
+
+        if st.button("Generate report", type="primary"):
+            log_dir = _Path(_VAULT_ROOT) / "Backlog - to do - app" / "Log"
+            entries = {"CRIADA": [], "ALTERADA": [], "CONCLUÍDA": [], "TO-DO": []}
+            current = start
+            while current <= end:
+                log_file = log_dir / f"diario-{current.isoformat()}.md"
+                if log_file.exists():
+                    for line in log_file.read_text(encoding="utf-8").splitlines():
+                        for label in entries:
+                            if f"`{label}`" in line:
+                                entries[label].append(line.strip())
+                current += timedelta(days=1)
+
+            total_events = sum(len(v) for v in entries.values())
+            period_str = f"{start.strftime('%d/%m/%Y')} to {end.strftime('%d/%m/%Y')}"
+
+            report_md = f"# Report — {period_str}\n\n"
+            report_md += f"**Period:** {period_str}  \n"
+            report_md += f"**Total events:** {total_events}\n\n"
+            report_md += f"| Type | Count |\n|---|---|\n"
+            for label, items in entries.items():
+                report_md += f"| {label} | {len(items)} |\n"
+            for label, items in entries.items():
+                if items:
+                    report_md += f"\n## {label} ({len(items)})\n"
+                    for item in items:
+                        report_md += f"{item}\n"
+
+            st.markdown(report_md)
+            st.divider()
+
+            col_save, _ = st.columns([2, 3])
+            with col_save:
+                if st.button("💾 Save to vault"):
+                    fname = f"report-{start.isoformat()}-{end.isoformat()}.md"
+                    out = log_dir / fname
+                    frontmatter = f"---\ndate: {today.isoformat()}\ntype: report\nperiodo: {period_str}\ntags: [report, backlog]\n---\n\n"
+                    out.write_text(frontmatter + report_md, encoding="utf-8")
+                    st.success(f"Saved to Log/{fname}")
+
+    if st.button("📋 Generate period report"):
+        _report_dialog()
+
 # PAGE 5 — WEEKLY BRIEF
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Weekly Brief":
