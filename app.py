@@ -2099,6 +2099,20 @@ elif page == "Claude Pro":
     st.markdown('<h1 style="margin-bottom:0.4rem">Claude Pro Report</h1>', unsafe_allow_html=True)
     st.caption("Relatório vivo de uso do Claude Pro · NBS D&A · Techco.lab — "
                "atualizado automaticamente pelo agente diário")
+    # ── Auto-update if stale (agent may not have run today) ──────────────────
+    if CLAUDE_PRO_REPORT_HTML.exists():
+        import re as _re
+        _raw = CLAUDE_PRO_REPORT_HTML.read_text(encoding="utf-8")
+        _m = _re.search(r"Atualizado em: (\d{2}/\d{2}/\d{4})", _raw)
+        _report_date_str = _m.group(1) if _m else ""
+        _today_str = date.today().strftime("%d/%m/%Y")
+        if _report_date_str != _today_str:
+            from agent.daily_report import _update_claude_pro_report
+            with st.spinner("Atualizando relatório..."):
+                _update_claude_pro_report()
+            _raw = CLAUDE_PRO_REPORT_HTML.read_text(encoding="utf-8")
+            st.caption(f"ℹ️ Relatório atualizado automaticamente (estava em {_report_date_str or 'data desconhecida'}).")
+
     _cp_col_report, _cp_col_btn = st.columns([6, 1], vertical_alignment="bottom")
     with _cp_col_btn:
         if CLAUDE_PRO_REPORT_HTML.exists():
