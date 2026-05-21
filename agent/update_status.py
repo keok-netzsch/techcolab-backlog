@@ -38,7 +38,7 @@ def update_status(idea_id: str, new_status: str) -> None:
     old_status = idea.status
     idea.status = new_status
     store.save(idea)
-    print(f"[OK] {idea_id}: '{old_status}' → '{new_status}'")
+    print(f"[OK] {idea_id}: '{old_status}' -> '{new_status}'")
 
 
 def main():
