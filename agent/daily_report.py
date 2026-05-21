@@ -321,6 +321,9 @@ def _update_claude_pro_report() -> bool:
             html,
         )
 
+        # Update "Em X dias," in the executive paragraph
+        html = re.sub(r"Em \d+ dias,", f"Em {days_since} dias,", html)
+
         # Update footer date
         html = re.sub(
             r"Relatório atualizado em \d{2}/\d{2}/\d{4}",

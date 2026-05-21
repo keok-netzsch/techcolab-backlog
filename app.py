@@ -2139,172 +2139,82 @@ elif page == "Claude Pro":
         )
 
     st.divider()
-    st.subheader("Coach de Tokens")
-    st.caption("Analise seu padrão de uso e descubra onde você está deixando valor na mesa.")
+    st.subheader("Atividade no Claude Code")
+    st.caption("Prompts enviados via Claude Code CLI · baseado em `~/.claude/history.jsonl`")
 
-    with st.expander("Abrir coach", expanded=False):
-        with st.expander("❓ Como usar esta calculadora", expanded=False):
-            st.markdown(
-                "**Passo 1 — Ajuste os sliders** conforme seu uso real do Claude:\n\n"
-                "| Campo | O que preencher |\n"
-                "|---|---|\n"
-                "| **Mensagens/dia** | Conte quantas vezes você envia uma mensagem ao Claude em um dia típico de trabalho. Inclua todas as ferramentas (Claude.ai, Claude Code, API). |\n"
-                "| **Tipo de conversa** | Escolha o formato que representa a maioria das suas sessões. Dica: se você cola arquivos ou código inteiro, provavelmente é Longa ou Projeto. |\n\n"
-                "**Passo 2 — Leia o score** no painel direito. Ele combina dois fatores:\n"
-                "- *Aproveitamento de contexto* — o quanto da janela de 200K você usa por mensagem\n"
-                "- *Frequência* — quantas interações você realiza por dia\n\n"
-                "**Passo 3 — Leia o diagnóstico.** Cada erro listado abaixo tem uma correção prática. "
-                "Ajuste um slider de cada vez para ver como seu score muda conforme você adota o comportamento recomendado.\n\n"
-                "> 💡 **Dica:** os tipos de conversa usam tokens médios estimados — "
-                "Curta (~1.5K), Média (~8K), Longa (~30K), Projeto (~80K). "
-                "Quanto mais contexto você fornece (arquivos, histórico, exemplos), mais você sobe na escala."
+    def _load_cc_activity(window_days: int = 14):
+        import json
+        from collections import Counter
+        from datetime import timedelta
+        history_path = Path.home() / ".claude" / "history.jsonl"
+        if not history_path.exists():
+            return {}, Counter()
+        cutoff = date.today() - timedelta(days=window_days - 1)
+        msgs_by_day: Counter = Counter()
+        seen_sessions: set = set()
+        sessions_by_day: Counter = Counter()
+        projects: Counter = Counter()
+        try:
+            with open(history_path, encoding="utf-8") as _hf:
+                for _line in _hf:
+                    try:
+                        _e = json.loads(_line)
+                        _d = date.fromtimestamp(_e["timestamp"] / 1000)
+                        if _d >= cutoff:
+                            msgs_by_day[_d] += 1
+                            _sid = _e.get("sessionId", "")
+                            if _sid and _sid not in seen_sessions:
+                                sessions_by_day[_d] += 1
+                                seen_sessions.add(_sid)
+                            _proj = _e.get("project", "")
+                            if _proj:
+                                projects[Path(_proj).name] += 1
+                    except Exception:
+                        continue
+        except Exception:
+            return {}, Counter()
+        return msgs_by_day, projects
+
+    _cc_msgs, _cc_projects = _load_cc_activity(14)
+
+    if not _cc_msgs:
+        st.info("Nenhum dado encontrado em `~/.claude/history.jsonl`.")
+    else:
+        from datetime import timedelta as _td
+        _total_msgs = sum(_cc_msgs.values())
+        _avg_day = _total_msgs / 14
+        _peak = max(_cc_msgs, key=lambda d: _cc_msgs[d])
+
+        _ma1, _ma2, _ma3 = st.columns(3)
+        _ma1.metric("Prompts (14 dias)", _total_msgs)
+        _ma2.metric("Média/dia", f"{_avg_day:.1f}")
+        _ma3.metric("Dia mais ativo", f"{_peak.strftime('%d/%b')} · {_cc_msgs[_peak]}")
+
+        # Bar chart via HTML (no pandas needed)
+        _today = date.today()
+        _chart_days = [_today - _td(days=i) for i in range(13, -1, -1)]
+        _chart_vals = [_cc_msgs.get(d, 0) for d in _chart_days]
+        _max_val = max(_chart_vals) if max(_chart_vals) > 0 else 1
+        _bar_html = '<div style="display:flex;align-items:flex-end;gap:3px;height:72px;margin:0.5rem 0 2px">'
+        for _v in _chart_vals:
+            _h = max(2, int(_v / _max_val * 68))
+            _clr = "#02B793" if _v == max(_chart_vals) else "#99E6D8"
+            _bar_html += f'<div title="{_v}" style="flex:1;height:{_h}px;background:{_clr};border-radius:2px 2px 0 0"></div>'
+        _bar_html += '</div>'
+        _label_html = '<div style="display:flex;gap:3px;font-size:9px;color:#9CA3AF">'
+        for _d in _chart_days:
+            _label_html += f'<div style="flex:1;text-align:center">{_d.strftime("%d")}</div>'
+        _label_html += '</div>'
+        st.markdown(_bar_html + _label_html, unsafe_allow_html=True)
+
+        if _cc_projects:
+            _proj_parts = " · ".join(
+                f"**{n}** {c}" for n, c in
+                sorted(_cc_projects.items(), key=lambda x: -x[1])[:4]
             )
-        def _get_cc_msgs_per_day() -> int:
-            import json
-            from collections import Counter
-            from datetime import timedelta
-            history_path = Path.home() / ".claude" / "history.jsonl"
-            if not history_path.exists():
-                return 0
-            cutoff = date.today() - timedelta(days=7)
-            days: Counter = Counter()
-            try:
-                with open(history_path, encoding="utf-8") as _f:
-                    for _line in _f:
-                        try:
-                            _e = json.loads(_line)
-                            _d = date.fromtimestamp(_e["timestamp"] / 1000)
-                            if _d >= cutoff:
-                                days[_d] += 1
-                        except Exception:
-                            continue
-            except Exception:
-                return 0
-            return round(sum(days.values()) / 7) if days else 0
+            st.caption(f"Projetos: {_proj_parts}")
 
-        if "tk_msgs_init" not in st.session_state:
-            _cc = _get_cc_msgs_per_day()
-            st.session_state["tk_msgs"] = max(1, _cc) if _cc > 0 else 20
-            st.session_state["tk_msgs_init"] = True
-            st.session_state["tk_msgs_cc"] = _get_cc_msgs_per_day()
-
-        col_tc_a, col_tc_b = st.columns([1, 1])
-        with col_tc_a:
-            _cc_measured = st.session_state.get("tk_msgs_cc", 0)
-            if _cc_measured > 0:
-                st.caption(
-                    f"📊 Claude Code detectado: **{_cc_measured} msgs/dia** (últimos 7 dias). "
-                    "Ajuste para incluir Claude.ai e outras ferramentas."
-                )
-            msgs_day = st.slider("Mensagens/dia ao Claude (todas as ferramentas)", 1, 100, key="tk_msgs")
-            conv_type = st.radio(
-                "Tipo de conversa predominante",
-                ["Curta (~1.5K tokens)", "Média (~8K)", "Longa (~30K)", "Projeto (~80K)"],
-                horizontal=True, key="tk_type",
-            )
-        _token_map = {
-            "Curta (~1.5K tokens)": 1_500,
-            "Média (~8K)": 8_000,
-            "Longa (~30K)": 30_000,
-            "Projeto (~80K)": 80_000,
-        }
-        tokens_per_msg = _token_map[conv_type]
-        day_tokens = msgs_day * tokens_per_msg
-        month_tokens = day_tokens * 22
-        ctx_pct = min(99.0, tokens_per_msg / 200_000 * 100)
-
-        if ctx_pct < 1:
-            ctx_score = 10
-        elif ctx_pct < 10:
-            ctx_score = 10 + int((ctx_pct - 1) / 9 * 50)
-        elif ctx_pct < 50:
-            ctx_score = 60 + int((ctx_pct - 10) / 40 * 40)
-        else:
-            ctx_score = 100
-
-        if msgs_day < 5:
-            freq_score = 20
-        elif msgs_day < 15:
-            freq_score = 20 + int((msgs_day - 5) / 10 * 60)
-        elif msgs_day <= 40:
-            freq_score = 80 + int((msgs_day - 15) / 25 * 20)
-        else:
-            freq_score = max(70, 100 - int((msgs_day - 40) / 60 * 30))
-
-        overall = (ctx_score + freq_score) // 2
-        score_color = "#059669" if overall >= 70 else ("#F59E0B" if overall >= 40 else "#EF4444")
-        score_label = "Excelente" if overall >= 80 else ("Bom" if overall >= 60 else ("Regular" if overall >= 40 else "Baixo"))
-
-        with col_tc_b:
-            r1, r2, r3 = st.columns(3)
-            r1.metric("Tokens/dia", f"{day_tokens/1000:.0f}K" if day_tokens >= 1000 else str(day_tokens))
-            r2.metric("Tokens/mês", f"{month_tokens/1_000_000:.1f}M" if month_tokens >= 1_000_000 else f"{month_tokens/1000:.0f}K")
-            r3.metric("% contexto/msg", f"{ctx_pct:.1f}%")
-            st.markdown(
-                f'<div style="margin-top:0.6rem;padding:0.5rem 0.75rem;border-radius:8px;'
-                f'background:rgba(0,0,0,0.05);border-left:4px solid {score_color}">'
-                f'<span style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:.04em">Aproveitamento geral</span><br>'
-                f'<span style="font-size:1.6rem;font-weight:800;color:{score_color}">{overall}/100</span>'
-                f'&nbsp;<span style="font-size:0.85rem;color:{score_color}">— {score_label}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
-            st.progress(overall / 100)
-
-        issues: list[tuple[str, str]] = []
-
-        if tokens_per_msg < 5_000:
-            issues.append((
-                f"**Contexto desperdiçado** — Cada mensagem usa apenas {ctx_pct:.1f}% dos 200K tokens disponíveis. "
-                f"Você está deixando {100 - ctx_pct:.0f}% do potencial ocioso.",
-                "Inclua o arquivo completo (não só o trecho relevante), descreva o contexto do projeto, "
-                "adicione exemplos do comportamento esperado. Claude responde proporcionalmente ao contexto que recebe.",
-            ))
-
-        if msgs_day < 8:
-            issues.append((
-                f"**Frequência muito baixa** — {msgs_day} mensagens/dia é uso esporádico. "
-                "Menos de 8 interações diárias indicam que o Claude ainda não está integrado ao seu fluxo real de trabalho.",
-                "Traga também problemas menores — revisão de e-mails, rascunho de mensagens, análise rápida de dados. "
-                "O valor do Claude Pro se acumula no hábito diário, não nos grandes projetos esporádicos.",
-            ))
-
-        if msgs_day > 50 and tokens_per_msg < 8_000:
-            issues.append((
-                f"**Fragmentação excessiva** — {msgs_day} mensagens curtas/dia indica que você quebra problemas em micro-perguntas. "
-                "Cada nova conversa descarta todo o contexto acumulado da sessão anterior.",
-                "Consolide: ao invés de 10 perguntas rápidas sobre um mesmo tema, abra uma sessão, explique tudo de uma vez "
-                "e conduza uma conversa longa e estruturada. 5 mensagens longas valem mais do que 50 curtas.",
-            ))
-
-        if tokens_per_msg >= 30_000:
-            issues.append((
-                "**Risco de truncamento de contexto** — Sessões de 30K+ tokens ocupam 15%+ da janela. "
-                "Em longas iterações, o Claude pode perder o início da conversa.",
-                "Use /clear (Claude Code) ou abra nova conversa ao mudar de subtópico. "
-                "Prefira sessões focadas por domínio a uma mega-sessão com tudo misturado.",
-            ))
-
-        st.markdown("---")
-        if not issues:
-            st.success("Padrão exemplar! Frequência e profundidade estão bem calibradas. Continue assim.")
-        else:
-            st.markdown(f"**{len(issues)} erro(s) identificado(s) no seu padrão**")
-            for i, (err, tip) in enumerate(issues, 1):
-                st.markdown(
-                    f'<div style="margin:0.5rem 0;padding:0.5rem 0.75rem;border-radius:6px;'
-                    f'border-left:3px solid #EF4444;background:rgba(239,68,68,0.05)">'
-                    f'<span style="font-size:0.72rem;color:#EF4444;font-weight:700">ERRO {i}</span><br>{err}'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div style="margin:-0.2rem 0 0.6rem 0;padding:0.5rem 0.75rem;border-radius:6px;'
-                    f'border-left:3px solid #059669;background:rgba(5,150,105,0.05)">'
-                    f'<span style="font-size:0.72rem;color:#059669;font-weight:700">COMO CORRIGIR</span><br>{tip}'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
+        st.caption("ℹ️ Inclui apenas Claude Code CLI. Claude.ai web/desktop não é rastreado localmente.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 7 — ENGLISH COACH
