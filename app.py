@@ -155,8 +155,8 @@ st.markdown(
 )
 
 # ── Top navigation (pure HTML — full height control) ───────────────────────
-_PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Claude Pro", "Weekly Brief", "English Coach", "FAQ"]
-_ALL_PAGES  = _PAGES_MAIN + ["Tutorial", "Documentation", "Settings"]
+_PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Claude Pro", "Weekly Brief", "English Coach"]
+_ALL_PAGES  = _PAGES_MAIN + ["FAQ", "Tutorial", "Documentation", "Settings"]
 
 _qpage = st.query_params.get("page", "Dashboard")
 if _qpage not in _ALL_PAGES:
@@ -183,6 +183,7 @@ def _navlink(label: str, key: str) -> str:
 
 _nav_items  = "".join(_navlink(p, p) for p in _PAGES_MAIN)
 _nav_extras = (
+    _navlink("❓", "FAQ") +
     _navlink("📖", "Tutorial") +
     _navlink("📚", "Documentation") +
     _navlink("⚙️", "Settings") +
