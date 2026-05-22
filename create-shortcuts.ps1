@@ -102,6 +102,17 @@ New-Shortcut `
     -Description "Roda testes, commita e push em techcolab-backlog e call-recorder" `
     -Icon        "shell32.dll,27"
 
+# ── Launcher shortcut on Desktop root ─────────────────────────────────────────
+# Single entry point that replaces all individual shortcuts above
+$lnkLauncher = $ws.CreateShortcut("$desktop\Techco.lab Launcher.lnk")
+$lnkLauncher.TargetPath      = "wscript.exe"
+$lnkLauncher.Arguments       = "`"$TB\launcher.vbs`""
+$lnkLauncher.WorkingDirectory = $TB
+$lnkLauncher.Description     = "Techco.lab Unified Launcher"
+$lnkLauncher.IconLocation    = "shell32.dll,43"
+$lnkLauncher.Save()
+Write-Host "  ✅ Techco.lab Launcher  →  $desktop\Techco.lab Launcher.lnk" -ForegroundColor Green
+
 Write-Host ""
 Write-Host "  Pasta criada: $folder" -ForegroundColor DarkCyan
 Write-Host "  Abra no Explorer para fixar na barra de tarefas ou arrastar para o Desktop." -ForegroundColor DarkGray
