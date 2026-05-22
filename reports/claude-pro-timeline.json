@@ -1,0 +1,56 @@
+[
+  {
+    "date": "2026-05-21",
+    "display_date": "21 May 2026",
+    "title": "Report auto-update + real activity dashboard",
+    "detail": "Report now updates automatically when the page opens, without relying only on the 8am agent. Simulated calculator replaced by real activity dashboard extracted from Claude Code history. 'Today' badge on timeline is now dynamic. Task Scheduler adjusted to 7am."
+  },
+  {
+    "date": "2026-05-20",
+    "display_date": "20 May 2026",
+    "title": "English Coach + Personal Toolkit Techco.lab — complete system",
+    "detail": "English Coach integrated into Call Recorder (Win+Space), AI-rated English assessment, Raycast shortcuts system with 6 scripts, product renamed to Personal Toolkit · Techco.lab."
+  },
+  {
+    "date": "2026-05-19",
+    "display_date": "19 May 2026",
+    "title": "Executive summary and daily agent integrated",
+    "detail": "\"For the manager\" section per initiative, timeline inversion, automatic 8am update and local integration in the app."
+  },
+  {
+    "date": "2026-05-19",
+    "display_date": "19 May 2026",
+    "title": "Techco.lab visual identity applied to report",
+    "detail": "Complete redesign: green palette #02B793, dark header #4C4D58, SVG logo, gradients and cards following the Techco.lab design system."
+  },
+  {
+    "date": "2026-05-18",
+    "display_date": "18 May 2026",
+    "title": "Call Recorder + TechColab Backlog App with daily agent",
+    "detail": "Transcription pipeline configured. Streamlit app with daily agent in Task Scheduler (8am)."
+  },
+  {
+    "date": "2026-05-14",
+    "display_date": "14 May 2026",
+    "title": "Claude Pro Report + OPL + Knowledge Base",
+    "detail": "Report published via GitHub Pages, Power Platform OPL documented, 50+ NETZSCH entities mapped."
+  },
+  {
+    "date": "2026-05-12",
+    "display_date": "12 May 2026",
+    "title": "D&A team OKR assessment",
+    "detail": "Status analysis, corrections and reporting texts. Data consolidated in the vault."
+  },
+  {
+    "date": "2026-05-11",
+    "display_date": "11–12 May 2026",
+    "title": "Techco.lab Deck Skill imported and validated",
+    "detail": "Skill imported, dedicated conversation created, deck generation validated."
+  },
+  {
+    "date": "2026-05-11",
+    "display_date": "11 May 2026",
+    "title": "Obsidian Vault + obsidian-second-brain + Initial setup",
+    "detail": "PARA structure created, 5 direct report profiles initialized, 25 slash commands installed. Claude Desktop App configured."
+  }
+]

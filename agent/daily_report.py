@@ -10,6 +10,7 @@ Usage:
     python agent/daily_report.py
 """
 
+import json
 import re
 import subprocess
 import sys
@@ -284,15 +285,15 @@ def build_report(tests: dict, data: dict) -> str:
     return "\n".join(lines)
 
 
-# ── Claude Pro Report updater ─────────────────────────────────────────────────
+# ── Claude Pro timeline updater ───────────────────────────────────────────────
 
-_PT_MONTHS = {
-    1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
-    7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez",
+_EN_MONTHS = {
+    1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
+    7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec",
 }
 
 def _today_timeline_str() -> str:
-    return f"{TODAY.day} {_PT_MONTHS[TODAY.month]} {TODAY.year}"
+    return f"{TODAY.day} {_EN_MONTHS[TODAY.month]} {TODAY.year}"
 
 
 def _get_todays_commits(project_root) -> list[str]:
@@ -342,101 +343,64 @@ def _build_timeline_entry(commits: list[str]) -> tuple[str, str]:
     return title, detail
 
 
-def _inject_timeline_entry(html: str, title: str, detail: str) -> str:
-    """Inserts a new .latest timeline entry and demotes the previous one."""
-    today_str = _today_timeline_str()
-
-    detail_html = f'\n        <div class="timeline-detail">{detail}</div>' if detail else ""
-    new_entry = (
-        f'      <div class="timeline-item latest">\n'
-        f'        <div class="timeline-date">{today_str} <span class="timeline-new-badge">hoje</span></div>\n'
-        f'        <div class="timeline-title">{title}</div>{detail_html}\n'
-        f'      </div>\n'
-    )
-
-    # Strip the "hoje" badge from the current .latest (it will become a plain item)
-    html = re.sub(r' <span class="timeline-new-badge">hoje</span>', '', html, count=1)
-    # Demote current .latest → plain .timeline-item
-    html = html.replace('class="timeline-item latest"', 'class="timeline-item"', 1)
-    # Insert new entry at the top of the timeline
-    html = html.replace('<div class="timeline">\n', '<div class="timeline">\n' + new_entry, 1)
-
-    return html
-
-
 def _update_claude_pro_report() -> bool:
     """
-    Update the Claude Pro Report HTML:
-    - Refreshes all date/counter fields
-    - Adds a new timeline entry for today if there are meaningful commits
-    Commits the result and pushes to GitHub.
-    Returns True on success, False on any error (non-fatal).
+    Append a new entry to reports/claude-pro-timeline.json for today if there are
+    meaningful commits and no entry for today already exists.
+    Commits the JSON and pushes to GitHub.
+    Returns True if a new entry was written, False otherwise (non-fatal).
     """
-    html_path = CLAUDE_PRO_REPORT_HTML
-    if not html_path.exists():
-        print(f"[agent] Claude Pro Report HTML not found: {html_path} — skipping")
-        return False
+    project_root = Path(__file__).parent.parent
+    json_path = project_root / "reports" / "claude-pro-timeline.json"
 
     try:
-        html = html_path.read_text(encoding="utf-8")
-        project_root = html_path.parent.parent  # reports/ → project root
+        # Load existing entries
+        entries: list = []
+        if json_path.exists():
+            entries = json.loads(json_path.read_text(encoding="utf-8"))
 
-        # Compute days since adoption
-        start = date.fromisoformat(CLAUDE_PRO_START_DATE)
-        days_since = (TODAY - start).days
-        today_br = TODAY.strftime("%d/%m/%Y")
+        # Nothing to do if today already has an entry
+        today_iso = TODAY.isoformat()
+        if any(e.get("date") == today_iso for e in entries):
+            print(f"[agent] Claude Pro timeline: entry for {today_iso} already exists")
+            return False
 
-        # Update header "Atualizado em"
-        html = re.sub(r"Atualizado em: \d{2}/\d{2}/\d{4}", f"Atualizado em: {today_br}", html)
+        # Get today's commits
+        commits = _get_todays_commits(project_root)
+        if not commits:
+            print("[agent] Claude Pro timeline: no meaningful commits today — unchanged")
+            return False
 
-        # Update "Dias desde adoção" stat counter
-        html = re.sub(
-            r'(<div class="stat-number">)\d+(</div>\s*<div class="stat-label">Dias desde adoção)',
-            rf"\g<1>{days_since}\g<2>",
-            html,
+        title, detail = _build_timeline_entry(commits)
+        new_entry = {
+            "date": today_iso,
+            "display_date": _today_timeline_str(),
+            "title": title,
+            "detail": detail,
+        }
+
+        # Newest first
+        entries.insert(0, new_entry)
+        json_path.write_text(
+            json.dumps(entries, indent=2, ensure_ascii=False),
+            encoding="utf-8",
         )
+        print(f"[agent] Claude Pro timeline: added '{title}'")
 
-        # Update "Em X dias," in executive paragraph
-        html = re.sub(r"Em \d+ dias,", f"Em {days_since} dias,", html)
-
-        # Update footer date
-        html = re.sub(
-            r"Relatório atualizado em \d{2}/\d{2}/\d{4}",
-            f"Relatório atualizado em {today_br}",
-            html,
-        )
-
-        # Add timeline entry for today if not already present
-        today_str = _today_timeline_str()
-        if today_str not in html:
-            commits = _get_todays_commits(project_root)
-            if commits:
-                title, detail = _build_timeline_entry(commits)
-                html = _inject_timeline_entry(html, title, detail)
-                print(f"[agent] Timeline entry added: {title}")
-            else:
-                print(f"[agent] No meaningful commits today — timeline unchanged")
-        else:
-            print(f"[agent] Timeline already has entry for {today_str}")
-
-        html_path.write_text(html, encoding="utf-8")
-
-        subprocess.run(["git", "add", str(html_path)], cwd=str(project_root), check=True)
+        subprocess.run(["git", "add", str(json_path)], cwd=str(project_root), check=True)
         diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(project_root))
         if diff.returncode != 0:
             subprocess.run(
-                ["git", "commit", "-m", f"chore: auto-update claude pro report to {TODAY}"],
+                ["git", "commit", "-m", f"chore: auto-update claude pro timeline to {TODAY}"],
                 cwd=str(project_root), check=True,
             )
             subprocess.run(["git", "push"], cwd=str(project_root), check=True)
-            print(f"[agent] Claude Pro Report pushed ({today_br}, {days_since} days)")
-        else:
-            print(f"[agent] Claude Pro Report: no changes to commit")
+            print(f"[agent] Claude Pro timeline pushed ({today_iso})")
 
         return True
 
     except Exception as exc:
-        print(f"[agent] Claude Pro Report update failed: {exc}")
+        print(f"[agent] Claude Pro timeline update failed: {exc}")
         return False
 
 
