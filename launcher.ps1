@@ -92,7 +92,7 @@ $form.ForeColor       = $clrText
 $form.StartPosition   = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox     = $false
-$form.ClientSize      = New-Object System.Drawing.Size(460, 672)
+$form.ClientSize      = New-Object System.Drawing.Size(640, 462)
 $form.Font            = New-Object System.Drawing.Font("Segoe UI", 10)
 $form.Icon            = New-LauncherIcon
 
@@ -161,13 +161,15 @@ $onLeave = {
     }
 }
 
-# ── Groups + Cards ─────────────────────────────────────────────────────────────
-$cardW   = 420
-$cardH   = 44
-$cardGap = 4
-$hdrH    = 18
+# ── Groups + Cards (2-column grid) ────────────────────────────────────────────
+$pad     = 20
+$colGap  = 8
+$colW    = [int](($form.ClientSize.Width - $pad * 2 - $colGap) / 2)
+$cardH   = 50
+$rowGap  = 4
+$hdrH    = 16
 
-$y          = 60
+$y          = 58
 $firstGroup = $true
 
 foreach ($group in $groups) {
@@ -176,8 +178,8 @@ foreach ($group in $groups) {
 
         $sep = New-Object System.Windows.Forms.Panel
         $sep.BackColor = $clrSep
-        $sep.Size      = New-Object System.Drawing.Size($cardW, 1)
-        $sep.Location  = New-Object System.Drawing.Point(20, $y)
+        $sep.Size      = New-Object System.Drawing.Size(($form.ClientSize.Width - $pad * 2), 1)
+        $sep.Location  = New-Object System.Drawing.Point($pad, $y)
         $form.Controls.Add($sep)
         $y += 1 + 5
     }
@@ -187,21 +189,29 @@ foreach ($group in $groups) {
     $lbl.Text      = $group.Label
     $lbl.ForeColor = $clrAccent
     $lbl.Font      = New-Object System.Drawing.Font("Segoe UI", 7.5, [System.Drawing.FontStyle]::Bold)
-    $lbl.Location  = New-Object System.Drawing.Point(20, $y)
+    $lbl.Location  = New-Object System.Drawing.Point($pad, $y)
     $lbl.AutoSize  = $true
     $form.Controls.Add($lbl)
     $y += $hdrH
 
-    for ($ci = 0; $ci -lt $group.Actions.Count; $ci++) {
-        $a     = $group.Actions[$ci]
+    $actions = $group.Actions
+    $numRows = [Math]::Ceiling($actions.Count / 2)
+
+    for ($ci = 0; $ci -lt $actions.Count; $ci++) {
+        $a     = $actions[$ci]
         $exe   = $a.Exe
         $pargs = $a.PArgs
         $title = $a.Title
 
+        $row  = [int]($ci / 2)
+        $col  = $ci % 2
+        $xPos = $pad + $col * ($colW + $colGap)
+        $yPos = $y + $row * ($cardH + $rowGap)
+
         $card = New-Object System.Windows.Forms.Panel
         $card.BackColor = $clrCard
-        $card.Size      = New-Object System.Drawing.Size($cardW, $cardH)
-        $card.Location  = New-Object System.Drawing.Point(20, $y)
+        $card.Size      = New-Object System.Drawing.Size($colW, $cardH)
+        $card.Location  = New-Object System.Drawing.Point($xPos, $yPos)
         $card.Cursor    = [System.Windows.Forms.Cursors]::Hand
         $card.Tag       = "card"
         $form.Controls.Add($card)
@@ -217,18 +227,19 @@ foreach ($group in $groups) {
         $lblT.Text      = $a.Title
         $lblT.ForeColor = $clrText
         $lblT.BackColor = $clrCard
-        $lblT.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-        $lblT.Location  = New-Object System.Drawing.Point(16, 5)
+        $lblT.Font      = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Bold)
+        $lblT.Location  = New-Object System.Drawing.Point(12, 6)
         $lblT.AutoSize  = $true
         $card.Controls.Add($lblT)
 
         $lblD = New-Object System.Windows.Forms.Label
-        $lblD.Text      = $a.Desc
-        $lblD.ForeColor = $clrSub
-        $lblD.BackColor = $clrCard
-        $lblD.Font      = New-Object System.Drawing.Font("Segoe UI", 8.5)
-        $lblD.Location  = New-Object System.Drawing.Point(16, 25)
-        $lblD.AutoSize  = $true
+        $lblD.Text        = $a.Desc
+        $lblD.ForeColor   = $clrSub
+        $lblD.BackColor   = $clrCard
+        $lblD.Font        = New-Object System.Drawing.Font("Segoe UI", 7.5)
+        $lblD.Location    = New-Object System.Drawing.Point(12, 26)
+        $lblD.AutoSize    = $false
+        $lblD.Size        = New-Object System.Drawing.Size(($colW - 18), 18)
         $card.Controls.Add($lblD)
 
         $onClick = {
@@ -256,10 +267,9 @@ foreach ($group in $groups) {
         $lblD.add_MouseEnter($onEnter)
         $lblD.add_MouseLeave($onLeave)
         $lblD.add_Click($onClick)
-
-        $y += $cardH
-        if ($ci -lt $group.Actions.Count - 1) { $y += $cardGap }
     }
+
+    $y += $numRows * $cardH + ($numRows - 1) * $rowGap
 }
 
 [System.Windows.Forms.Application]::Run($form)
