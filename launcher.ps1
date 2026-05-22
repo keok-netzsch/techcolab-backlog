@@ -55,7 +55,7 @@ $groups = @(
         Label   = "FEATURES"
         Actions = @(
             [pscustomobject]@{ Title="Call Recorder"; Desc="Record & transcribe 1on1 / English Coach sessions"; Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$CR\call-recorder.ps1`"" },
-            [pscustomobject]@{ Title="Toilet Paper";  Desc="Text-to-diagram app — starts Vite server at localhost:5173"; Exe="cmd.exe"; PArgs="/k `"cd /d C:\Users\Kelvin.okuda\napkin-clone && npm run dev`"" }
+            [pscustomobject]@{ Title="Toilet Paper";  Desc="Text-to-diagram app - starts Vite dev server (localhost:5173)"; Exe="cmd.exe"; PArgs="/k cd /d C:\Users\Kelvin.okuda\napkin-clone ^&^& npm run dev" }
         )
     }
 )
