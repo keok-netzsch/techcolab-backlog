@@ -19,7 +19,7 @@ from backlog.daily_log import log_entry
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Personal Toolkit · Techco.lab",
-    page_icon="💡",
+    page_icon="🤖",
     layout="wide",
 )
 
