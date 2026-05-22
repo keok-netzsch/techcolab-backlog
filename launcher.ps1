@@ -92,7 +92,7 @@ $form.ForeColor       = $clrText
 $form.StartPosition   = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox     = $false
-$form.ClientSize      = New-Object System.Drawing.Size(460, 800)
+$form.ClientSize      = New-Object System.Drawing.Size(460, 672)
 $form.Font            = New-Object System.Drawing.Font("Segoe UI", 10)
 $form.Icon            = New-LauncherIcon
 
@@ -130,7 +130,7 @@ $form.Controls.Add($lblSub)
 # ── Status bar ─────────────────────────────────────────────────────────────────
 $pnlStatus = New-Object System.Windows.Forms.Panel
 $pnlStatus.BackColor = $clrStatus
-$pnlStatus.Height    = 30
+$pnlStatus.Height    = 26
 $pnlStatus.Dock      = "Bottom"
 $form.Controls.Add($pnlStatus)
 
@@ -163,23 +163,23 @@ $onLeave = {
 
 # ── Groups + Cards ─────────────────────────────────────────────────────────────
 $cardW   = 420
-$cardH   = 50
-$cardGap = 6
-$hdrH    = 22
+$cardH   = 44
+$cardGap = 4
+$hdrH    = 18
 
-$y          = 68
+$y          = 60
 $firstGroup = $true
 
 foreach ($group in $groups) {
     if (-not $firstGroup) {
-        $y += 4
+        $y += 3
 
         $sep = New-Object System.Windows.Forms.Panel
         $sep.BackColor = $clrSep
         $sep.Size      = New-Object System.Drawing.Size($cardW, 1)
         $sep.Location  = New-Object System.Drawing.Point(20, $y)
         $form.Controls.Add($sep)
-        $y += 1 + 8
+        $y += 1 + 5
     }
     $firstGroup = $false
 
@@ -218,7 +218,7 @@ foreach ($group in $groups) {
         $lblT.ForeColor = $clrText
         $lblT.BackColor = $clrCard
         $lblT.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-        $lblT.Location  = New-Object System.Drawing.Point(16, 8)
+        $lblT.Location  = New-Object System.Drawing.Point(16, 5)
         $lblT.AutoSize  = $true
         $card.Controls.Add($lblT)
 
@@ -227,7 +227,7 @@ foreach ($group in $groups) {
         $lblD.ForeColor = $clrSub
         $lblD.BackColor = $clrCard
         $lblD.Font      = New-Object System.Drawing.Font("Segoe UI", 8.5)
-        $lblD.Location  = New-Object System.Drawing.Point(16, 29)
+        $lblD.Location  = New-Object System.Drawing.Point(16, 25)
         $lblD.AutoSize  = $true
         $card.Controls.Add($lblD)
 
