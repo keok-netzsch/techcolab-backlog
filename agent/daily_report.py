@@ -365,13 +365,32 @@ def _update_claude_pro_report() -> bool:
             print(f"[agent] Claude Pro timeline: entry for {today_iso} already exists")
             return False
 
-        # Get today's commits
+        # Source 1: git commits (precise, preferred)
         commits = _get_todays_commits(project_root)
-        if not commits:
-            print("[agent] Claude Pro timeline: no meaningful commits today — unchanged")
-            return False
+        if commits:
+            title, detail = _build_timeline_entry(commits)
+        else:
+            # Source 2: JSONL session scraping (fallback for no-commit days)
+            try:
+                from agent.scrape_sessions import get_recent_sessions, sessions_to_timeline_entries
+                sessions = get_recent_sessions(days_back=1)
+                existing_dates = {e.get("date") for e in entries}
+                candidates = sessions_to_timeline_entries(sessions, existing_dates)
+                if candidates:
+                    # Use the most descriptive entry found for today
+                    today_entry = next((c for c in candidates if c["date"] == today_iso), None)
+                    if today_entry:
+                        title, detail = today_entry["title"], today_entry["detail"]
+                    else:
+                        print("[agent] Claude Pro timeline: no sessions for today — unchanged")
+                        return False
+                else:
+                    print("[agent] Claude Pro timeline: no commits or sessions today — unchanged")
+                    return False
+            except Exception as _scrape_err:
+                print(f"[agent] Claude Pro timeline: scraping failed ({_scrape_err}) — unchanged")
+                return False
 
-        title, detail = _build_timeline_entry(commits)
         new_entry = {
             "date": today_iso,
             "display_date": _today_timeline_str(),

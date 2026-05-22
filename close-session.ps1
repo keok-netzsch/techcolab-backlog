@@ -65,7 +65,63 @@ function Push-Repo {
 Push-Repo -Dir $TB -Label "techcolab-backlog" -Message $msg
 Push-Repo -Dir $CR -Label "call-recorder"     -Message $msg
 
-# ── 4. Resumo ─────────────────────────────────────────────────────────────────
+Write-Host ""
+
+# ── 4. Registrar sessao no vault (AI/sessions/) ───────────────────────────────
+$vault_path = $env:TECHCOLAB_VAULT
+if (-not $vault_path) {
+    $vault_path = "C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO"
+}
+$sessions_dir = Join-Path $vault_path "AI\sessions"
+
+try {
+    New-Item -ItemType Directory -Force -Path $sessions_dir | Out-Null
+
+    # Collect today's commits from both repos
+    function Get-RepoLog { param([string]$Dir, [string]$Label)
+        Push-Location $Dir
+        $lines = git log --oneline --since="$TAG 00:00" 2>$null
+        Pop-Location
+        if ($lines) { return "**$Label**`n" + ($lines | ForEach-Object { "  - $_" } | Out-String).TrimEnd() }
+        return $null
+    }
+    $tb_log = Get-RepoLog -Dir $TB -Label "techcolab-backlog"
+    $cr_log = Get-RepoLog -Dir $CR -Label "call-recorder"
+    $repos_block = (@($tb_log, $cr_log) | Where-Object { $_ }) -join "`n`n"
+    if (-not $repos_block) { $repos_block = "_No commits recorded._" }
+
+    $session_file = Join-Path $sessions_dir "$TAG.md"
+    $session_body = @"
+
+## Session $NOW
+
+**Commit:** $msg
+
+**Repos:**
+$repos_block
+"@
+
+    if (Test-Path $session_file) {
+        Add-Content -Path $session_file -Value $session_body -Encoding UTF8
+    } else {
+        $frontmatter = @"
+---
+date: $TAG
+type: session-log
+tags: [session, claude-code]
+ai-first: true
+---
+
+> **For future Claude:** Daily session log for $TAG. Records Claude Code work sessions. Each `## Session` block is one close-session call.
+"@
+        Set-Content -Path $session_file -Value ($frontmatter + $session_body) -Encoding UTF8
+    }
+    Write-Host "  [OK] Session logged in vault: AI/sessions/$TAG.md" -ForegroundColor DarkCyan
+} catch {
+    Write-Host "  [--] Vault session log skipped: $_" -ForegroundColor DarkGray
+}
+
+# ── 6. Resumo ─────────────────────────────────────────────────────────────────
 Write-Host ""
 Write-Host "  -- Commits de hoje -----------------------" -ForegroundColor DarkGray
 
