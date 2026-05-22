@@ -52,6 +52,13 @@ $groups = @(
         )
     },
     @{
+        Label   = "SKILLS"
+        Actions = @(
+            [pscustomobject]@{ Title="SPM Bot";       Desc="Copy /spm-bot to clipboard and open Claude"; Exe="powershell.exe"; PArgs="-NoProfile -Command `"Set-Clipboard '/spm-bot'; Start-Process 'https://claude.ai'`"" },
+            [pscustomobject]@{ Title="Deck Designer"; Desc="Copy /techcolab-deck to clipboard and open Claude"; Exe="powershell.exe"; PArgs="-NoProfile -Command `"Set-Clipboard '/techcolab-deck'; Start-Process 'https://claude.ai'`"" }
+        )
+    },
+    @{
         Label   = "FEATURES"
         Actions = @(
             [pscustomobject]@{ Title="Call Recorder"; Desc="Record & transcribe 1on1 / English Coach sessions"; Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$CR\call-recorder.ps1`"" },
@@ -85,7 +92,7 @@ $form.ForeColor       = $clrText
 $form.StartPosition   = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox     = $false
-$form.ClientSize      = New-Object System.Drawing.Size(460, 655)
+$form.ClientSize      = New-Object System.Drawing.Size(460, 800)
 $form.Font            = New-Object System.Drawing.Font("Segoe UI", 10)
 $form.Icon            = New-LauncherIcon
 
