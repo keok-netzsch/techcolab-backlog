@@ -21,12 +21,12 @@ def test_backlog_dir_exists():
 
 
 def test_log_dir_exists():
-    log_dir = Path(VAULT_ROOT) / "Backlog - to do - app" / "Log"
+    log_dir = Path(VAULT_ROOT) / "Log"
     assert log_dir.exists(), f"Log dir not found: {log_dir}"
 
 
 def test_documentacao_md_exists():
-    doc = Path(VAULT_ROOT) / "Backlog - to do - app" / "Documentacao.md"
+    doc = Path(VAULT_ROOT) / "Documentacao.md"
     assert doc.exists(), f"Documentacao.md not found: {doc}"
 
 
