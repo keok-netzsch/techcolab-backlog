@@ -47,7 +47,9 @@ $groups = @(
     @{
         Label   = "FEATURES"
         Actions = @(
-            [pscustomobject]@{ Title="Call Recorder"; Desc="Record & transcribe 1on1 / English Coach sessions"; Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$CR\call-recorder.ps1`"" }
+            [pscustomobject]@{ Title="Call Recorder";      Desc="Record & transcribe 1on1 / English Coach sessions";  Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$CR\call-recorder.ps1`"" },
+            [pscustomobject]@{ Title="Toilet Paper";       Desc="Start text-to-diagram app (Vite dev server)";        Exe="cmd.exe";        PArgs="/k `"cd /d C:\Users\Kelvin.okuda\napkin-clone && npm run dev`"" },
+            [pscustomobject]@{ Title="Open Toilet Paper";  Desc="Open http://localhost:5173 in browser";              Exe="http://localhost:5173"; PArgs="" }
         )
     }
 )
@@ -77,7 +79,7 @@ $form.ForeColor       = $clrText
 $form.StartPosition   = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox     = $false
-$form.ClientSize      = New-Object System.Drawing.Size(460, 600)
+$form.ClientSize      = New-Object System.Drawing.Size(460, 710)
 $form.Font            = New-Object System.Drawing.Font("Segoe UI", 10)
 $form.Icon            = New-LauncherIcon
 
