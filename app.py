@@ -398,8 +398,8 @@ if page == "Backlog":
                         try:
                             client = build_client()
                             prompt = (
-                                f"Título: {ni_title.strip()}\nDescrição: {ni_desc.strip() or '(sem descrição)'}\n\n"
-                                "Qual a prioridade desta ideia? Responda APENAS com uma das opções: alta, média, baixa."
+                                f"Title: {ni_title.strip()}\nDescription: {ni_desc.strip() or '(no description)'}\n\n"
+                                "What is the priority of this idea? Respond ONLY with one of: alta, média, baixa."
                             )
                             resp = client.chat.completions.create(
                                 model=EXTRACTION_MODEL, max_tokens=10,
@@ -669,23 +669,23 @@ if page == "Backlog":
 
                             re_col, tips_col, hist_col = st.columns([2, 2, 2])
                             with re_col:
-                                if st.button("✨ Sugerir to-dos", key=f"regen_{idea.id}", help="Sugere próximos passos com base no título e descrição"):
+                                if st.button("✨ Suggest to-dos", key=f"regen_{idea.id}", help="Suggests next steps based on title and description"):
                                     from ingestion.extractor import suggest_todos, build_client
-                                    with st.spinner("Gerando..."):
+                                    with st.spinner("Generating..."):
                                         try:
                                             sugs = suggest_todos(new_title or idea.title, new_desc or idea.description or "", build_client())
                                             st.session_state[f"regen_sugs_{idea.id}"] = sugs
                                         except Exception as e:
-                                            st.error(f"Ollama indisponível: {e}")
+                                            st.error(f"Ollama unavailable: {e}")
 
                             tips_key = f"claude_tips_{idea.id}"
                             current_tips = st.session_state.get(tips_key, idea.claude_tips)
                             with tips_col:
-                                tips_label = "🤖 Regenerar dicas" if current_tips else "🤖 Dicas com Claude"
+                                tips_label = "🤖 Regenerate tips" if current_tips else "🤖 Claude tips"
                                 if st.button(tips_label, key=f"tips_btn_{idea.id}",
-                                             help="Gera dicas de como usar o Claude para desenvolver este item"):
+                                             help="Generates tips on how to use Claude to develop this item"):
                                     from ingestion.extractor import suggest_claude_tips, build_client
-                                    with st.spinner("Gerando dicas..."):
+                                    with st.spinner("Generating tips..."):
                                         try:
                                             tips_list = suggest_claude_tips(
                                                 new_title or idea.title,
@@ -702,20 +702,20 @@ if page == "Backlog":
                                                     store.save(fresh)
                                                 st.rerun()
                                             else:
-                                                st.warning("Nenhuma dica gerada. Adicione uma descrição ao item.")
+                                                st.warning("No tips generated. Add a description to the item.")
                                         except Exception as e:
                                             st.error(f"Ollama indisponível: {e}")
 
                             regen_sugs = st.session_state.get(f"regen_sugs_{idea.id}", [])
                             if regen_sugs:
-                                st.markdown("**To-dos sugeridos** — marque os que deseja adicionar:")
+                                st.markdown("**Suggested to-dos** — check the ones you want to add:")
                                 for si, stxt in enumerate(regen_sugs):
                                     if st.checkbox(stxt, value=False, key=f"regen_chk_{idea.id}_{si}"):
                                         if not any(t["text"] == stxt for t in idea.todos):
                                             idea.todos.append({"text": stxt, "done": False, "due_date": None})
 
                             with hist_col:
-                                if st.button("🕓 Ver histórico", key=f"hist_{idea.id}"):
+                                if st.button("🕓 View history", key=f"hist_{idea.id}"):
                                     st.session_state[f"show_hist_{idea.id}"] = not st.session_state.get(f"show_hist_{idea.id}", False)
 
                             if st.session_state.get(f"show_hist_{idea.id}"):
@@ -1274,8 +1274,8 @@ elif page == "Dashboard":
 
     st.markdown('<h1 style="margin-bottom:0.4rem">Dashboard</h1>', unsafe_allow_html=True)
 
-    st.subheader("Atividade no Claude Code")
-    st.caption("Atividade real baseada nos arquivos de sessão `~/.claude/projects/`")
+    st.subheader("Claude Code Activity")
+    st.caption("Real activity from session files `~/.claude/projects/`")
 
     # ── Session state for period filter ──────────────────────────────
     if "cc_window" not in st.session_state:
@@ -1405,19 +1405,19 @@ elif page == "Dashboard":
 
     def _fun_tagline(total_tokens: int) -> str:
         _refs = [
-            (95_000,  "O Hobbit"),
-            (100_000, "Harry Potter e a Pedra Filosofal"),
-            (120_000, "1984, de Orwell"),
+            (95_000,  "The Hobbit"),
+            (100_000, "Harry Potter and the Philosopher's Stone"),
+            (120_000, "1984 by Orwell"),
             (163_000, "Pride and Prejudice"),
-            (775_000, "Guerra e Paz"),
+            (775_000, "War and Peace"),
         ]
         for _tok, _name in _refs:
             if total_tokens >= _tok * 1.5:
                 _ratio = round(total_tokens / _tok)
-                return f'Você usou ~{_ratio}&times; mais tokens do que <em>{_name}</em>.'
+                return f'You used ~{_ratio}&times; more tokens than <em>{_name}</em>.'
         if total_tokens >= 50_000:
-            return 'Você acumulou tokens suficientes para escrever um romance.'
-        return f'Você acumulou {_fmt_tok(total_tokens)} tokens até agora.'
+            return 'You have accumulated enough tokens to write a novel.'
+        return f'You have accumulated {_fmt_tok(total_tokens)} tokens so far.'
 
     # ── Load all-time data ────────────────────────────────────────────
     _all_stats = _load_full_cc_stats()
@@ -1426,7 +1426,7 @@ elif page == "Dashboard":
     _w = st.session_state.get("cc_window", 0)
     _pc1, _pc2, _pc3, _pc4 = st.columns([6, 1, 1, 1])
     with _pc2:
-        if st.button("Todos", type="primary" if _w == 0 else "secondary",
+        if st.button("All", type="primary" if _w == 0 else "secondary",
                      use_container_width=True, key="cc_all"):
             st.session_state["cc_window"] = 0
             st.rerun()
@@ -1457,7 +1457,7 @@ elif page == "Dashboard":
     _cc_projects = _all_stats["projects"]
 
     if not _all_stats["msgs_by_day"] and not _all_stats["tokens_by_day"]:
-        st.info("Nenhum dado encontrado em `~/.claude/`.")
+        st.info("No data found in `~/.claude/`.")
     else:
         _total_msgs   = sum(_msgs_by_day.values())
         _total_tk_val = sum(_tk_total.values())
@@ -1483,13 +1483,13 @@ elif page == "Dashboard":
             '</style>'
             '<div class="cc-sg">'
             # Row 1 — atividade
-            f'<div class="cc-sc"><div class="cc-sl">Sessões</div>'
+            f'<div class="cc-sc"><div class="cc-sl">Sessions</div>'
             f'<div class="cc-sv">{_all_stats["sessions"]}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Mensagens</div>'
+            f'<div class="cc-sc"><div class="cc-sl">Messages</div>'
             f'<div class="cc-sv">{_total_msgs:,}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Dias ativos</div>'
+            f'<div class="cc-sc"><div class="cc-sl">Active days</div>'
             f'<div class="cc-sv">{len(_active_days)}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Horário de pico</div>'
+            f'<div class="cc-sc"><div class="cc-sl">Peak hour</div>'
             f'<div class="cc-sv">{_peak_h:02d}h</div></div>'
             # Row 2 — tokens
             f'<div class="cc-sc"><div class="cc-sl">Total de tokens</div>'
@@ -1498,16 +1498,16 @@ elif page == "Dashboard":
             f'<div class="cc-sv">{_fmt_tok(_total_out)}</div></div>'
             f'<div class="cc-sc"><div class="cc-sl">Cache hits</div>'
             f'<div class="cc-sv">{_fmt_tok(_cr_total)}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Eficiência cache</div>'
+            f'<div class="cc-sc"><div class="cc-sl">Cache efficiency</div>'
             f'<div class="cc-sv">{_cache_pct}%</div></div>'
             # Row 3 — streaks, modelo, projetos
-            f'<div class="cc-sc"><div class="cc-sl">Sequência atual</div>'
+            f'<div class="cc-sc"><div class="cc-sl">Current streak</div>'
             f'<div class="cc-sv">{_streak_cur}d</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Maior sequência</div>'
+            f'<div class="cc-sc"><div class="cc-sl">Longest streak</div>'
             f'<div class="cc-sv">{_streak_max}d</div></div>'
             f'<div class="cc-sc"><div class="cc-sl">Modelo favorito</div>'
             f'<div class="cc-sv" style="font-size:.9rem">{_fav_mod_str}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Projetos</div>'
+            f'<div class="cc-sc"><div class="cc-sl">Projects</div>'
             f'<div class="cc-sv">{_num_projects}</div></div>'
             '</div>'
         )
@@ -1592,8 +1592,8 @@ elif page == "Dashboard":
             _proj_str = " · ".join(
                 f"**{n}** {c}" for n, c in sorted(_cc_projects.items(), key=lambda x: -x[1])[:4]
             )
-            st.caption(f"Projetos: {_proj_str}")
-        st.caption("ℹ️ Claude Code CLI apenas. Claude.ai web/desktop não deixa log local.")
+            st.caption(f"Projects: {_proj_str}")
+        st.caption("ℹ️ Claude Code CLI only. Claude.ai web/desktop does not leave local logs.")
 
         # ── Diagnóstico ───────────────────────────────────────────────
         st.markdown("<hr style='margin:.8rem 0;border:none;border-top:1px solid #E5E7EB'>",
@@ -1612,99 +1612,99 @@ elif page == "Dashboard":
 
         if _avg_day < 5:
             _issues.append((
-                f"**Frequência muito baixa** — {_avg_day:.1f} prompts/dia em média. "
-                "Claude Code ainda não está integrado ao fluxo diário.",
-                "Traga tarefas menores: revisão de e-mails, rascunhos, análise rápida de dados, geração de scripts. "
-                "O hábito se forma no uso cotidiano, não nos grandes projetos.",
+                f"**Very low frequency** — {_avg_day:.1f} prompts/day on average. "
+                "Claude Code is not yet integrated into the daily workflow.",
+                "Bring smaller tasks: email reviews, drafts, quick data analysis, script generation. "
+                "The habit forms through daily use, not just large projects.",
             ))
         elif _avg_day < 10:
             _issues.append((
-                f"**Frequência abaixo do potencial** — {_avg_day:.1f} prompts/dia. "
-                "Há espaço para expandir o uso para mais tipos de tarefa.",
-                "Identifique tarefas recorrentes que você ainda faz manualmente e experimente delegar ao Claude.",
+                f"**Frequency below potential** — {_avg_day:.1f} prompts/day. "
+                "There is room to expand usage to more types of tasks.",
+                "Identify recurring tasks you still do manually and try delegating them to Claude.",
             ))
 
         if _avg_tk_per_prompt > 0 and _avg_tk_per_prompt < 3_000:
             _issues.append((
-                f"**Contexto subutilizado** — média de {_avg_tk_per_prompt/1000:.1f}K tokens/prompt. "
-                "Sessões muito curtas aproveitam pouco o contexto de 200K disponível.",
-                "Inclua o arquivo completo, não só o trecho. Descreva o projeto, dê exemplos. "
-                "Claude responde proporcionalmente ao contexto que recebe.",
+                f"**Underused context** — average {_avg_tk_per_prompt/1000:.1f}K tokens/prompt. "
+                "Very short sessions make poor use of the 200K context available.",
+                "Include the full file, not just the snippet. Describe the project, give examples. "
+                "Claude responds proportionally to the context it receives.",
             ))
 
         if _cache_pct_diag < 30 and (_cr_total + _cc_total) > 10_000:
             _issues.append((
-                f"**Cache pouco aproveitado** — {_cache_pct_diag}% de eficiência. "
-                "Poucas sessões reaproveitam contexto de sessões anteriores.",
-                "Abra sessões mais longas em vez de várias curtas sobre o mesmo tema. "
-                "Use /clear só ao mudar de assunto, não entre subtarefas relacionadas.",
+                f"**Underused cache** — {_cache_pct_diag}% efficiency. "
+                "Few sessions reuse context from previous sessions.",
+                "Open longer sessions instead of many short ones on the same topic. "
+                "Use /clear only when switching subjects, not between related subtasks.",
             ))
 
         if _avg_day >= 5 and _avg_tk_per_prompt >= 10_000:
             _opps.append((
-                "Padrão de sessões profundas",
-                f"Usuário faz {_avg_day:.1f} prompts/dia com média de {_avg_tk_per_prompt/1000:.0f}K tokens cada. "
-                "Identifique onde sessões mais longas trariam ainda mais valor vs. onde a profundidade atual é suficiente.",
+                "Deep session pattern",
+                f"User makes {_avg_day:.1f} prompts/day with an average of {_avg_tk_per_prompt/1000:.0f}K tokens each. "
+                "Identify where longer sessions would add even more value vs. where current depth is sufficient.",
             ))
 
         if _cache_pct_diag >= 60:
             _opps.append((
-                "Alta reutilização de contexto",
-                f"Cache efficiency de {_cache_pct_diag}%. "
-                "Sugira como estruturar projetos recorrentes para maximizar ainda mais esse padrão.",
+                "High context reuse",
+                f"Cache efficiency at {_cache_pct_diag}%. "
+                "Suggest how to structure recurring projects to further maximize this pattern.",
             ))
 
         if len(_cc_projects) >= 3:
             _top_proj = ", ".join(n for n, _ in sorted(_cc_projects.items(), key=lambda x: -x[1])[:3])
             _opps.append((
-                "Multi-projeto",
-                f"Uso distribuído em {len(_cc_projects)} projetos ({_top_proj}). "
-                "Identifique se faz sentido centralizar contexto entre projetos ou manter separado.",
+                "Multi-project",
+                f"Usage distributed across {len(_cc_projects)} projects ({_top_proj}). "
+                "Identify whether centralizing context across projects makes sense or if separate is better.",
             ))
 
         if _issues:
-            st.markdown(f"**{len(_issues)} problema(s) identificado(s)**")
+            st.markdown(f"**{len(_issues)} {'issue' if len(_issues) == 1 else 'issues'} identified**")
             for _err, _fix in _issues:
                 st.markdown(
                     f'<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
                     f'border-left:3px solid #EF4444;background:rgba(239,68,68,.05)">'
                     f'<span style="font-size:.7rem;color:#EF4444;font-weight:700;'
-                    f'text-transform:uppercase;letter-spacing:.04em">Problema</span><br>{_err}'
+                    f'text-transform:uppercase;letter-spacing:.04em">Issue</span><br>{_err}'
                     f'</div>', unsafe_allow_html=True,
                 )
                 st.markdown(
                     f'<div style="margin:-.2rem 0 .5rem;padding:.5rem .75rem;border-radius:6px;'
                     f'border-left:3px solid #059669;background:rgba(5,150,105,.05)">'
                     f'<span style="font-size:.7rem;color:#059669;font-weight:700;'
-                    f'text-transform:uppercase;letter-spacing:.04em">Como corrigir</span><br>{_fix}'
+                    f'text-transform:uppercase;letter-spacing:.04em">How to fix</span><br>{_fix}'
                     f'</div>', unsafe_allow_html=True,
                 )
         else:
-            st.success("Nenhum problema identificado no padrão de uso atual.")
+            st.success("No issues found in current usage pattern.")
 
         if _opps:
-            st.markdown(f"**{len(_opps)} oportunidade(s) para análise**")
+            st.markdown(f"**{len(_opps)} {'opportunity' if len(_opps) == 1 else 'opportunities'} for analysis**")
             _opp_ctx = "\n".join(f"- {title}: {ctx}" for title, ctx in _opps)
             _metrics_summary = (
                 f"Prompts/dia (14d): {_avg_day:.1f} | "
                 f"Tokens/prompt: {_avg_tk_per_prompt/1000:.1f}K | "
                 f"Cache: {_cache_pct_diag}% | "
-                f"Projetos: {', '.join(list(_cc_projects.keys())[:3])}"
+                f"Projects: {', '.join(list(_cc_projects.keys())[:3])}"
             )
-            with st.expander("Ver análise detalhada (Ollama)", expanded=False):
-                if st.button("Gerar análise", key="cc_ollama_btn"):
+            with st.expander("Detailed analysis (Ollama)", expanded=False):
+                if st.button("Run analysis", key="cc_ollama_btn"):
                     _prompt = (
-                        "Você é um consultor de produtividade com IA. "
-                        "Analise o padrão de uso do Claude Code abaixo e forneça insights acionáveis.\n\n"
-                        f"Métricas reais (últimos 14 dias):\n{_metrics_summary}\n\n"
-                        f"Oportunidades identificadas:\n{_opp_ctx}\n\n"
-                        "Para cada oportunidade: explique quando usar Claude nesse contexto e quando NÃO usar. "
-                        "Seja específico e prático. Máximo 200 palavras no total. Responda em português."
+                        "You are an AI productivity consultant. "
+                        "Analyze the Claude Code usage pattern below and provide actionable insights.\n\n"
+                        f"Real metrics (last 14 days):\n{_metrics_summary}\n\n"
+                        f"Identified opportunities:\n{_opp_ctx}\n\n"
+                        "For each opportunity: explain when to use Claude in that context and when NOT to. "
+                        "Be specific and practical. Maximum 200 words total. Respond in English."
                     )
                     try:
                         from openai import OpenAI as _OAI
                         _client = _OAI(base_url=OLLAMA_BASE_URL, api_key="ollama")
-                        with st.spinner("Ollama analisando..."):
+                        with st.spinner("Ollama analyzing..."):
                             _resp = _client.chat.completions.create(
                                 model=EXTRACTION_MODEL,
                                 messages=[{"role": "user", "content": _prompt}],
@@ -1714,8 +1714,8 @@ elif page == "Dashboard":
                         st.markdown(_resp.choices[0].message.content)
                     except Exception as _e:
                         st.warning(
-                            f"Ollama não disponível (`{OLLAMA_BASE_URL}`). "
-                            "Inicie o serviço com `ollama serve` para usar esta análise."
+                            f"Ollama not available (`{OLLAMA_BASE_URL}`). "
+                            "Start the service with `ollama serve` to use this analysis."
                         )
 
 
@@ -1744,15 +1744,15 @@ elif page == "Dashboard":
         '<div class="cc-sg" style="grid-template-columns:repeat(6,1fr)">'
         f'<div class="cc-sc"><div class="cc-sl">Total ideas</div>'
         f'<div class="cc-sv">{total}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">Ativas</div>'
+        f'<div class="cc-sc"><div class="cc-sl">Active</div>'
         f'<div class="cc-sv">{active}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">Concluídas</div>'
+        f'<div class="cc-sc"><div class="cc-sl">Done</div>'
         f'<div class="cc-sv">{concluidas}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">To-dos pendentes</div>'
+        f'<div class="cc-sc"><div class="cc-sl">Open to-dos</div>'
         f'<div class="cc-sv">{todos_pending}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">To-dos feitos</div>'
+        f'<div class="cc-sc"><div class="cc-sl">Completed to-dos</div>'
         f'<div class="cc-sv">{todos_done}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">Bugs abertos</div>'
+        f'<div class="cc-sc"><div class="cc-sl">Open bugs</div>'
         f'<div class="cc-sv" style="color:{"#EF4444" if bugs_open else "#111827"}">{bugs_open}</div></div>'
         '</div>'
     )
@@ -1829,7 +1829,7 @@ elif page == "Dashboard":
                     out.write_text(frontmatter + report_md, encoding="utf-8")
                     st.success(f"Saved to Log/{fname}")
 
-    with st.expander("Análise detalhada · Relatório", expanded=False):
+    with st.expander("Detailed analysis · Report", expanded=False):
         # ── To-dos com prazo hoje ou essa semana ─────────────────────────────
         _today_d = _date.today()
         _week_end = _today_d + timedelta(days=7)
@@ -1877,7 +1877,7 @@ elif page == "Dashboard":
         with col_due:
             st.subheader("Due this week")
             if not _due_soon:
-                st.caption("Nenhum to-do vence hoje ou essa semana.")
+                st.caption("No to-dos due today or this week.")
             else:
                 for _d, _t in _due_soon:
                     _is_overdue = _d < _today_d
@@ -1954,29 +1954,29 @@ elif page == "Weekly Brief":
     ]
 
     st.markdown('<h1 style="margin-bottom:0.4rem">Weekly Brief</h1>', unsafe_allow_html=True)
-    st.caption("Painel de preparação para reunião com Alberto Reuters e Stefan Lautenschlager.")
+    st.caption("Meeting prep panel for Alberto Reuters and Stefan Lautenschlager.")
 
     # ── Controls ──────────────────────────────────────────────────────────────
     _ctrl1, _ctrl2 = st.columns([1, 3])
     with _ctrl1:
-        _period = st.slider("Período (dias)", 3, 30, 7, key="wb_period")
+        _period = st.slider("Period (days)", 3, 30, 7, key="wb_period")
     _start = date.today() - timedelta(days=_period)
     with _ctrl2:
         st.markdown("<br>", unsafe_allow_html=True)
         _c1, _c2, _c3, _c4 = st.columns(4)
         _show_devs  = _c1.checkbox("🚀 Devs",   value=True, key="wb_devs")
         _show_wip   = _c2.checkbox("🔄 WIP",    value=True, key="wb_wip")
-        _show_team  = _c3.checkbox("👥 Time",   value=True, key="wb_team")
+        _show_team  = _c3.checkbox("👥 Team",   value=True, key="wb_team")
         _show_calls = _c4.checkbox("📞 Calls",  value=True, key="wb_calls")
 
-    st.caption(f"Período: **{_start.strftime('%d/%m/%Y')}** → **{date.today().strftime('%d/%m/%Y')}**")
+    st.caption(f"Period: **{_start.strftime('%d/%m/%Y')}** → **{date.today().strftime('%d/%m/%Y')}**")
     st.divider()
 
     _store = get_store()
     _ideas = _store.load_all()
     _today = date.today()
     _export = [f"# Weekly Brief — {_today.strftime('%d/%m/%Y')}",
-               f"Período: {_start.strftime('%d/%m/%Y')} → {_today.strftime('%d/%m/%Y')}", ""]
+               f"Period: {_start.strftime('%d/%m/%Y')} → {_today.strftime('%d/%m/%Y')}", ""]
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _wb_parse_1on1(path: Path):
@@ -2018,7 +2018,7 @@ elif page == "Weekly Brief":
 
     # ── Section 1: Desenvolvimentos ───────────────────────────────────────────
     if _show_devs:
-        st.subheader("Desenvolvimentos da semana")
+        st.subheader("Developments")
         _logs = _wb_read_logs(_start, _today)
         _seen, _devs = set(), []
         for e in _logs:
@@ -2026,17 +2026,17 @@ elif page == "Weekly Brief":
             if ("status:" in e["detail"] or e["action"] == "CRIADA") and key not in _seen:
                 _seen.add(key); _devs.append(e)
 
-        _export.append("## Desenvolvimentos")
+        _export.append("## Developments")
         if not _devs:
-            st.info("Nenhum desenvolvimento registrado no período.")
-            _export.append("_Sem desenvolvimentos registrados._")
+            st.info("No developments recorded in this period.")
+            _export.append("_No developments recorded._")
         else:
             _TH = "padding:7px 12px;text-align:left;font-weight:500;font-size:12px;color:rgba(76,77,88,0.55);border-bottom:1px solid rgba(76,77,88,0.18);white-space:nowrap"
             _TD = "padding:7px 12px;font-size:13px;border-bottom:1px solid rgba(76,77,88,0.07);vertical-align:top"
             _TD_ID = _TD + ";white-space:nowrap;font-family:monospace;font-size:12px;color:#02B793"
             _rows = ""
             for e in _devs:
-                _tipo = "Criada" if e["action"] == "CRIADA" else "Status"
+                _tipo = "Created" if e["action"] == "CRIADA" else "Status"
                 _mudanca = e["detail"].replace("status:", "").replace("->", "→").strip() if e["detail"] else "—"
                 _rows += (
                     f'<tr><td style="{_TD_ID}">{e["idea_id"]}</td>'
@@ -2049,9 +2049,9 @@ elif page == "Weekly Brief":
                 f'<table style="width:100%;border-collapse:collapse">'
                 f'<thead><tr>'
                 f'<th style="{_TH}">ID</th>'
-                f'<th style="{_TH}">Título</th>'
+                f'<th style="{_TH}">Title</th>'
                 f'<th style="{_TH}">Tipo</th>'
-                f'<th style="{_TH}">Mudança</th>'
+                f'<th style="{_TH}">Change</th>'
                 f'</tr></thead><tbody>{_rows}</tbody></table>',
                 unsafe_allow_html=True,
             )
@@ -2059,22 +2059,22 @@ elif page == "Weekly Brief":
 
     # ── Section 2: Em andamento ───────────────────────────────────────────────
     if _show_wip:
-        st.subheader("Em andamento")
+        st.subheader("In progress")
         _active = [i for i in _ideas if i.status in ("em desenvolvimento", "em validação", "aguardando desenvolvimento")]
         _wip_todos = [(i, t) for i in _ideas for t in i.todos if t.get("in_progress") and not t.get("done")]
         _upcoming  = [i for i in _ideas if i.due_date and _today <= i.due_date <= _today + timedelta(days=7)
                       and i.status not in ("concluído", "descartado")]
 
-        _export.append("## Em andamento")
+        _export.append("## In progress")
         if not _active and not _wip_todos and not _upcoming:
-            st.info("Nenhum item em andamento no momento.")
-            _export.append("_Sem itens em andamento._")
+            st.info("No items currently in progress.")
+            _export.append("_No items in progress._")
         else:
             _TH2 = "padding:7px 12px;text-align:left;font-weight:500;font-size:12px;color:rgba(76,77,88,0.55);border-bottom:1px solid rgba(76,77,88,0.18);white-space:nowrap"
             _TD2 = "padding:7px 12px;font-size:13px;border-bottom:1px solid rgba(76,77,88,0.07);vertical-align:top"
             _TD2_ID = _TD2 + ";white-space:nowrap;font-family:monospace;font-size:12px;color:#02B793"
             if _active:
-                st.caption("Ideias em desenvolvimento")
+                st.caption("Ideas in development")
                 _rows2 = ""
                 for i in _active:
                     _rows2 += (
@@ -2087,13 +2087,13 @@ elif page == "Weekly Brief":
                     f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
                     f'<thead><tr>'
                     f'<th style="{_TH2}">ID</th>'
-                    f'<th style="{_TH2}">Título</th>'
+                    f'<th style="{_TH2}">Title</th>'
                     f'<th style="{_TH2}">Status</th>'
                     f'</tr></thead><tbody>{_rows2}</tbody></table>',
                     unsafe_allow_html=True,
                 )
             if _wip_todos:
-                st.caption("To-dos em andamento")
+                st.caption("In-progress to-dos")
                 _rows3 = ""
                 for i, t in _wip_todos:
                     _due_str = t["due_date"] if t.get("due_date") else "—"
@@ -2108,12 +2108,12 @@ elif page == "Weekly Brief":
                     f'<thead><tr>'
                     f'<th style="{_TH2}">To-do</th>'
                     f'<th style="{_TH2}">Ideia</th>'
-                    f'<th style="{_TH2}">Prazo</th>'
+                    f'<th style="{_TH2}">Due date</th>'
                     f'</tr></thead><tbody>{_rows3}</tbody></table>',
                     unsafe_allow_html=True,
                 )
             if _upcoming:
-                st.caption("Vencendo em 7 dias")
+                st.caption("Due in 7 days")
                 _rows4 = ""
                 for i in _upcoming:
                     _dl = (i.due_date - _today).days
@@ -2129,8 +2129,8 @@ elif page == "Weekly Brief":
                     f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
                     f'<thead><tr>'
                     f'<th style="{_TH2}">ID</th>'
-                    f'<th style="{_TH2}">Título</th>'
-                    f'<th style="{_TH2}">Vence em</th>'
+                    f'<th style="{_TH2}">Title</th>'
+                    f'<th style="{_TH2}">Due</th>'
                     f'</tr></thead><tbody>{_rows4}</tbody></table>',
                     unsafe_allow_html=True,
                 )
@@ -2138,8 +2138,8 @@ elif page == "Weekly Brief":
 
     # ── Section 3: Status do time ─────────────────────────────────────────────
     if _show_team:
-        st.subheader("Status do time")
-        _export.append("## 👥 Time")
+        st.subheader("Team status")
+        _export.append("## 👥 Team")
         for _m in _TEAM:
             _folder = _TEAM_DIR / _m["folder"]
             with st.expander(f"**{_m['name']}**", expanded=True):
@@ -2151,14 +2151,14 @@ elif page == "Weekly Brief":
 
                 _latest = _wb_parse_1on1(_folder / "1on1.md")
                 if _latest:
-                    st.caption(f"{_role + ' — ' if _role else ''}último 1-on-1: {_latest['date']}")
+                    st.caption(f"{_role + ' — ' if _role else ''}last 1-on-1: {_latest['date']}")
                     if _latest["topics"]:
-                        st.markdown("**Tópicos:**")
+                        st.markdown("**Topics:**")
                         for _t in _latest["topics"]:
                             st.markdown(f"  - {_t}")
                     _open = [a for a in _latest["actions"] if not a["done"]]
                     if _open:
-                        st.markdown("**Action items em aberto:**")
+                        st.markdown("**Open action items:**")
                         for _a in _open:
                             st.markdown(f"  - ☐ {_a['text']}")
                     _export += [f"### {_m['name']}", f"Último 1-on-1: {_latest['date']}"]
@@ -2168,13 +2168,13 @@ elif page == "Weekly Brief":
                         _export += [f"  - [ ] {a['text']}" for a in _open]
                     _export.append("")
                 else:
-                    st.caption(f"{_role + ' — ' if _role else ''}sem 1-on-1 registrado")
-                    _export.append(f"### {_m['name']} — sem 1-on-1"); _export.append("")
+                    st.caption(f"{_role + ' — ' if _role else ''}no 1-on-1 recorded")
+                    _export.append(f"### {_m['name']} — no 1-on-1"); _export.append("")
         st.divider()
 
     # ── Section 4: Calls ──────────────────────────────────────────────────────
     if _show_calls:
-        st.subheader("Calls da semana")
+        st.subheader("Calls this week")
         _export.append("## 📞 Calls")
         _calls = []
         for _m in _TEAM:
@@ -2189,8 +2189,8 @@ elif page == "Weekly Brief":
                     except ValueError:
                         pass
         if not _calls:
-            st.info("Nenhuma call registrada no período.")
-            _export.append("_Sem calls registradas no período._")
+            st.info("No calls recorded in this period.")
+            _export.append("_No calls recorded in this period._")
         else:
             for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
                 with st.expander(f"📞 {_c['member']} — {_c['date'].strftime('%d/%m/%Y')}"):
@@ -2200,14 +2200,14 @@ elif page == "Weekly Brief":
         _export.append(""); st.divider()
 
     # ── Export ────────────────────────────────────────────────────────────────
-    st.subheader("Exportar resumo")
+    st.subheader("Export summary")
     _export_md = "\n".join(_export)
     _dl_col, _ = st.columns([1, 3])
     with _dl_col:
-        st.download_button("⬇️ Baixar .md", data=_export_md,
+        st.download_button("⬇️ Download .md", data=_export_md,
                            file_name=f"weekly-brief-{_today.isoformat()}.md",
                            mime="text/markdown", type="primary")
-    with st.expander("Prévia do resumo exportado"):
+    with st.expander("Exported summary preview"):
         st.code(_export_md, language="markdown")
 
 
@@ -2466,7 +2466,7 @@ Every morning when the daily agent runs, it updates three values in the HTML fil
 
 After updating, the agent commits the file to the repository and pushes it — GitHub Pages then serves the new version within ~1 minute.
 
-To update manually outside the agent schedule, use the **Atualizar agora** button on the **Claude Pro** page.
+To update manually outside the agent schedule, use the **Update now** button on the **Claude Pro** page.
 """)
 
 
@@ -2562,26 +2562,26 @@ elif page == "Claude Pro":
     from config import CLAUDE_PRO_REPORT_HTML
 
     st.markdown('<h1 style="margin-bottom:0.2rem">Claude Pro</h1>', unsafe_allow_html=True)
-    st.caption("Uso do Claude Pro · NBS D&A · Techco.lab")
+    st.caption("Claude Pro usage · NBS D&A · Techco.lab")
 
     # ── Claude Pro Report HTML ────────────────────────────────────────────────
     st.divider()
     _cp_rpt_col, _cp_btn_col = st.columns([5, 1], vertical_alignment="bottom")
     with _cp_rpt_col:
-        st.subheader("Relatório de adoção")
-        st.caption("Cronologia e métricas de adoção · atualizado automaticamente pelo agente diário")
+        st.subheader("Adoption report")
+        st.caption("Adoption timeline and metrics · auto-updated by the daily agent")
     with _cp_btn_col:
         if CLAUDE_PRO_REPORT_HTML.exists():
-            if st.button("🔄 Atualizar agora", type="primary", key="cp_update_btn",
+            if st.button("🔄 Update now", type="primary", key="cp_update_btn",
                          use_container_width=True):
                 from agent.daily_report import _update_claude_pro_report
-                with st.spinner("Atualizando..."):
+                with st.spinner("Updating..."):
                     ok = _update_claude_pro_report()
                 if ok:
-                    st.success("✅ Atualizado.")
+                    st.success("✅ Updated.")
                     st.rerun()
                 else:
-                    st.error("❌ Falha. Verifique o Git.")
+                    st.error("❌ Failed. Check Git.")
 
     if CLAUDE_PRO_REPORT_HTML.exists():
         import re as _re
@@ -2591,15 +2591,15 @@ elif page == "Claude Pro":
         _today_str = date.today().strftime("%d/%m/%Y")
         if _report_date_str != _today_str:
             from agent.daily_report import _update_claude_pro_report
-            with st.spinner("Atualizando relatório..."):
+            with st.spinner("Updating report..."):
                 _update_claude_pro_report()
             _raw = CLAUDE_PRO_REPORT_HTML.read_text(encoding="utf-8")
-            st.caption(f"ℹ️ Atualizado automaticamente (estava em {_report_date_str or 'data desconhecida'}).")
+            st.caption(f"ℹ️ Auto-updated (was dated {_report_date_str or 'unknown date'}).")
         components.html(_raw, height=900, scrolling=True)
     else:
         st.warning(
-            f"Relatório não encontrado em `{CLAUDE_PRO_REPORT_HTML}`. "
-            "Execute o agente diário para gerar o arquivo."
+            f"Report not found at `{CLAUDE_PRO_REPORT_HTML}`. "
+            "Run the daily agent to generate the file."
         )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2613,12 +2613,12 @@ elif page == "English Coach":
     _EC_SESSIONS = _EC_DIR / "sessions"
 
     st.markdown('<h1 style="margin-bottom:0.4rem">English Coach</h1>', unsafe_allow_html=True)
-    st.caption("Evolução das sessões de prática de inglês · avaliadas por IA")
+    st.caption("English practice session history · AI-rated")
 
     if not _EC_DIR.exists() or not _EC_PROGRESS.exists():
         st.info(
-            "Nenhuma sessão registrada ainda. "
-            "Execute **english-coach.ps1** via Raycast (Win+Space → English Coach) para iniciar sua primeira sessão.",
+            "No sessions recorded yet. "
+            "Run **english-coach.ps1** via Raycast (Win+Space → English Coach) to start your first session.",
             icon="🎙️",
         )
     else:
@@ -2645,11 +2645,11 @@ elif page == "English Coach":
             _avg      = sum(r["overall"] for r in _prog_rows) / len(_prog_rows)
             _best     = max(r["overall"] for r in _prog_rows)
             _k1, _k2, _k3, _k4 = st.columns(4)
-            _k1.metric("Sessões", len(_prog_rows))
-            _k2.metric("Nota mais recente", f"{_latest['overall']:.1f}/10")
-            _k3.metric("Média geral", f"{_avg:.1f}/10")
-            _k4.metric("Melhor nota", f"{_best:.1f}/10")
-            _k1.caption(f"Nível atual: **{_latest['level']}**")
+            _k1.metric("Sessions", len(_prog_rows))
+            _k2.metric("Latest score", f"{_latest['overall']:.1f}/10")
+            _k3.metric("Overall average", f"{_avg:.1f}/10")
+            _k4.metric("Best score", f"{_best:.1f}/10")
+            _k1.caption(f"Current level: **{_latest['level']}**")
 
             st.divider()
 
@@ -2657,18 +2657,18 @@ elif page == "English Coach":
             import pandas as _ecpd
             _df = _ecpd.DataFrame(_prog_rows).set_index("date")[["overall"]]
             _df.columns = ["Overall (0–10)"]
-            st.subheader("Evolução da nota")
+            st.subheader("Score progression")
             st.line_chart(_df, height=200)
 
             st.divider()
 
         # ── Recent sessions ───────────────────────────────────────────────────
-        st.subheader("Sessões recentes")
+        st.subheader("Recent sessions")
 
         _session_files = sorted(_EC_SESSIONS.glob("*_english-coach.md"), reverse=True) if _EC_SESSIONS.exists() else []
 
         if not _session_files:
-            st.info("Nenhum arquivo de sessão encontrado.")
+            st.info("No session files found.")
         else:
             for _sf in _session_files[:10]:
                 _stext = _sf.read_text(encoding="utf-8")

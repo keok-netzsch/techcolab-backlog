@@ -130,6 +130,22 @@ When the user opens a Claude Code session via `execute_agent.bat` and says
 
 ---
 
+## UI language — universal and irrevocable rule
+
+**ALL UI text must be in English.** This applies to every page, every component, every label:
+buttons, card labels, section headers, subheaders, captions, tooltips, expander titles,
+`st.metric` labels, `st.info`/`st.warning`/`st.success` messages, `st.caption` text,
+column headers, dialog titles, `st.selectbox` options, `st.button` labels, nav items,
+`st.subheader`/`st.markdown` headings — everything Claude writes.
+
+**Exceptions (not UI labels — leave as-is):**
+- User-generated content stored in the vault (backlog item titles, to-do text, notes)
+- Dynamic data read from markdown files (log entries, OKR text, 1-on-1 notes)
+
+This rule overrides any tendency to write Portuguese in the UI. No exceptions.
+
+---
+
 ## What NOT to do
 
 - Do not use `ANTHROPIC_API_KEY` — this project uses Ollama (local LLM) only
