@@ -3,7 +3,7 @@ cd /d "C:\Users\Kelvin.okuda\techcolab-backlog"
 
 :: Ensure vault path is set even if env var wasn't inherited
 if "%TECHCOLAB_VAULT%"=="" (
-    set "TECHCOLAB_VAULT=C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO"
+    set "TECHCOLAB_VAULT=C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\App\Personal toolkit"
 )
 
 call .venv\Scripts\activate.bat

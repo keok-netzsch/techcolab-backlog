@@ -31,9 +31,9 @@ VAULT_ROOT = Path(
 VAULT_NOTES_DIR = VAULT_ROOT / "notes"
 
 # ── Destination: structured backlog ────────────────────────────────────────────
-BACKLOG_DIR = VAULT_ROOT / "Backlog - to do - app" / "backlog items"
-BACKLOG_ARCHIVE_DIR = VAULT_ROOT / "Backlog - to do - app" / "excluídas"
-BACKLOG_INDEX = VAULT_ROOT / "Backlog - to do - app" / "_index.md"
+BACKLOG_DIR = VAULT_ROOT / "backlog items"
+BACKLOG_ARCHIVE_DIR = VAULT_ROOT / "excluídas"
+BACKLOG_INDEX = VAULT_ROOT / "_index.md"
 
 # ── Consolidated claude.md ──────────────────────────────────────────────────────
 CLAUDE_MD = VAULT_ROOT / "claude.md"
