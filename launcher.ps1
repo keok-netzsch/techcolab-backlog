@@ -52,6 +52,23 @@ $groups = @(
     }
 )
 
+# ── Custom icon (green circle + "T") ──────────────────────────────────────────
+function New-LauncherIcon {
+    $bmp  = New-Object System.Drawing.Bitmap(32, 32)
+    $g    = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $bg   = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#02B793"))
+    $g.FillEllipse($bg, 0, 0, 31, 31)
+    $font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
+    $sf   = New-Object System.Drawing.StringFormat
+    $sf.Alignment     = [System.Drawing.StringAlignment]::Center
+    $sf.LineAlignment = [System.Drawing.StringAlignment]::Center
+    $g.DrawString("T", $font, [System.Drawing.Brushes]::White,
+                  [System.Drawing.RectangleF]::new(0, 1, 32, 32), $sf)
+    $g.Dispose(); $bg.Dispose(); $font.Dispose(); $sf.Dispose()
+    return [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
+}
+
 # ── Form ───────────────────────────────────────────────────────────────────────
 $form = New-Object System.Windows.Forms.Form
 $form.Text            = "Techco.lab Launcher"
@@ -62,6 +79,7 @@ $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox     = $false
 $form.ClientSize      = New-Object System.Drawing.Size(460, 600)
 $form.Font            = New-Object System.Drawing.Font("Segoe UI", 10)
+$form.Icon            = New-LauncherIcon
 
 # Auto-start Streamlit + Ollama, and apply dark title bar
 $form.add_Shown({

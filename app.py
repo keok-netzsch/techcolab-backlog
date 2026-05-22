@@ -1922,16 +1922,20 @@ elif page == "Dashboard":
                 def _score(idea):
                     return impact_val.get(idea.impacto, 0) * effort_val.get(idea.esforco, 0)
                 ranked = sorted(scored, key=_score, reverse=True)
+                _h0, _h1, _h2 = st.columns([1, 5, 3])
+                _h0.caption("Score")
+                _h1.caption("Idea")
+                _h2.caption("Impact · Effort")
                 for idea in ranked[:8]:
                     s = _score(idea)
-                    icon = PRIORITY_NUM.get(idea.priority, "")
                     _clean_title = idea.title.replace("**", "").strip()
-                    st.markdown(
-                        f"{icon} `{idea.id}` **{_clean_title[:40]}**  \n"
-                        f"&nbsp;&nbsp;&nbsp;Impact: {IMPACT_LABEL.get(idea.impacto, idea.impacto)} · "
-                        f"Effort: {EFFORT_LABEL.get(idea.esforco, idea.esforco)} · Score: **{s}**"
+                    _c0, _c1, _c2 = st.columns([1, 5, 3])
+                    _c0.markdown(f"**{s}**")
+                    _c1.markdown(f"`{idea.id}` {_clean_title[:38]}")
+                    _c2.caption(
+                        f"{IMPACT_LABEL.get(idea.impacto, idea.impacto)} · "
+                        f"{EFFORT_LABEL.get(idea.esforco, idea.esforco)}"
                     )
-                    st.markdown('<div style="margin-bottom:0.6rem"></div>', unsafe_allow_html=True)
 
         st.divider()
         st.subheader("Period report")
