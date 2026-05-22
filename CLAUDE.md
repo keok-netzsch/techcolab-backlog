@@ -130,6 +130,24 @@ When the user opens a Claude Code session via `execute_agent.bat` and says
 
 ---
 
+## Design System — mandatory for new pages
+
+Before creating any new Streamlit page or adding a new section to an existing page,
+read **`DESIGN_SYSTEM.md`** at the project root. It defines:
+
+- Color palette (accent, text, borders, status colors)
+- Typography rules (fonts, sizes, weights)
+- Card grid pattern (`.cc-sg` / `.cc-sc` / `.cc-sl` / `.cc-sv` CSS classes)
+- Diagnostic card pattern (border-left cards for issues, fixes, opportunities)
+- Status indicator pattern (one-line colored status, no Streamlit banners)
+- Minimalism rules (no `st.success()` for analysis, no manual `<hr>`, no bold headings as section labels)
+- Page structure template
+
+**The design system is a hard requirement.** Any page that deviates from it must be updated.
+The same document lives in the Obsidian vault at `Design System/design-system-techcolab.md`.
+
+---
+
 ## UI language — universal and irrevocable rule
 
 **ALL UI text must be in English.** This applies to every page, every component, every label:

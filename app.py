@@ -1580,26 +1580,24 @@ elif page == "Dashboard":
         )
         st.markdown(_hm_html, unsafe_allow_html=True)
 
-        # ── Fun tagline ───────────────────────────────────────────────
+        # ── CC Activity meta ──────────────────────────────────────────
         _total_all_tk = sum(_all_stats["tokens_by_day"].values())
+        _meta_parts = []
         if _total_all_tk > 0:
+            _meta_parts.append(f"<em>{_fun_tagline(_total_all_tk)}</em>")
+        if _cc_projects:
+            _proj_str = "  ·  ".join(
+                f"<b>{n}</b> {c}" for n, c in sorted(_cc_projects.items(), key=lambda x: -x[1])[:4]
+            )
+            _meta_parts.append(f"Projects: {_proj_str}")
+        if _meta_parts:
             st.markdown(
-                f'<p style="font-size:.78rem;color:#9CA3AF;margin:.1rem 0 .6rem;font-style:italic">'
-                f'{_fun_tagline(_total_all_tk)}</p>',
+                f'<p style="font-size:.75rem;color:#9CA3AF;margin:.1rem 0 .8rem">'
+                f'{"  ·  ".join(_meta_parts)}</p>',
                 unsafe_allow_html=True,
             )
 
-        if _cc_projects:
-            _proj_str = " · ".join(
-                f"**{n}** {c}" for n, c in sorted(_cc_projects.items(), key=lambda x: -x[1])[:4]
-            )
-            st.caption(f"Projects: {_proj_str}")
-        st.caption("ℹ️ Claude Code CLI only. Claude.ai web/desktop does not leave local logs.")
-
         # ── Diagnóstico ───────────────────────────────────────────────
-        st.markdown("<hr style='margin:.8rem 0;border:none;border-top:1px solid #E5E7EB'>",
-                    unsafe_allow_html=True)
-
         _last14_msgs   = sum(_all_stats["msgs_by_day"].get(date.today() - _td(days=i), 0) for i in range(14))
         _avg_day       = _last14_msgs / 14
         _total_tk_sum  = sum(_all_stats["tokens_by_day"].values())
@@ -1663,61 +1661,79 @@ elif page == "Dashboard":
                 "Identify whether centralizing context across projects makes sense or if separate is better.",
             ))
 
-        if _issues:
-            st.markdown(f"**{len(_issues)} {'issue' if len(_issues) == 1 else 'issues'} identified**")
-            for _err, _fix in _issues:
-                st.markdown(
-                    f'<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
-                    f'border-left:3px solid #EF4444;background:rgba(239,68,68,.05)">'
-                    f'<span style="font-size:.7rem;color:#EF4444;font-weight:700;'
-                    f'text-transform:uppercase;letter-spacing:.04em">Issue</span><br>{_err}'
-                    f'</div>', unsafe_allow_html=True,
-                )
-                st.markdown(
-                    f'<div style="margin:-.2rem 0 .5rem;padding:.5rem .75rem;border-radius:6px;'
-                    f'border-left:3px solid #059669;background:rgba(5,150,105,.05)">'
-                    f'<span style="font-size:.7rem;color:#059669;font-weight:700;'
-                    f'text-transform:uppercase;letter-spacing:.04em">How to fix</span><br>{_fix}'
-                    f'</div>', unsafe_allow_html=True,
-                )
-        else:
-            st.success("No issues found in current usage pattern.")
+        # ── Status indicator + single expander ───────────────────────
+        _ni, _no = len(_issues), len(_opps)
+        _s_color = "#EF4444" if _ni else "#059669"
+        _s_icon  = "⚠" if _ni else "✓"
+        _s_label = f"{_ni} {'issue' if _ni == 1 else 'issues'}" if _ni else "No issues"
+        _o_label = f"{_no} {'opportunity' if _no == 1 else 'opportunities'}"
+        st.markdown(
+            f'<p style="font-size:.78rem;margin:.4rem 0 .3rem">'
+            f'<span style="color:{_s_color}">{_s_icon} {_s_label}</span>'
+            f'<span style="color:#9CA3AF">  ·  {_o_label}</span></p>',
+            unsafe_allow_html=True,
+        )
 
-        if _opps:
-            st.markdown(f"**{len(_opps)} {'opportunity' if len(_opps) == 1 else 'opportunities'} for analysis**")
-            _opp_ctx = "\n".join(f"- {title}: {ctx}" for title, ctx in _opps)
-            _metrics_summary = (
-                f"Prompts/dia (14d): {_avg_day:.1f} | "
-                f"Tokens/prompt: {_avg_tk_per_prompt/1000:.1f}K | "
-                f"Cache: {_cache_pct_diag}% | "
-                f"Projects: {', '.join(list(_cc_projects.keys())[:3])}"
-            )
-            with st.expander("Detailed analysis (Ollama)", expanded=False):
-                if st.button("Run analysis", key="cc_ollama_btn"):
-                    _prompt = (
-                        "You are an AI productivity consultant. "
-                        "Analyze the Claude Code usage pattern below and provide actionable insights.\n\n"
-                        f"Real metrics (last 14 days):\n{_metrics_summary}\n\n"
-                        f"Identified opportunities:\n{_opp_ctx}\n\n"
-                        "For each opportunity: explain when to use Claude in that context and when NOT to. "
-                        "Be specific and practical. Maximum 200 words total. Respond in English."
+        if _issues or _opps:
+            with st.expander("Details", expanded=False):
+                for _err, _fix in _issues:
+                    st.markdown(
+                        f'<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
+                        f'border-left:3px solid #EF4444;background:rgba(239,68,68,.05)">'
+                        f'<span style="font-size:.7rem;color:#EF4444;font-weight:700;'
+                        f'text-transform:uppercase;letter-spacing:.04em">Issue</span><br>{_err}'
+                        f'</div>', unsafe_allow_html=True,
                     )
-                    try:
-                        from openai import OpenAI as _OAI
-                        _client = _OAI(base_url=OLLAMA_BASE_URL, api_key="ollama")
-                        with st.spinner("Ollama analyzing..."):
-                            _resp = _client.chat.completions.create(
-                                model=EXTRACTION_MODEL,
-                                messages=[{"role": "user", "content": _prompt}],
-                                temperature=0.4,
-                                max_tokens=350,
-                            )
-                        st.markdown(_resp.choices[0].message.content)
-                    except Exception as _e:
-                        st.warning(
-                            f"Ollama not available (`{OLLAMA_BASE_URL}`). "
-                            "Start the service with `ollama serve` to use this analysis."
+                    st.markdown(
+                        f'<div style="margin:-.2rem 0 .5rem;padding:.5rem .75rem;border-radius:6px;'
+                        f'border-left:3px solid #059669;background:rgba(5,150,105,.05)">'
+                        f'<span style="font-size:.7rem;color:#059669;font-weight:700;'
+                        f'text-transform:uppercase;letter-spacing:.04em">How to fix</span><br>{_fix}'
+                        f'</div>', unsafe_allow_html=True,
+                    )
+                if _opps:
+                    for _opp_title, _opp_detail in _opps:
+                        st.markdown(
+                            f'<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
+                            f'border-left:3px solid #6366F1;background:rgba(99,102,241,.05)">'
+                            f'<span style="font-size:.7rem;color:#6366F1;font-weight:700;'
+                            f'text-transform:uppercase;letter-spacing:.04em">Opportunity</span><br>'
+                            f'<b>{_opp_title}</b>  '
+                            f'<span style="font-size:.85rem;color:#6B7280">{_opp_detail}</span>'
+                            f'</div>', unsafe_allow_html=True,
                         )
+                    _opp_ctx_prompt = "\n".join(f"- {t}: {d}" for t, d in _opps)
+                    _metrics_summary = (
+                        f"Prompts/day (14d): {_avg_day:.1f} | "
+                        f"Tokens/prompt: {_avg_tk_per_prompt/1000:.1f}K | "
+                        f"Cache: {_cache_pct_diag}% | "
+                        f"Projects: {', '.join(list(_cc_projects.keys())[:3])}"
+                    )
+                    if st.button("Run Ollama analysis", key="cc_ollama_btn"):
+                        _prompt = (
+                            "You are an AI productivity consultant. "
+                            "Analyze the Claude Code usage pattern below and provide actionable insights.\n\n"
+                            f"Real metrics (last 14 days):\n{_metrics_summary}\n\n"
+                            f"Identified opportunities:\n{_opp_ctx_prompt}\n\n"
+                            "For each opportunity: explain when to use Claude in that context and when NOT to. "
+                            "Be specific and practical. Maximum 200 words total. Respond in English."
+                        )
+                        try:
+                            from openai import OpenAI as _OAI
+                            _client = _OAI(base_url=OLLAMA_BASE_URL, api_key="ollama")
+                            with st.spinner("Ollama analyzing..."):
+                                _resp = _client.chat.completions.create(
+                                    model=EXTRACTION_MODEL,
+                                    messages=[{"role": "user", "content": _prompt}],
+                                    temperature=0.4,
+                                    max_tokens=350,
+                                )
+                            st.markdown(_resp.choices[0].message.content)
+                        except Exception as _e:
+                            st.warning(
+                                f"Ollama not available (`{OLLAMA_BASE_URL}`). "
+                                "Start the service with `ollama serve` to use this analysis."
+                            )
 
 
 
