@@ -431,8 +431,45 @@ if page == "Backlog":
                     if st.checkbox(txt, value=True, key=f"ni_sug_{i}"):
                         ni_todos.append({"text": txt, "done": False, "due_date": None})
 
+            # ── Manual to-dos during creation ─────────────────────────────────────
+            if "ni_staged_todos" not in st.session_state:
+                st.session_state["ni_staged_todos"] = []
+            _ni_ctr_key = "ni_todo_ctr"
+            if _ni_ctr_key not in st.session_state:
+                st.session_state[_ni_ctr_key] = 0
+            _ni_ctr = st.session_state[_ni_ctr_key]
+
+            # Show already-staged to-dos
+            for _nsi, _nstgd in enumerate(st.session_state["ni_staged_todos"]):
+                _nsc1, _nsc2, _nsc3 = st.columns([0.5, 9, 0.5])
+                _nsc1.markdown('<span style="color:#02B793;font-size:0.85rem">➕</span>', unsafe_allow_html=True)
+                _nsc2.caption(_nstgd["text"])
+                if _nsc3.button("✕", key=f"rm_ni_staged_{_nsi}", help="Remove"):
+                    st.session_state["ni_staged_todos"].pop(_nsi)
+                    st.rerun()
+
+            # Input row
+            _ni_col_txt, _ni_col_btn = st.columns([10, 1])
+            with _ni_col_txt:
+                ni_new_todo = st.text_input(
+                    "To-dos", placeholder="Add a to-do and press ➕...",
+                    key=f"ni_new_todo_{_ni_ctr}",
+                )
+            with _ni_col_btn:
+                st.markdown('<div style="margin-top:28px">', unsafe_allow_html=True)
+                if st.button("➕", key="ni_add_todo_btn",
+                             disabled=not ni_new_todo.strip(),
+                             use_container_width=True):
+                    st.session_state["ni_staged_todos"].append(
+                        {"text": ni_new_todo.strip(), "done": False, "due_date": None}
+                    )
+                    st.session_state[_ni_ctr_key] += 1
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
             if st.button("Add to backlog", type="primary", disabled=not ni_title.strip()):
                 store = get_store()
+                all_ni_todos = ni_todos + st.session_state.get("ni_staged_todos", [])
                 idea = store.create(
                     title=ni_title.strip(),
                     description=ni_desc.strip() or None,
@@ -441,15 +478,17 @@ if page == "Backlog":
                     impacto=ni_impact or None,
                     esforco=ni_effort or None,
                     origin="entrada direta",
-                    todos=ni_todos,
+                    todos=all_ni_todos,
                     agente_autorizado=False,
                 )
                 log_entry("criada", idea)
                 _rebuild_index(store)
                 st.session_state["backlog_flash"] = ("success", f"✅ {idea.id} added to backlog.")
                 st.session_state["backlog_panel"] = None
-                for k in ["ni_title", "ni_area", "ni_desc", "ni_priority", "ni_impact", "ni_effort", "ni_suggested_todos"]:
+                for k in ["ni_title", "ni_area", "ni_desc", "ni_priority", "ni_impact", "ni_effort",
+                          "ni_suggested_todos", "ni_staged_todos"]:
                     st.session_state.pop(k, None)
+                st.session_state[_ni_ctr_key] = 0
                 st.rerun()
 
     elif st.session_state["backlog_panel"] == "bulk":
@@ -749,7 +788,6 @@ if page == "Backlog":
                             )
                             _TODO_STATE_OPTS = ["⬜", "🔄", "✅"]
                             h_state, h_txt, h_date, h_auto, h_bug, h_del = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5])
-                            h_state.caption("Status")
                             h_txt.caption("To-dos")
                             h_date.caption("📅 Prazo")
                             h_auto.caption("🤖")
@@ -839,32 +877,37 @@ if page == "Backlog":
                                     st.session_state[staged_key].pop(_si)
                                     st.rerun()
 
-                            # New todo row — same columns as existing rows for alignment
+                            # New todo row — counter-based key ensures widget resets after each add
+                            _new_ctr_key = f"bl_new_ctr_{idea.id}"
+                            if _new_ctr_key not in st.session_state:
+                                st.session_state[_new_ctr_key] = 0
+                            _ctr = st.session_state[_new_ctr_key]
+
                             _nc0, _nc_txt, _nc_date, _nc_auto, _nc_bug, _nc_add = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
                             with _nc0:
                                 st.markdown('<div style="padding-top:8px;color:#ccc;text-align:center;font-size:0.9rem">+</div>', unsafe_allow_html=True)
                             with _nc_txt:
                                 new_todo_text = st.text_input(
                                     "", placeholder="New to-do...",
-                                    key=f"bl_new_txt_{idea.id}",
+                                    key=f"bl_new_txt_{idea.id}_{_ctr}",
                                     label_visibility="collapsed",
                                 )
                             with _nc_date:
                                 new_todo_due = st.date_input(
                                     "", value=None,
-                                    key=f"bl_new_due_{idea.id}",
+                                    key=f"bl_new_due_{idea.id}_{_ctr}",
                                     format="DD/MM/YYYY",
                                     label_visibility="collapsed",
                                 )
                             with _nc_auto:
                                 new_todo_auto = st.checkbox(
                                     "", value=False,
-                                    key=f"bl_new_auto_{idea.id}",
+                                    key=f"bl_new_auto_{idea.id}_{_ctr}",
                                 )
                             with _nc_bug:
                                 new_todo_bug = st.checkbox(
                                     "", value=False,
-                                    key=f"bl_new_bug_{idea.id}",
+                                    key=f"bl_new_bug_{idea.id}_{_ctr}",
                                 )
                             with _nc_add:
                                 st.markdown('<div class="todo-row-del">', unsafe_allow_html=True)
@@ -878,9 +921,7 @@ if page == "Backlog":
                                         "agente_autorizado": new_todo_auto,
                                         "is_bug": new_todo_bug,
                                     })
-                                    st.session_state.pop(f"bl_new_txt_{idea.id}", None)
-                                    st.session_state.pop(f"bl_new_due_{idea.id}", None)
-                                    st.session_state.pop(f"bl_new_bug_{idea.id}", None)
+                                    st.session_state[_new_ctr_key] += 1  # new key → widget resets cleanly
                                     st.rerun()
                                 st.markdown('</div>', unsafe_allow_html=True)
 
