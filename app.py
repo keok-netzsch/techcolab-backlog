@@ -2606,6 +2606,39 @@ Anotações livres.
 """, language="markdown")
 
     st.divider()
+    st.markdown("## Design System")
+    st.markdown(
+        "The visual identity of this app is defined in two files — reusable in any project:"
+    )
+    col_ds1, col_ds2 = st.columns(2)
+    with col_ds1:
+        st.markdown("""
+**Full spec** (colors, typography, components, rules)
+`C:\\Users\\Kelvin.okuda\\techcolab-backlog\\DESIGN_SYSTEM.md`
+""")
+        st.markdown("""
+**Quick reference** (hex values, Canva/PPT/Figma, snippets)
+`Resources/techcolab-brand.md` no vault
+""")
+    with col_ds2:
+        st.markdown("""
+**CSS pronto para importar** em HTML/relatórios
+`C:\\Users\\Kelvin.okuda\\Scripts\\techcolab-brand.css`
+""")
+        st.code(
+            '@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");\n'
+            ":root {\n"
+            "  --tc-accent:       #02B793;\n"
+            "  --tc-accent-hover: #007167;\n"
+            "  --tc-accent-light: #0AD4A8;\n"
+            "  --tc-text:         #111827;\n"
+            "  --tc-font:         'Inter', sans-serif;\n"
+            "  --tc-radius:       8px;\n"
+            "}",
+            language="css",
+        )
+
+    st.divider()
     st.markdown("## Current configuration")
 
     config_data = {
