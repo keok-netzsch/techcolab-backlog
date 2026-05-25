@@ -833,7 +833,7 @@ if page == "Backlog":
                                 unsafe_allow_html=True,
                             )
                             _TODO_STATE_OPTS = ["⬜", "🔄", "✅"]
-                            h_state, h_txt, h_date, h_auto, h_bug, h_del = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5])
+                            h_state, h_txt, h_date, h_auto, h_bug, h_del = st.columns([0.6, 7.5, 1.5, 0.4, 0.4, 0.4])
                             h_txt.caption("To-dos")
                             h_date.caption("📅 Prazo")
                             h_auto.caption("🤖")
@@ -916,7 +916,7 @@ if page == "Backlog":
                                 st.session_state[staged_key] = []
 
                             for _si, _stgd in enumerate(st.session_state[staged_key]):
-                                _sc1, _sc2, _sc3, _sc4 = st.columns([0.5, 6.5, 0.5, 0.5])
+                                _sc1, _sc2, _sc3, _sc4 = st.columns([0.4, 8, 0.4, 0.4])
                                 _sc1.markdown("➕")
                                 _sc2.caption(("🤖 " if _stgd.get("agente_autorizado") else "") + _stgd["text"])
                                 if _sc3.button("✕", key=f"rm_staged_{idea.id}_{_si}", help="Remove"):
