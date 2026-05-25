@@ -62,17 +62,19 @@ $groups = @(
         Label   = "FEATURES"
         Actions = @(
             [pscustomobject]@{ Title="Call Recorder"; Desc="Record & transcribe 1on1 / English Coach sessions"; Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$CR\call-recorder.ps1`"" },
-            [pscustomobject]@{ Title="Toilet Paper";  Desc="Text-to-diagram app - starts Vite dev server (localhost:5173)"; Exe="cmd.exe"; PArgs="/k cd /d C:\Users\Kelvin.okuda\napkin-clone ^&^& npm run dev" }
+            [pscustomobject]@{ Title="Toilet Paper";  Desc="Text-to-diagram app - starts Vite dev server (localhost:5173)"; Exe="cmd.exe"; PArgs="/k `"$TB\start_toilet_paper.bat`"" }
         )
     }
 )
 
 # ── Custom icon (green circle + "T") ──────────────────────────────────────────
+# Bitmap kept at script scope so GC never collects it while the form lives
+$script:_iconBmp = New-Object System.Drawing.Bitmap(32, 32)
 function New-LauncherIcon {
-    $bmp  = New-Object System.Drawing.Bitmap(32, 32)
-    $g    = [System.Drawing.Graphics]::FromImage($bmp)
+    $g  = [System.Drawing.Graphics]::FromImage($script:_iconBmp)
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $bg   = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#02B793"))
+    $g.Clear([System.Drawing.Color]::Transparent)
+    $bg = New-Object System.Drawing.SolidBrush([System.Drawing.ColorTranslator]::FromHtml("#02B793"))
     $g.FillEllipse($bg, 0, 0, 31, 31)
     $font = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
     $sf   = New-Object System.Drawing.StringFormat
@@ -81,7 +83,10 @@ function New-LauncherIcon {
     $g.DrawString("T", $font, [System.Drawing.Brushes]::White,
                   [System.Drawing.RectangleF]::new(0, 1, 32, 32), $sf)
     $g.Dispose(); $bg.Dispose(); $font.Dispose(); $sf.Dispose()
-    return [System.Drawing.Icon]::FromHandle($bmp.GetHicon())
+    # Keep icon handle at script scope — prevents Windows from losing it
+    $script:_iconHandle = $script:_iconBmp.GetHicon()
+    $script:_icon = [System.Drawing.Icon]::FromHandle($script:_iconHandle)
+    return $script:_icon
 }
 
 # ── Form ───────────────────────────────────────────────────────────────────────
@@ -100,6 +105,9 @@ $form.Icon            = New-LauncherIcon
 $form.add_Shown({
     $darkMode = 1
     [DwmApi]::DwmSetWindowAttribute($form.Handle, 20, [ref]$darkMode, 4) | Out-Null
+
+    # Reapply icon after handle is created so the taskbar picks it up correctly
+    $form.Icon = $script:_icon
 
     try { Start-Process "wscript.exe" -ArgumentList "`"$TB\start_silent.vbs`"" } catch {}
 
