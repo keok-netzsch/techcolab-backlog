@@ -4,6 +4,8 @@ Run with: streamlit run app.py
 """
 
 import sys
+import json
+import requests
 from pathlib import Path
 from datetime import date
 
@@ -541,13 +543,12 @@ if page == "Backlog":
         filter_text = st.text_input("Search", placeholder="Title, description or notes...")
 
     # ── View toggle + Show closed na mesma linha ─────────────────────────────────
-    col_v1, col_v2 = st.columns([1.4, 6.6])
+    col_v1, col_v2 = st.columns([1.4, 6.6], vertical_alignment="bottom")
     with col_v1:
-        view_mode = st.radio("View", ["List", "Kanban"], horizontal=True, key="view_mode")
+        view_mode = st.radio("View", ["List", "Kanban"], horizontal=True, key="view_mode",
+                             label_visibility="collapsed")
     with col_v2:
-        st.markdown("<div style='margin-top:28px'>", unsafe_allow_html=True)
         show_closed = st.checkbox("Show closed (Done · Discarded)", value=False)
-        st.markdown("</div>", unsafe_allow_html=True)
 
     filtered = ideas if show_closed else [i for i in ideas if i.status not in _CLOSED]
     if filter_status:
@@ -708,7 +709,52 @@ if page == "Backlog":
                                     key=f"notes_{idea.id}",
                                 )
 
-                            re_col, tips_col, hist_col = st.columns([2, 2, 2])
+                            re_col, tips_col, hist_col, tr_col = st.columns([2, 2, 2, 2])
+                            with tr_col:
+                                if st.button("🌐 Translate", key=f"translate_{idea.id}",
+                                             help="Translate title, description and to-dos between PT ↔ EN using Ollama"):
+                                    _active_idx = [
+                                        idx for idx, _ in enumerate(idea.todos)
+                                        if idx not in st.session_state.get(deleted_idx_key, set())
+                                    ]
+                                    _todo_texts = [
+                                        st.session_state.get(f"bl_txt_{idea.id}_{idx}", idea.todos[idx]["text"])
+                                        for idx in _active_idx
+                                    ]
+                                    _payload_in = {
+                                        "title": st.session_state.get(f"title_{idea.id}", idea.title),
+                                        "description": st.session_state.get(f"desc_{idea.id}", idea.description or ""),
+                                        "todos": _todo_texts,
+                                    }
+                                    _tr_prompt = (
+                                        "Translate the following backlog item between Portuguese and English. "
+                                        "If the title is in Portuguese, translate everything to English. "
+                                        "If the title is in English, translate everything to Portuguese. "
+                                        "Keep technical terms, IDs, proper nouns, and acronyms unchanged. "
+                                        "Return ONLY valid JSON with the exact same structure as the input:\n"
+                                        + json.dumps(_payload_in, ensure_ascii=False)
+                                    )
+                                    with st.spinner("Translating..."):
+                                        try:
+                                            # OLLAMA_BASE_URL may end in /v1 or /api — extract host:port only
+                                            _ollama_host = OLLAMA_BASE_URL.split("/v1")[0].split("/api")[0]
+                                            _tr_r = requests.post(
+                                                f"{_ollama_host}/api/generate",
+                                                json={"model": "llama3.2:3b", "prompt": _tr_prompt,
+                                                      "stream": False, "format": "json"},
+                                                timeout=60,
+                                            )
+                                            _tr_r.raise_for_status()
+                                            _tr_data = json.loads(_tr_r.json()["response"])
+                                            st.session_state[f"title_{idea.id}"] = _tr_data.get("title", idea.title)
+                                            st.session_state[f"desc_{idea.id}"] = _tr_data.get("description", "")
+                                            for _i, _orig_idx in enumerate(_active_idx):
+                                                _translated_todos = _tr_data.get("todos", [])
+                                                if _i < len(_translated_todos):
+                                                    st.session_state[f"bl_txt_{idea.id}_{_orig_idx}"] = _translated_todos[_i]
+                                            st.rerun()
+                                        except Exception as _te:
+                                            st.error(f"Translation failed: {_te}")
                             with re_col:
                                 if st.button("✨ Suggest to-dos", key=f"regen_{idea.id}", help="Suggests next steps based on title and description"):
                                     from ingestion.extractor import suggest_todos, build_client
@@ -964,6 +1010,16 @@ if page == "Backlog":
                             with col_save:
                                 if st.button("💾 Save", key=f"save_{idea.id}", type="primary"):
                                     old_status = idea.status
+                                    # Auto-revert: if todos increased (new added or unchecked)
+                                    # and idea was in a final/closed status, bump back to In development
+                                    _old_open = sum(1 for t in idea.todos if not t.get("done"))
+                                    _new_open = sum(1 for t in updated_todos if not t.get("done"))
+                                    _auto_reverted = False
+                                    if (new_status in ("concluído", "em validação")
+                                            and new_status == old_status
+                                            and _new_open > _old_open):
+                                        new_status = "em desenvolvimento"
+                                        _auto_reverted = True
                                     idea.title = new_title.strip() or idea.title
                                     idea.status = new_status
                                     idea.priority = new_priority
@@ -991,7 +1047,10 @@ if page == "Backlog":
                                     if st.session_state.get("return_to_kanban") == idea.id:
                                         st.session_state["view_mode"] = "Kanban"
                                         st.session_state.pop("return_to_kanban", None)
-                                    st.session_state["backlog_flash"] = ("success", f"{idea.id} saved.")
+                                    if _auto_reverted:
+                                        st.session_state["backlog_flash"] = ("warning", f"{idea.id} saved — status reverted to In Development (open to-dos added).")
+                                    else:
+                                        st.session_state["backlog_flash"] = ("success", f"{idea.id} saved.")
                                     st.rerun()
                             with col_del:
                                 if st.button("🗑️ Delete", key=f"del_{idea.id}"):
