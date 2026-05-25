@@ -12,9 +12,9 @@ offline — no external API keys required.
 
 - **Main app:** `app.py` (Streamlit)
 - **Vault path:** read from env var `TECHCOLAB_VAULT` (fallback in `config.py`)
-- **Backlog items:** `{VAULT_ROOT}/Backlog - to do - app/backlog items/idea-NNN.md`
-- **Agent reports:** `{VAULT_ROOT}/Backlog - to do - app/agent-reports/`
-- **Daily logs:** `{VAULT_ROOT}/Backlog - to do - app/Log/diario-YYYY-MM-DD.md`
+- **Backlog items:** `{VAULT_ROOT}/backlog items/idea-NNN.md`
+- **Agent reports:** `{VAULT_ROOT}/agent-reports/`
+- **Daily logs:** `{VAULT_ROOT}/Log/diario-YYYY-MM-DD.md`
 - **Team (direct reports):** `{VAULT_ROOT}/Team/{Person}/` — `1on1.md`, `OKR.md`, `PDI.md`, `Overview.md`
 - **Call recorder:** `C:\Users\Kelvin.okuda\Scripts\call-recorder\` — standalone session notes land in `{VAULT_ROOT}/Team/{Person}/1on1/{date}_1on1_{Person}.md`
 - **Stakeholders:** `{VAULT_ROOT}/Stakeholders/` — Alberto Reuters (`Alberto-Reuters/`), Stefan Lautenschlager (`Stefan-Lautenschlager/`) — each has `1on1.md`, `Overview.md`, and standalone notes in `1on1/{date}_1on1_{Folder}.md`
