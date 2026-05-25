@@ -128,6 +128,8 @@ def analyze(ideas: list) -> dict:
                 all_todos.append({"idea": idea, "idx": idx, "text": t["text"],
                                    "due": t.get("due_date")})
 
+    open_bugs = [i for i in active if getattr(i, "is_bug", False)]
+
     return {
         "total": len(ideas),
         "active": len(active),
@@ -139,6 +141,7 @@ def analyze(ideas: list) -> dict:
         "no_due_high": no_due,
         "candidates": candidates[:5],  # top 5
         "pending_todos": len(all_todos),
+        "open_bugs": open_bugs,
     }
 
 
@@ -184,6 +187,13 @@ def build_report(tests: dict, data: dict) -> str:
     lines.append(_status_line("No overdue items", overdue_ok,
                                f"{len(a['overdue'])} overdue: {', '.join(i.id for i in a['overdue'])}" if a["overdue"] else ""))
 
+    bugs_ok = len(a["open_bugs"]) == 0
+    bug_ids = ", ".join(f"`{i.id}`" for i in a["open_bugs"])
+    lines.append(
+        f"- {'✅' if bugs_ok else '🐛'} **Open bugs** — "
+        + (f"none" if bugs_ok else f"{len(a['open_bugs'])} open: {bug_ids}")
+    )
+
     lines += [""]
 
     # ── Backlog snapshot ──
@@ -213,6 +223,11 @@ def build_report(tests: dict, data: dict) -> str:
         for i in a["no_due_high"]:
             alerts.append(f"⚪ `{i.id}` **{i.title}** — high priority with no due date")
 
+    if a["open_bugs"]:
+        for i in a["open_bugs"]:
+            status_en = STATUS_LABEL.get(i.status, i.status)
+            alerts.insert(0, f"🐛 `{i.id}` **{i.title}** — {status_en} _(bug)_")
+
     if alerts:
         lines += ["## Alerts", ""]
         lines += alerts
@@ -235,9 +250,10 @@ def build_report(tests: dict, data: dict) -> str:
             pico = PRIORITY_ICON.get(i.priority, "⭐")
             effort = i.esforco or "?"
             status_en = STATUS_LABEL.get(i.status, i.status)
+            bug_badge = " 🐛" if getattr(i, "is_bug", False) else ""
             pending_todos = [t for t in i.todos if not t.get("done")]
             if pending_todos:
-                lines.append(f"**`{i.id}`** {pico} _{i.title}_ — {status_en}, effort: {effort}")
+                lines.append(f"**`{i.id}`**{bug_badge} {pico} _{i.title}_ — {status_en}, effort: {effort}")
                 for t in pending_todos:
                     todo_auto = t.get("agente_autorizado", False)
                     check = "x" if todo_auto else " "
@@ -249,7 +265,7 @@ def build_report(tests: dict, data: dict) -> str:
                 check = "x" if idea_auto else " "
                 badge = " 🤖" if idea_auto else ""
                 lines.append(
-                    f"- [{check}] **`{i.id}`** {pico} {i.title} — move to next status"
+                    f"- [{check}] **`{i.id}`**{bug_badge} {pico} {i.title} — move to next status"
                     f" _(currently: {status_en}, effort: {effort})_{badge}"
                 )
             lines.append("")
