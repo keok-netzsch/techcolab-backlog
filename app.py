@@ -295,17 +295,7 @@ code { background: #2D3748 !important; color: #E2E8F0 !important; }
 .cp-tool-name  { color: #E2E8F0 !important; }
 .cp-tool-sub   { color: #94A3B8 !important; }
 
-/* ── Calendar dark overrides ─────────────────────────────────────────────── */
-.cal-th  { border-bottom-color: #2D3748 !important; color: #64748B !important; }
-.cal-td  { border-color: #1F2937 !important; background: #0E1117 !important; }
-.cal-td-today { background: rgba(2,183,147,0.06) !important; }
-.cal-dnum-cur { color: #02B793 !important; }
-.cal-future   { background: rgba(100,116,139,0.1) !important;
-                border-color: #475569 !important; color: #94A3B8 !important; }
-.cal-overdue  { background: rgba(239,68,68,0.12) !important; }
-.cal-today    { background: rgba(245,158,11,0.12) !important; }
-.cal-soon     { background: rgba(2,183,147,0.1) !important; }
-.cal-more     { color: #64748B !important; }
+/* Calendar: all overrides are handled inside _cal_css (dark-mode aware Python) */
 
 /* Scrollbars */
 ::-webkit-scrollbar { background: #161B2E; width: 6px; }
@@ -2192,8 +2182,8 @@ elif page == "Dashboard":
         return "cal-future"
 
     # Calendar grid HTML
-    _DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    _weeks = _cal_mod.Calendar(firstweekday=0).monthdatescalendar(_cy, _cm)
+    _DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    _weeks = _cal_mod.Calendar(firstweekday=6).monthdatescalendar(_cy, _cm)
     _month_items = {d: v for d, v in _cal_map.items() if d.month == _cm and d.year == _cy}
 
     # Calendar CSS — dark-mode aware (generated in Python, not overridden by cascade)
@@ -2229,15 +2219,21 @@ elif page == "Dashboard":
         f".cal-td-out{{background:{_c_out_bg}}}"
         f".cal-td-out .cal-dnum{{color:{_c_out_dnum}}}"
         f".cal-td:not(.cal-td-out) .cal-dnum{{color:{_c_in_dnum}}}"
-        ".cal-td-today{background:rgba(2,183,147,.04)!important;border-color:#02B793}"
         f".cal-dnum{{font-size:.7rem;color:{_c_in_dnum};margin-bottom:3px;display:block}}"
         ".cal-dnum-cur{font-size:.7rem;color:#02B793;font-weight:700;margin-bottom:3px;display:block}"
         ".cal-chip{display:block;font-size:.65rem;border-radius:3px;padding:2px 5px;"
         "margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
         "border-left:2px solid;line-height:1.4}"
-        ".cal-overdue{background:#FEE2E2;border-color:#EF4444;color:#EF4444}"
-        ".cal-today{background:#FEF3C7;border-color:#F59E0B;color:#D97706}"
-        ".cal-soon{background:rgba(2,183,147,.08);border-color:#02B793;color:#007167}"
+        + (".cal-td-today{background:rgba(2,183,147,.06)!important;border-color:#02B793}"
+           ".cal-overdue{background:rgba(239,68,68,.12);border-color:#EF4444;color:#EF4444}"
+           ".cal-today{background:rgba(245,158,11,.12);border-color:#F59E0B;color:#F59E0B}"
+           ".cal-soon{background:rgba(2,183,147,.1);border-color:#02B793;color:#02B793}"
+           if _dark_mode else
+           ".cal-td-today{background:rgba(2,183,147,.04)!important;border-color:#02B793}"
+           ".cal-overdue{background:#FEE2E2;border-color:#EF4444;color:#EF4444}"
+           ".cal-today{background:#FEF3C7;border-color:#F59E0B;color:#D97706}"
+           ".cal-soon{background:rgba(2,183,147,.08);border-color:#02B793;color:#007167}"
+        ) +
         f".cal-future{{background:{_c_fut_bg};border-color:{_c_fut_bc};color:{_c_fut_clr}}}"
         f".cal-more{{font-size:.6rem;color:{_c_more_clr};display:block;padding-left:5px}}"
         "</style>"
