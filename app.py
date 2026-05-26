@@ -298,10 +298,12 @@ code { background: #2D3748 !important; color: #E2E8F0 !important; }
 /* ── Calendar dark overrides ─────────────────────────────────────────────── */
 .cal-th  { border-bottom-color: #2D3748 !important; color: #64748B !important; }
 .cal-td  { border-color: #1F2937 !important; background: #0E1117 !important; }
-.cal-td-out   { background: #080A10 !important; }
-.cal-td-today { background: rgba(2,183,147,0.06) !important; }
-.cal-dnum     { color: #475569 !important; }
-.cal-dnum-cur { color: #02B793 !important; }
+.cal-td-out               { background: #060810 !important; opacity: 0.85; }
+.cal-td-out .cal-dnum     { color: #1E293B !important; }
+.cal-td:not(.cal-td-out) .cal-dnum { color: #64748B !important; }
+.cal-td-today             { background: rgba(2,183,147,0.06) !important; }
+.cal-dnum                 { color: #475569 !important; }
+.cal-dnum-cur             { color: #02B793 !important; }
 .cal-future   { background: rgba(100,116,139,0.1) !important;
                 border-color: #475569 !important; color: #94A3B8 !important; }
 .cal-overdue  { background: rgba(239,68,68,0.12) !important; }
@@ -2206,7 +2208,9 @@ elif page == "Dashboard":
         "letter-spacing:.08em;text-transform:uppercase;color:#9CA3AF;"
         "text-align:center;padding:6px 2px;border-bottom:1px solid #E5E7EB}"
         ".cal-td{vertical-align:top;border:1px solid #F3F4F6;padding:4px;min-height:72px;width:14.28%}"
-        ".cal-td-out{background:#FAFAFA}"
+        ".cal-td-out{background:#F1F5F9}"
+        ".cal-td-out .cal-dnum{color:#D1D5DB!important}"
+        ".cal-td:not(.cal-td-out) .cal-dnum{color:#9CA3AF!important}"
         ".cal-td-today{background:rgba(2,183,147,.04)!important;border-color:#02B793}"
         ".cal-dnum{font-size:.7rem;color:#D1D5DB;margin-bottom:3px;display:block}"
         ".cal-dnum-cur{font-size:.7rem;color:#02B793;font-weight:700;margin-bottom:3px;display:block}"
