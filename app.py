@@ -2044,14 +2044,16 @@ elif page == "Dashboard":
                         f'</div>', unsafe_allow_html=True,
                     )
                 if _opps:
+                    _opp_title_clr  = "#E2E8F0" if _dark_mode else "#111827"
+                    _opp_detail_clr = "#94A3B8" if _dark_mode else "#6B7280"
                     for _opp_title, _opp_detail in _opps:
                         st.markdown(
                             f'<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
                             f'border-left:3px solid #6366F1;background:rgba(99,102,241,.05)">'
                             f'<span style="font-size:.7rem;color:#6366F1;font-weight:700;'
                             f'text-transform:uppercase;letter-spacing:.04em">Opportunity</span><br>'
-                            f'<b>{_opp_title}</b>  '
-                            f'<span style="font-size:.85rem;color:#6B7280">{_opp_detail}</span>'
+                            f'<b style="color:{_opp_title_clr}">{_opp_title}</b>  '
+                            f'<span style="font-size:.85rem;color:{_opp_detail_clr}">{_opp_detail}</span>'
                             f'</div>', unsafe_allow_html=True,
                         )
                     _opp_ctx_prompt = "\n".join(f"- {t}: {d}" for t, d in _opps)
