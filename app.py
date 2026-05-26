@@ -298,12 +298,8 @@ code { background: #2D3748 !important; color: #E2E8F0 !important; }
 /* ── Calendar dark overrides ─────────────────────────────────────────────── */
 .cal-th  { border-bottom-color: #2D3748 !important; color: #64748B !important; }
 .cal-td  { border-color: #1F2937 !important; background: #0E1117 !important; }
-.cal-td-out               { background: #060810 !important; opacity: 0.85; }
-.cal-td-out .cal-dnum     { color: #1E293B !important; }
-.cal-td:not(.cal-td-out) .cal-dnum { color: #64748B !important; }
-.cal-td-today             { background: rgba(2,183,147,0.06) !important; }
-.cal-dnum                 { color: #475569 !important; }
-.cal-dnum-cur             { color: #02B793 !important; }
+.cal-td-today { background: rgba(2,183,147,0.06) !important; }
+.cal-dnum-cur { color: #02B793 !important; }
 .cal-future   { background: rgba(100,116,139,0.1) !important;
                 border-color: #475569 !important; color: #94A3B8 !important; }
 .cal-overdue  { background: rgba(239,68,68,0.12) !important; }
@@ -2200,19 +2196,41 @@ elif page == "Dashboard":
     _weeks = _cal_mod.Calendar(firstweekday=0).monthdatescalendar(_cy, _cm)
     _month_items = {d: v for d, v in _cal_map.items() if d.month == _cm and d.year == _cy}
 
+    # Calendar CSS — dark-mode aware (generated in Python, not overridden by cascade)
+    if _dark_mode:
+        _c_border    = "#1F2937"
+        _c_td_bg     = "#0E1117"
+        _c_out_bg    = "#060810"
+        _c_out_dnum  = "#1E293B"   # very dim — barely visible on dark bg
+        _c_in_dnum   = "#64748B"   # moderately visible — clearly different
+        _c_th_border = "#2D3748"
+        _c_th_color  = "#475569"
+        _c_fut_bg    = "#1A1D2E";  _c_fut_bc = "#2D3748"; _c_fut_clr = "#64748B"
+        _c_more_clr  = "#475569"
+    else:
+        _c_border    = "#F3F4F6"
+        _c_td_bg     = "transparent"
+        _c_out_bg    = "#F1F5F9"
+        _c_out_dnum  = "#D1D5DB"   # very dim — barely visible on light bg
+        _c_in_dnum   = "#9CA3AF"   # moderately visible
+        _c_th_border = "#E5E7EB"
+        _c_th_color  = "#9CA3AF"
+        _c_fut_bg    = "#F9FAFB";  _c_fut_bc = "#E5E7EB"; _c_fut_clr = "#6B7280"
+        _c_more_clr  = "#9CA3AF"
+
     _cal_css = (
         "<style>"
         ".cal-wrap{overflow-x:auto;margin-top:.5rem}"
         ".cal-tbl{width:100%;border-collapse:collapse;table-layout:fixed}"
-        ".cal-th{font-family:'DM Mono',monospace;font-size:.65rem;font-weight:500;"
-        "letter-spacing:.08em;text-transform:uppercase;color:#9CA3AF;"
-        "text-align:center;padding:6px 2px;border-bottom:1px solid #E5E7EB}"
-        ".cal-td{vertical-align:top;border:1px solid #F3F4F6;padding:4px;min-height:72px;width:14.28%}"
-        ".cal-td-out{background:#F1F5F9}"
-        ".cal-td-out .cal-dnum{color:#D1D5DB!important}"
-        ".cal-td:not(.cal-td-out) .cal-dnum{color:#9CA3AF!important}"
+        f".cal-th{{font-family:'DM Mono',monospace;font-size:.65rem;font-weight:500;"
+        f"letter-spacing:.08em;text-transform:uppercase;color:{_c_th_color};"
+        f"text-align:center;padding:6px 2px;border-bottom:1px solid {_c_th_border}}}"
+        f".cal-td{{vertical-align:top;border:1px solid {_c_border};background:{_c_td_bg};padding:4px;min-height:72px;width:14.28%}}"
+        f".cal-td-out{{background:{_c_out_bg}}}"
+        f".cal-td-out .cal-dnum{{color:{_c_out_dnum}}}"
+        f".cal-td:not(.cal-td-out) .cal-dnum{{color:{_c_in_dnum}}}"
         ".cal-td-today{background:rgba(2,183,147,.04)!important;border-color:#02B793}"
-        ".cal-dnum{font-size:.7rem;color:#D1D5DB;margin-bottom:3px;display:block}"
+        f".cal-dnum{{font-size:.7rem;color:{_c_in_dnum};margin-bottom:3px;display:block}}"
         ".cal-dnum-cur{font-size:.7rem;color:#02B793;font-weight:700;margin-bottom:3px;display:block}"
         ".cal-chip{display:block;font-size:.65rem;border-radius:3px;padding:2px 5px;"
         "margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
@@ -2220,8 +2238,8 @@ elif page == "Dashboard":
         ".cal-overdue{background:#FEE2E2;border-color:#EF4444;color:#EF4444}"
         ".cal-today{background:#FEF3C7;border-color:#F59E0B;color:#D97706}"
         ".cal-soon{background:rgba(2,183,147,.08);border-color:#02B793;color:#007167}"
-        ".cal-future{background:#F9FAFB;border-color:#E5E7EB;color:#6B7280}"
-        ".cal-more{font-size:.6rem;color:#9CA3AF;display:block;padding-left:5px}"
+        f".cal-future{{background:{_c_fut_bg};border-color:{_c_fut_bc};color:{_c_fut_clr}}}"
+        f".cal-more{{font-size:.6rem;color:{_c_more_clr};display:block;padding-left:5px}}"
         "</style>"
     )
     _th_row = (
