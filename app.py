@@ -234,6 +234,33 @@ hr { border-color: #2D3748 !important; }
 /* Inline code badges */
 code { background: #2D3748 !important; color: #E2E8F0 !important; }
 
+/* ── Claude Pro page dark overrides ─────────────────────────────────────── */
+.cp-stat-box   { background: #1A1D2E !important; border-color: #2D3748 !important; }
+.cp-stat-lbl   { color: #94A3B8 !important; }
+.cp-sect-lbl   { color: #64748B !important; }
+.cp-sect-lbl::after { background: #2D3748 !important; }
+.cp-exec       { background: rgba(2,183,147,0.06) !important; border-color: rgba(2,183,147,0.2) !important; }
+.cp-exec-lead  { color: #E2E8F0 !important; }
+.cp-exec-grid li       { color: #CBD5E0 !important; }
+.cp-exec-grid li strong{ color: #E2E8F0 !important; }
+.cp-boss       { background: rgba(2,183,147,0.06) !important; }
+.cp-boss-p     { color: #CBD5E0 !important; }
+.cp-boss-adv   { color: #94A3B8 !important; }
+.cp-body-ul li { color: #94A3B8 !important; }
+.cp-body-ul li::before { background: #475569 !important; }
+.cp-badge-cat  { background: rgba(148,163,184,0.1) !important; color: #94A3B8 !important; }
+.cp-badge-prog { background: rgba(245,158,11,0.1) !important; color: #F59E0B !important; }
+.cp-badge-done { background: rgba(2,183,147,0.1) !important; }
+.cp-tl-date    { color: #64748B !important; }
+.cp-tl-title   { color: #E2E8F0 !important; }
+.cp-tl-detail  { color: #94A3B8 !important; }
+.cp-tl-wrap::before { background: #2D3748 !important; }
+.cp-tl-item::before { border-color: #0E1117 !important; }
+.cp-tools-tbl th { background: #161B2E !important; border-color: #2D3748 !important; color: #64748B !important; }
+.cp-tools-tbl td { background: #1A1D2E !important; border-color: #2D3748 !important; }
+.cp-tool-name  { color: #E2E8F0 !important; }
+.cp-tool-sub   { color: #94A3B8 !important; }
+
 /* ── Calendar dark overrides ─────────────────────────────────────────────── */
 .cal-th  { border-bottom-color: #2D3748 !important; color: #64748B !important; }
 .cal-td  { border-color: #1F2937 !important; background: #0E1117 !important; }
