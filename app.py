@@ -2878,7 +2878,7 @@ elif page == "Claude Pro":
     .cp-meta{text-align:right;font-family:'DM Mono',monospace;font-size:11px;
              color:rgba(255,255,255,.45);line-height:1.9;letter-spacing:.04em}
     .cp-meta strong{color:rgba(255,255,255,.9);font-weight:500}
-    .cp-stat-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-bottom:1.5rem}
+    .cp-stat-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:1.5rem}
     .cp-stat-box{background:white;border:1px solid rgba(76,77,88,.12);padding:20px 24px;border-radius:4px}
     .cp-stat-num{font-size:36px;font-weight:700;letter-spacing:-.03em;line-height:1;margin-bottom:4px;
                  background:linear-gradient(135deg,#007167,#8AC6BD);
@@ -2953,7 +2953,7 @@ elif page == "Claude Pro":
     .cp-dot{color:#02B793}
     @media(max-width:768px){
       .cp-header{grid-template-columns:1fr}.cp-meta{text-align:left}
-      .cp-stat-strip{grid-template-columns:1fr}.cp-exec-grid{grid-template-columns:1fr}
+      .cp-stat-strip{grid-template-columns:repeat(2,1fr)}.cp-exec-grid{grid-template-columns:1fr}
     }
     </style>""", unsafe_allow_html=True)
 
@@ -2973,15 +2973,17 @@ elif page == "Claude Pro":
 
     # ── Overview ──────────────────────────────────────────────────────────────
     st.markdown('<div class="cp-sect-lbl">Overview</div>', unsafe_allow_html=True)
+    _cp_total_init = len(_CP_ACTIVE) + len(_CP_COMPLETED)
     st.markdown(f"""<div class="cp-stat-strip">
-      <div class="cp-stat-box"><div class="cp-stat-num">9</div><div class="cp-stat-lbl">Active initiatives</div></div>
-      <div class="cp-stat-box"><div class="cp-stat-num">6</div><div class="cp-stat-lbl">Completed</div></div>
+      <div class="cp-stat-box"><div class="cp-stat-num">{_cp_total_init}</div><div class="cp-stat-lbl">Total initiatives</div></div>
+      <div class="cp-stat-box"><div class="cp-stat-num">{len(_CP_COMPLETED)}</div><div class="cp-stat-lbl">Completed</div></div>
+      <div class="cp-stat-box"><div class="cp-stat-num">{len(_cp_timeline)}</div><div class="cp-stat-lbl">Sessions logged</div></div>
       <div class="cp-stat-box"><div class="cp-stat-num">{_cp_days}</div><div class="cp-stat-lbl">Days since adoption</div></div>
     </div>
     <div class="cp-exec">
       <div class="cp-exec-lbl">For the manager — what is being done with Claude Pro</div>
       <p class="cp-exec-lead">Claude Pro is being used to increase productivity and quality of D&amp;A area management.
-      In {_cp_days} days, 9 initiatives were configured covering documentation, governance, automations and development tools.</p>
+      In {_cp_days} days, {_cp_total_init} initiatives were configured covering documentation, governance, automations and development tools.</p>
       <ul class="cp-exec-grid">
         <li><strong>Team management:</strong> knowledge base with OKRs, plans and history for all 5 direct reports</li>
         <li><strong>Governance:</strong> OKRs reviewed and consolidated; corporate structure mapped</li>
@@ -3092,7 +3094,7 @@ elif page == "Claude Pro":
         if st.button("🔄 Update timeline", type="primary", key="cp_update_btn",
                      use_container_width=True):
             from agent.daily_report import _update_claude_pro_report
-            with st.spinner("Checking for new commits..."):
+            with st.spinner("Checking for new commits and sessions..."):
                 ok = _update_claude_pro_report()
             if ok:
                 st.success("✅ Timeline updated.")

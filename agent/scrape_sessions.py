@@ -47,7 +47,10 @@ PROJECT_MAP: dict[str, tuple[Optional[str], str]] = {
 # Skip titles / first messages that are meta / too generic
 _SKIP_RE = re.compile(
     r"^(execute (the )?approved|resumir|continue|continuação|resume|"
-    r"prosseguir|executar pend|running daily|health check)",
+    r"prosseguir|executar pend|running daily|health check"
+    r"|\\[A-Za-z]"            # skill-init injections like \SPM-Bot
+    r"|new session[\.\s]"     # "New session. Read /mnt/skills/..."
+    r")",
     re.IGNORECASE,
 )
 

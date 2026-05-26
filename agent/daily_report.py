@@ -319,7 +319,7 @@ def _get_todays_commits(project_root) -> list[str]:
         result = subprocess.run(
             ["git", "log", f"--since={TODAY.isoformat()} 00:00:00",
              "--until=tomorrow", "--format=%s", "--no-merges"],
-            cwd=str(project_root), capture_output=True, text=True,
+            cwd=str(project_root), capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         msgs = []
         for line in result.stdout.strip().splitlines():
@@ -361,66 +361,63 @@ def _build_timeline_entry(commits: list[str]) -> tuple[str, str]:
 
 def _update_claude_pro_report() -> bool:
     """
-    Append a new entry to reports/claude-pro-timeline.json for today if there are
-    meaningful commits and no entry for today already exists.
-    Commits the JSON and pushes to GitHub.
-    Returns True if a new entry was written, False otherwise (non-fatal).
+    Update reports/claude-pro-timeline.json:
+      1. Today's entry from git commits (precise, preferred when commits exist).
+      2. Backfill — any recent session dates (last 7 days) not yet in the JSON,
+         sourced from JSONL scraping.  This covers no-commit days and past gaps.
+    Commits and pushes the JSON if anything was added.
+    Returns True if at least one new entry was written, False otherwise.
     """
     project_root = Path(__file__).parent.parent
     json_path = project_root / "reports" / "claude-pro-timeline.json"
 
     try:
-        # Load existing entries
         entries: list = []
         if json_path.exists():
             entries = json.loads(json_path.read_text(encoding="utf-8"))
 
-        # Nothing to do if today already has an entry
+        existing_dates: set[str] = {e.get("date") for e in entries}
         today_iso = TODAY.isoformat()
-        if any(e.get("date") == today_iso for e in entries):
-            print(f"[agent] Claude Pro timeline: entry for {today_iso} already exists")
+        new_entries: list = []
+
+        # ── Source 1: git commits for today ──────────────────────────────────
+        if today_iso not in existing_dates:
+            commits = _get_todays_commits(project_root)
+            if commits:
+                title, detail = _build_timeline_entry(commits)
+                new_entries.append({
+                    "date": today_iso,
+                    "display_date": _today_timeline_str(),
+                    "title": title,
+                    "detail": detail,
+                })
+                existing_dates.add(today_iso)  # prevent double-add via scraping
+                print(f"[agent] Claude Pro timeline: commit entry '{title}'")
+
+        # ── Source 2: JSONL session scraping (today + backfill last 7 days) ──
+        try:
+            from agent.scrape_sessions import get_recent_sessions, sessions_to_timeline_entries
+            sessions = get_recent_sessions(days_back=7)
+            candidates = sessions_to_timeline_entries(sessions, existing_dates)
+            if candidates:
+                for c in candidates:
+                    new_entries.append(c)
+                    print(f"[agent] Claude Pro timeline: session entry '{c['title']}' ({c['date']})")
+        except Exception as _scrape_err:
+            print(f"[agent] Claude Pro timeline: scraping failed ({_scrape_err})")
+
+        if not new_entries:
+            print("[agent] Claude Pro timeline: nothing new to add")
             return False
 
-        # Source 1: git commits (precise, preferred)
-        commits = _get_todays_commits(project_root)
-        if commits:
-            title, detail = _build_timeline_entry(commits)
-        else:
-            # Source 2: JSONL session scraping (fallback for no-commit days)
-            try:
-                from agent.scrape_sessions import get_recent_sessions, sessions_to_timeline_entries
-                sessions = get_recent_sessions(days_back=1)
-                existing_dates = {e.get("date") for e in entries}
-                candidates = sessions_to_timeline_entries(sessions, existing_dates)
-                if candidates:
-                    # Use the most descriptive entry found for today
-                    today_entry = next((c for c in candidates if c["date"] == today_iso), None)
-                    if today_entry:
-                        title, detail = today_entry["title"], today_entry["detail"]
-                    else:
-                        print("[agent] Claude Pro timeline: no sessions for today — unchanged")
-                        return False
-                else:
-                    print("[agent] Claude Pro timeline: no commits or sessions today — unchanged")
-                    return False
-            except Exception as _scrape_err:
-                print(f"[agent] Claude Pro timeline: scraping failed ({_scrape_err}) — unchanged")
-                return False
-
-        new_entry = {
-            "date": today_iso,
-            "display_date": _today_timeline_str(),
-            "title": title,
-            "detail": detail,
-        }
-
-        # Newest first
-        entries.insert(0, new_entry)
+        # Merge and sort newest first
+        all_entries = new_entries + entries
+        all_entries.sort(key=lambda e: e.get("date", ""), reverse=True)
         json_path.write_text(
-            json.dumps(entries, indent=2, ensure_ascii=False),
+            json.dumps(all_entries, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        print(f"[agent] Claude Pro timeline: added '{title}'")
+        print(f"[agent] Claude Pro timeline: {len(new_entries)} new entry/entries added")
 
         subprocess.run(["git", "add", str(json_path)], cwd=str(project_root), check=True)
         diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(project_root))
@@ -484,17 +481,9 @@ def main():
     report_path.write_text(report_md, encoding="utf-8")
     print(f"[agent] Report written: {report_path}")
 
-    # Update Claude Pro Report (counters + timeline from commits)
-    print("[agent] Updating Claude Pro Report...")
+    # Update Claude Pro Report timeline (commits for today + session backfill for last 7 days)
+    print("[agent] Updating Claude Pro Report timeline...")
     _update_claude_pro_report()
-
-    # Enrich Claude Pro Report with session-based summaries
-    print("[agent] Scraping Claude Code sessions...")
-    try:
-        from agent.scrape_sessions import main as _scrape_main
-        _scrape_main()
-    except Exception as _exc:
-        print(f"[agent] Session scraping skipped: {_exc}")
 
     # Notify
     all_good = tests["ok"] and not data["overdue"]

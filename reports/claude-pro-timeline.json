@@ -2,20 +2,20 @@
   {
     "date": "2026-05-26",
     "display_date": "26 May 2026",
-    "title": "Corrigir paths Backlog-to-do-app residuais â€” agent-reports, Log, FAQ agora sob VAULT_ROOT direto",
-    "detail": ""
+    “title”: “Fix residual Backlog-to-do-app paths — agent-reports, Log, FAQ now under VAULT_ROOT”,
+    “detail”: “Ollama migration: coach.py and process.py; call-recorder.ps1 prompt-building removed; idea-009 quick wins (layout shift, status revert, translate button, to-do column width).”
   },
   {
     "date": "2026-05-25",
     "display_date": "25 May 2026",
-    "title": "Preciso que você leia o arquivo jsonl de sessão do Claude Code e extraia toda in",
-    "detail": "Preciso planejar uma migração do renderer de diagramas em um app local Vite 4 +; O arquivo `C:\\Users\\Kelvin.okuda\\Scripts\\call-recorder\\coach.py` usa `import ant; Quero atualizar o arquivo _CLAUDE.md "
+    "title": "Session scraping, Ollama migration planning, agent path fixes",
+    "detail": "Analyzed Claude Code JSONL scraper, planned coach.py/process.py Ollama migration, reviewed vault path structure."
   },
   {
     "date": "2026-05-22",
     "display_date": "22 May 2026",
-    "title": "\\SPM-Bot\n\nNew session. Read /mnt/skills/user/spm-bot/SKILL.md before proceeding.",
-    "detail": "Project: Personal Toolkit · Techco.lab\nLocation: C:\\Users\\Kelvin.okuda\\techcolab"
+    "title": "idea-025 session scraping implemented and integrated",
+    "detail": "scrape_sessions.py created, PROJECT_MAP configured, integrated as fallback in daily_report agent."
   },
   {
     "date": "2026-05-21",
