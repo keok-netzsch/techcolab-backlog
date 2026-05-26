@@ -265,6 +265,22 @@ hr { border-color: #2D3748 !important; }
 [data-testid="stCheckbox"] label p,
 [data-testid="stRadio"] label p { color: #E2E8F0 !important; }
 
+/* Radio button circle (unselected = dark bg, selected = accent) */
+[data-testid="stRadio"] [role="radio"] {
+    background: #1A1D2E !important;
+    border-color: #4B5563 !important;
+}
+[data-testid="stRadio"] [role="radio"][aria-checked="true"] {
+    background: #02B793 !important;
+    border-color: #02B793 !important;
+}
+
+/* Progress bar track */
+[data-testid="stProgressBar"] > div {
+    background: #1E293B !important;
+    border-radius: 999px !important;
+}
+
 /* Inline code badges */
 code { background: #2D3748 !important; color: #E2E8F0 !important; }
 
