@@ -2162,14 +2162,33 @@ elif page == "Dashboard":
             else:         st.session_state.cal_month += 1
             st.rerun()
     with _cc5:
-        _cal_mode_sel = st.radio(
-            "View",
-            ["Backlog items", "To-dos"],
-            horizontal=True,
-            key="cal_mode_radio",
-            label_visibility="collapsed",
+        # HTML legend — avoids Streamlit radio white-dot issue in dark mode
+        _cal_mode_qs = st.query_params.get("cal_mode", "ideas")
+        _dot_on  = "●" ; _dot_off = "○"
+        _clr_on  = "#02B793"; _clr_off = "#94A3B8" if _dark_mode else "#9CA3AF"
+        _lbl_clr = "#E2E8F0" if _dark_mode else "#374151"
+        _cal_legs = ""
+        for _lbl, _val in [("Backlog items", "ideas"), ("To-dos", "todos")]:
+            _sel = _cal_mode_qs == _val
+            _d   = _dot_on if _sel else _dot_off
+            _dc  = _clr_on if _sel else _clr_off
+            _cal_legs += (
+                f'<form method="get" action="" style="display:inline-flex;align-items:center;'
+                f'gap:4px;margin:0 8px 0 0;padding:0">'
+                f'<input type="hidden" name="page" value="{page}">'
+                f'<input type="hidden" name="dark" value="{"1" if _dark_mode else "0"}">'
+                f'<input type="hidden" name="cal_mode" value="{_val}">'
+                f'<button type="submit" style="background:none;border:none;cursor:pointer;padding:0;'
+                f'display:inline-flex;align-items:center;gap:5px">'
+                f'<span style="color:{_dc};font-size:1rem">{_d}</span>'
+                f'<span style="color:{_lbl_clr};font-size:0.82rem">{_lbl}</span>'
+                f'</button></form>'
+            )
+        st.markdown(
+            f'<div style="display:flex;align-items:center;height:100%;padding-top:6px">{_cal_legs}</div>',
+            unsafe_allow_html=True,
         )
-    _cal_mode = "ideas" if _cal_mode_sel == "Backlog items" else "todos"
+    _cal_mode = _cal_mode_qs if _cal_mode_qs in ("ideas", "todos") else "ideas"
 
     # Build deadline map for selected mode
     _CLOSED_CAL = {"concluído", "descartado", "análise - rejeitado"}
@@ -2396,6 +2415,16 @@ elif page == "Dashboard":
                     pass
         _due_soon.sort(key=lambda x: x[0])
 
+        # Custom progress bar — bypasses Streamlit CSS entirely
+        _bar_track = "#1E293B" if _dark_mode else "#E5E7EB"
+        _txt_clr   = "#CBD5E0" if _dark_mode else "#374151"
+        def _bar(pct: float) -> str:
+            return (
+                f'<div style="height:6px;background:{_bar_track};border-radius:999px;margin:3px 0 10px">'
+                f'<div style="width:{max(2, int(pct*100))}%;height:100%;'
+                f'background:linear-gradient(90deg,#02B793,#0AD4A8);border-radius:999px"></div></div>'
+            )
+
         col_left, col_right, col_due = st.columns(3)
 
         with col_left:
@@ -2408,8 +2437,9 @@ elif page == "Dashboard":
                 if count:
                     icon = STATUS_COLOR.get(status, _sdot("backlog"))
                     pct = count / total if total else 0
-                    st.markdown(f"{icon} **{STATUS_LABEL.get(status, status)}** — {count}", unsafe_allow_html=True)
-                    st.progress(pct)
+                    st.markdown(
+                        f'<div style="color:{_txt_clr}">{icon} <b>{STATUS_LABEL.get(status, status)}</b> — {count}</div>'
+                        + _bar(pct), unsafe_allow_html=True)
 
         with col_right:
             st.subheader("By priority")
@@ -2420,8 +2450,9 @@ elif page == "Dashboard":
                 count = prio_counts.get(p, 0)
                 badge = PRIORITY_NUM.get(p, "")
                 pct = count / total if total else 0
-                st.markdown(f"{badge} **{PRIORITY_LABEL.get(p, p)}** — {count}", unsafe_allow_html=True)
-                st.progress(pct)
+                st.markdown(
+                    f'<div style="color:{_txt_clr}">{badge} <b>{PRIORITY_LABEL.get(p, p)}</b> — {count}</div>'
+                    + _bar(pct), unsafe_allow_html=True)
 
         with col_due:
             st.subheader("Due this week")
@@ -2437,10 +2468,11 @@ elif page == "Dashboard":
                         'font-weight:700;padding:1px 4px;border-radius:3px">BUG</span>'
                         if _t.get("is_bug") else ""
                     )
+                    _border_clr = "rgba(255,255,255,0.07)" if _dark_mode else "rgba(0,0,0,0.06)"
                     st.markdown(
-                        f'<div style="padding:5px 0;border-bottom:1px solid rgba(0,0,0,0.06)">'
+                        f'<div style="padding:5px 0;border-bottom:1px solid {_border_clr}">'
                         f'<span style="font-size:0.7rem;font-weight:600;color:{_clr}">{_date_str}</span>'
-                        f'&nbsp;<span style="font-size:0.81rem;color:#374151">{_t["text"][:48]}</span>{_bug_b}'
+                        f'&nbsp;<span style="font-size:0.81rem;color:{_txt_clr}">{_t["text"][:48]}</span>{_bug_b}'
                         f'</div>',
                         unsafe_allow_html=True,
                     )
@@ -2456,8 +2488,9 @@ elif page == "Dashboard":
                 area_counts[area] = area_counts.get(area, 0) + 1
             for area, count in sorted(area_counts.items(), key=lambda x: -x[1]):
                 pct = count / total if total else 0
-                st.markdown(f"🏷️ **{area}** — {count}")
-                st.progress(pct)
+                st.markdown(
+                    f'<div style="color:{_txt_clr}">🏷️ <b>{area}</b> — {count}</div>'
+                    + _bar(pct), unsafe_allow_html=True)
 
         with col_score:
             st.subheader("Scoring: Impact × Effort")
