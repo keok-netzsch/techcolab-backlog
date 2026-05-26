@@ -112,7 +112,7 @@ After updating the app pages, also check if `README.md` needs updating.
 When the user opens a Claude Code session via `execute_agent.bat` and says
 "Execute the approved items from today's agent report", follow this protocol:
 
-1. **Find today's report** — read `{VAULT_ROOT}/Backlog - to do - app/agent-reports/report-YYYY-MM-DD.md`
+1. **Find today's report** — read `{VAULT_ROOT}/agent-reports/report-YYYY-MM-DD.md`
 2. **List approved items** — show the user all checked boxes (`- [x]`) and confirm before acting
 3. **Update status — start of work:**
    ```

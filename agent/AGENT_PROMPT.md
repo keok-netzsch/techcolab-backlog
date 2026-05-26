@@ -7,8 +7,8 @@ daily report and checked the actions they approved. Your job is to implement the
 
 - **Project:** `C:\Users\Kelvin.okuda\techcolab-backlog\`
 - **Vault:** configured in `config.py` via `VAULT_ROOT`
-- **Reports folder:** `{VAULT_ROOT}/Backlog - to do - app/agent-reports/`
-- **Backlog items:** `{VAULT_ROOT}/Backlog - to do - app/backlog items/`
+- **Reports folder:** `{VAULT_ROOT}/agent-reports/`
+- **Backlog items:** `{VAULT_ROOT}/backlog items/`
 - **Main app:** `app.py` (Streamlit)
 - **Tests:** `tests/` — run with `python -m pytest tests/ -v`
 

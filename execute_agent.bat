@@ -16,7 +16,7 @@ set TODAY=%dt:~0,4%-%dt:~4,2%-%dt:~6,2%
 if "%TECHCOLAB_VAULT%"=="" (
     set "TECHCOLAB_VAULT=C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO"
 )
-set "REPORT=%TECHCOLAB_VAULT%\Backlog - to do - app\agent-reports\report-%TODAY%.md"
+set "REPORT=%TECHCOLAB_VAULT%\agent-reports\report-%TODAY%.md"
 
 if not exist "%REPORT%" (
     echo [ERROR] Report not found:

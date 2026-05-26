@@ -26,7 +26,7 @@ from backlog.store import BacklogStore
 from backlog.schema import VALID_STATUSES
 
 TODAY = date.today()
-REPORTS_DIR = VAULT_ROOT / "Backlog - to do - app" / "agent-reports"
+REPORTS_DIR = VAULT_ROOT / "agent-reports"
 
 # ── Labels (EN) ───────────────────────────────────────────────────────────────
 STATUS_LABEL = {

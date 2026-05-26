@@ -21,7 +21,7 @@ _ACTION_LABEL = {
 
 def _log_path(today: date | None = None) -> Path:
     d = today or date.today()
-    log_dir = Path(VAULT_ROOT) / "Backlog - to do - app" / "Log"
+    log_dir = Path(VAULT_ROOT) / "Log"
     log_dir.mkdir(parents=True, exist_ok=True)
     return log_dir / f"diario-{d.isoformat()}.md"
 

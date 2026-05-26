@@ -806,7 +806,7 @@ if page == "Backlog":
                                     st.session_state[f"show_hist_{idea.id}"] = not st.session_state.get(f"show_hist_{idea.id}", False)
 
                             if st.session_state.get(f"show_hist_{idea.id}"):
-                                log_dir = Path(VAULT_ROOT) / "Backlog - to do - app" / "Log"
+                                log_dir = Path(VAULT_ROOT) / "Log"
                                 hist_lines = []
                                 for lf in sorted(log_dir.glob("diario-*.md")):
                                     for line in lf.read_text(encoding="utf-8").splitlines():
@@ -1908,7 +1908,7 @@ elif page == "Dashboard":
             end = col_e.date_input("To", value=today, format="DD/MM/YYYY")
 
         if st.button("Generate report", type="primary"):
-            log_dir = _Path(_VAULT_ROOT) / "Backlog - to do - app" / "Log"
+            log_dir = _Path(_VAULT_ROOT) / "Log"
             entries = {"CRIADA": [], "ALTERADA": [], "CONCLUÍDA": [], "TO-DO": []}
             current = start
             while current <= end:
@@ -2066,7 +2066,7 @@ elif page == "Weekly Brief":
     import re as _wre
 
     _TEAM_DIR  = VAULT_ROOT / "Team"
-    _LOG_DIR   = VAULT_ROOT / "Backlog - to do - app" / "Log"
+    _LOG_DIR   = VAULT_ROOT / "Log"
     _TEAM = [
         {"name": "Ana Leite",      "folder": "Ana-Leite"},
         {"name": "Daniel Lima",    "folder": "Daniel-Lima"},
@@ -3197,11 +3197,11 @@ elif page == "English Coach":
 elif page == "FAQ":
     import re as _faqre
 
-    _FAQ_FILE = VAULT_ROOT / "Backlog - to do - app" / "techcolab-backlog-faq.md"
+    _FAQ_FILE = VAULT_ROOT / "techcolab-backlog-faq.md"
 
     st.markdown('<h1 style="margin-bottom:0.4rem">FAQ</h1>', unsafe_allow_html=True)
     st.caption(
-        "Questions and answers · source: `Backlog - to do - app/techcolab-backlog-faq.md`  "
+        "Questions and answers · source: `techcolab-backlog-faq.md`  "
         "— append new entries in Obsidian following the `| Question | Answer |` format."
     )
 
