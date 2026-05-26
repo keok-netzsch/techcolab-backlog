@@ -277,7 +277,7 @@ _LOGO_NAV = _LOGO_GREEN.replace('width="140" height="44"', 'width="88" height="2
 
 _nav_text_color    = "#94A3B8" if _dark_mode else "#4C4D58"
 _nav_active_color  = "#02B793" if _dark_mode else "#007167"
-_nav_active_bg     = "rgba(255,255,255,0.07)" if _dark_mode else "rgba(2,183,147,0.14)"
+_nav_active_bg     = "#1E2640"  if _dark_mode else "rgba(2,183,147,0.14)"
 _nav_bg            = "#161B2E" if _dark_mode else "#FFFFFF"
 _nav_border        = "rgba(255,255,255,0.07)" if _dark_mode else "rgba(0,0,0,0.09)"
 
@@ -303,18 +303,24 @@ def _navlink(label: str, key: str) -> str:
     )
 
 def _dark_toggle() -> str:
-    _icon = "☀️" if _dark_mode else "🌙"
-    _next = "0" if _dark_mode else "1"
-    _ts = (
-        f"background:{_nav_active_bg}!important;color:{_nav_active_color};"
-        if _dark_mode else
-        f"color:{_nav_text_color};"
-    )
+    _next        = "0" if _dark_mode else "1"
+    _track_bg    = "#02B793"  if _dark_mode else "#D1D5DB"
+    _thumb_left  = "19px"     if _dark_mode else "2px"
+    _icon        = "☀️"       if _dark_mode else "🌙"
     return (
-        f'<form method="get" action="" style="display:inline-block;margin:0;padding:0">'
+        f'<form method="get" action="" style="display:inline-flex;align-items:center;'
+        f'margin:0 6px;padding:0;vertical-align:middle">'
         f'<input type="hidden" name="page" value="{page}">'
         f'<input type="hidden" name="dark" value="{_next}">'
-        f'<button type="submit" style="{_BTN_BASE}{_ts}">{_icon}</button></form>'
+        f'<button type="submit" title="Toggle dark mode" style="'
+        f'position:relative;width:38px;height:20px;border-radius:10px;border:none;'
+        f'outline:none;cursor:pointer;padding:0;background:{_track_bg};'
+        f'transition:background .2s;flex-shrink:0;">'
+        f'<span style="position:absolute;top:2px;left:{_thumb_left};'
+        f'width:16px;height:16px;border-radius:50%;background:#fff;'
+        f'display:inline-flex;align-items:center;justify-content:center;'
+        f'font-size:9px;line-height:1;transition:left .15s;">{_icon}</span>'
+        f'</button></form>'
     )
 
 _nav_items  = "".join(_navlink(p, p) for p in _PAGES_MAIN)
