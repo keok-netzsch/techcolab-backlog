@@ -135,8 +135,8 @@ button { white-space: nowrap !important; }
     width: 100%;
 }
 
-/* Catch-all for idea row buttons that use secondary kind */
-[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]):not([data-testid*="cc_all"]):not([data-testid*="cc_30d"]):not([data-testid*="cc_7d"]):not([data-testid*="cal_"]):not([data-testid*="tb_"]):not([data-testid*="bulk_"]) {
+/* Idea row buttons — only inside scrollable list containers (backlog, todo-list) */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"]:not([data-testid*="nav_"]) {
     text-align: left !important;
     justify-content: flex-start !important;
     background: transparent !important;
@@ -144,7 +144,7 @@ button { white-space: nowrap !important; }
     color: #2A2A2A !important;
     font-size: 0.9rem !important;
 }
-[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]):not([data-testid*="cc_all"]):not([data-testid*="cc_30d"]):not([data-testid*="cc_7d"]):not([data-testid*="cal_"]):not([data-testid*="tb_"]):not([data-testid*="bulk_"]):hover {
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"]:not([data-testid*="nav_"]):hover {
     background: rgba(2,183,147,0.07) !important;
     color: #007167 !important;
 }
@@ -276,15 +276,15 @@ page = _qpage
 _LOGO_NAV = _LOGO_GREEN.replace('width="140" height="44"', 'width="88" height="27"')
 
 _nav_text_color    = "#94A3B8" if _dark_mode else "#4C4D58"
-_nav_active_color  = "#0AD4A8" if _dark_mode else "#007167"
-_nav_active_bg     = "rgba(2,183,147,0.18)" if _dark_mode else "rgba(2,183,147,0.14)"
+_nav_active_color  = "#02B793" if _dark_mode else "#007167"
+_nav_active_bg     = "rgba(255,255,255,0.07)" if _dark_mode else "rgba(2,183,147,0.14)"
 _nav_bg            = "#161B2E" if _dark_mode else "#FFFFFF"
 _nav_border        = "rgba(255,255,255,0.07)" if _dark_mode else "rgba(0,0,0,0.09)"
 
 _BTN_BASE = (
     "display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;"
     "font-size:0.79rem;font-family:Inter,sans-serif;white-space:nowrap;"
-    "cursor:pointer;border:none;background:transparent;"
+    "cursor:pointer;border:none;outline:none;background:transparent;"
 )
 
 def _navlink(label: str, key: str) -> str:
