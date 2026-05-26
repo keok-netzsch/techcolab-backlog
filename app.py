@@ -1388,15 +1388,17 @@ elif page == "To-Do List":
         done_count = sum(1 for t in filtered_todos if t["done"])
         ip_badge = f" · **{in_progress_count} 🔄 in progress**" if in_progress_count else ""
         st.markdown(f"**{pending_count} pending**{ip_badge} · {done_count} done out of {len(filtered_todos)} shown")
+        _tdl_num_bg  = "#1E293B" if _dark_mode else "#F3F4F6"
+        _tdl_num_clr = "#94A3B8" if _dark_mode else "#6B7280"
         st.markdown(
             "<style>"
-            "div.tdl-num button {"
-            " background:#F3F4F6!important; border:none!important; box-shadow:none!important;"
+            f"div.tdl-num button {{"
+            f" background:{_tdl_num_bg}!important; border:none!important; box-shadow:none!important;"
             " border-radius:4px!important; font-size:0.73rem!important; font-weight:700!important;"
-            " color:#6B7280!important; padding:1px 2px!important;"
+            f" color:{_tdl_num_clr}!important; padding:1px 2px!important;"
             " min-height:22px!important; width:100%!important; }"
             "div.tdl-num button:hover {"
-            " background:rgba(2,183,147,0.12)!important; color:#007167!important; }"
+            " background:rgba(2,183,147,0.12)!important; color:#02B793!important; }"
             "div.tdl-sel div[data-testid='stSelectbox'] > div > div {"
             " min-height:26px!important; padding:1px 6px!important; font-size:0.82rem!important; }"
             "</style>",
@@ -1463,6 +1465,7 @@ elif page == "To-Do List":
                 t for t in all_todos
                 if t["done"] and _due_group(t) == "📅 This week"
                 and (filter_area == "All" or t["area"] == filter_area)
+                and (not filter_bugs or t.get("is_bug"))
             ]
             existing_keys = {(t["idea_id"], t["todo_idx"]) for t in filtered_todos}
             for t in this_week_done:
@@ -1571,15 +1574,20 @@ elif page == "To-Do List":
                             text_html = f"<em>{item['text']}</em>"
                         else:
                             text_html = item["text"]
+                        _bug_bg  = "rgba(220,38,38,0.18)" if _dark_mode else "#FEE2E2"
+                        _bug_clr = "#F87171"             if _dark_mode else "#B91C1C"
                         bug_badge = (
-                            ' <span style="background:#FEE2E2;color:#B91C1C;font-size:9px;font-weight:700;'
-                            'letter-spacing:.04em;padding:1px 4px;border-radius:3px;vertical-align:middle">BUG</span>'
+                            f' <span style="background:{_bug_bg};color:{_bug_clr};font-size:9px;font-weight:700;'
+                            f'letter-spacing:.06em;padding:2px 5px;border-radius:3px;vertical-align:middle">BUG</span>'
                             if item.get("is_bug") else ""
                         )
+                        _ref_code_bg  = "#1E293B" if _dark_mode else "#F3F4F6"
+                        _ref_code_clr = "#64748B" if _dark_mode else "#6B7280"
+                        _ref_txt_clr  = "#64748B" if _dark_mode else "#9CA3AF"
                         idea_ref = (
-                            f'<div style="font-size:0.72rem;color:#9CA3AF;margin-top:1px">'
-                            f'<code style="font-size:0.68rem;background:#F3F4F6;padding:0 3px;'
-                            f'border-radius:2px;color:#6B7280">{item["idea_id"]}</code>'
+                            f'<div style="font-size:0.72rem;color:{_ref_txt_clr};margin-top:1px">'
+                            f'<code style="font-size:0.68rem;background:{_ref_code_bg};padding:0 3px;'
+                            f'border-radius:2px;color:{_ref_code_clr}">{item["idea_id"]}</code>'
                             f'&nbsp;{item["idea_title"][:52]}</div>'
                         )
                         st.markdown(
