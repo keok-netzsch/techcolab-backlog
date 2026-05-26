@@ -290,7 +290,7 @@ _BTN_BASE = (
 def _navlink(label: str, key: str) -> str:
     _a = key == page
     _s = (
-        f"background:{_nav_active_bg}!important;color:{_nav_active_color};font-weight:600;"
+        f"background:{_nav_active_bg};color:{_nav_active_color};font-weight:600;"
         if _a else
         f"color:{_nav_text_color};"
     )
