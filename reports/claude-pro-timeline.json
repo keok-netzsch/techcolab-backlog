@@ -2,8 +2,8 @@
   {
     "date": "2026-05-26",
     "display_date": "26 May 2026",
-    “title”: “Fix residual Backlog-to-do-app paths — agent-reports, Log, FAQ now under VAULT_ROOT”,
-    “detail”: “Ollama migration: coach.py and process.py; call-recorder.ps1 prompt-building removed; idea-009 quick wins (layout shift, status revert, translate button, to-do column width).”
+    "title": "Fix residual Backlog-to-do-app paths — agent-reports, Log, FAQ now under VAULT_ROOT",
+    "detail": "Ollama migration: coach.py and process.py; call-recorder.ps1 prompt-building removed; idea-009 quick wins (layout shift, status revert, translate button, to-do column width)."
   },
   {
     "date": "2026-05-25",
