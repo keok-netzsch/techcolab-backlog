@@ -221,8 +221,9 @@ hr { border-color: #2D3748 !important; }
 
 /* Expanders */
 [data-testid="stExpander"] { background: #1A1D2E !important; border-color: #2D3748 !important; }
-[data-testid="stExpander"] summary { color: #E2E8F0 !important; }
-[data-testid="stExpanderDetails"] { background: #1A1D2E !important; }
+[data-testid="stExpander"] summary { color: #E2E8F0 !important; background: #1A1D2E !important; }
+[data-testid="stExpander"] summary:hover { background: #1E2640 !important; }
+[data-testid="stExpanderDetails"] { background: #1A1D2E !important; overflow: visible !important; }
 
 /* Alerts / Notifications */
 [data-testid="stNotification"] { background: #1A1D2E !important; border-color: #2D3748 !important; }
@@ -3320,6 +3321,7 @@ elif page == "Claude Pro":
     st.subheader("Projects & Developments")
     st.caption("Claude Pro applied to management, governance and D&A team development.")
 
+    _cp_body_clr = "#94A3B8" if _dark_mode else "rgba(76,77,88,.7)"
     for _init in _CP_ACTIVE:
         _bl = "".join(f"<li>{b}</li>" for b in _init["bullets"])
         with st.expander(f"**{_init['number']}** · {_init['title']}", expanded=True):
@@ -3333,7 +3335,7 @@ elif page == "Claude Pro":
               <p class="cp-boss-p">{_init['boss']}</p>
               <p class="cp-boss-adv"><strong>Key advance:</strong> {_init['advance']}</p>
             </div>
-            <p style="font-size:13.5px;color:rgba(76,77,88,.7);margin:.4rem 0 .3rem">{_init['body']}</p>
+            <p style="font-size:13.5px;color:{_cp_body_clr};margin:.4rem 0 .3rem">{_init['body']}</p>
             <ul class="cp-body-ul">{_bl}</ul>""", unsafe_allow_html=True)
 
     # ── Completed toggle ──────────────────────────────────────────────────────
@@ -3359,7 +3361,7 @@ elif page == "Claude Pro":
                   <p class="cp-boss-p">{_init['boss']}</p>
                   <p class="cp-boss-adv"><strong>Key advance:</strong> {_init['advance']}</p>
                 </div>
-                <p style="font-size:13.5px;color:rgba(76,77,88,.7);margin:.4rem 0 .3rem">{_init['body']}</p>
+                <p style="font-size:13.5px;color:{_cp_body_clr};margin:.4rem 0 .3rem">{_init['body']}</p>
                 <ul class="cp-body-ul">{_bl}</ul>""", unsafe_allow_html=True)
 
     # ── Timeline ──────────────────────────────────────────────────────────────
@@ -3400,7 +3402,7 @@ elif page == "Claude Pro":
         _tool_rows += (
             f"<tr><td><div class='cp-tool-name'>{_tn}</div>"
             f"<div class='cp-tool-sub'>{_ts}</div></td>"
-            f"<td style='font-size:13px;color:rgba(76,77,88,.7)'>{_ta}</td>"
+            f"<td style='font-size:13px;color:{_cp_body_clr}'>{_ta}</td>"
             f"<td><span class='{_tbadge}'>{_tst}</span></td></tr>"
         )
     st.markdown(f"""<table class="cp-tools-tbl">
