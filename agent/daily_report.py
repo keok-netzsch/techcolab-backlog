@@ -374,7 +374,11 @@ def _update_claude_pro_report() -> bool:
     try:
         entries: list = []
         if json_path.exists():
-            entries = json.loads(json_path.read_text(encoding="utf-8"))
+            try:
+                entries = json.loads(json_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, ValueError):
+                print("[agent] Claude Pro timeline: JSON malformed, starting fresh")
+                entries = []
 
         existing_dates: set[str] = {e.get("date") for e in entries}
         today_iso = TODAY.isoformat()

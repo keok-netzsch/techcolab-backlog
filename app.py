@@ -3132,7 +3132,10 @@ elif page == "Claude Pro":
     # ── Load timeline ─────────────────────────────────────────────────────────
     _cp_timeline: list = []
     if _CP_TIMELINE_JSON.exists():
-        _cp_timeline = _cpjson.loads(_CP_TIMELINE_JSON.read_text(encoding="utf-8"))
+        try:
+            _cp_timeline = _cpjson.loads(_CP_TIMELINE_JSON.read_text(encoding="utf-8"))
+        except (_cpjson.JSONDecodeError, ValueError):
+            st.warning("⚠ Timeline file is temporarily unavailable (write in progress). Reload to retry.")
 
     def _fmt_cp_date(iso: str) -> str:
         _m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
