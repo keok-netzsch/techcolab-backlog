@@ -25,8 +25,8 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── Dark mode (read early — used by CSS injection and nav) ─────────────────────
-_dark_mode = st.query_params.get("dark", "0") == "1"
+# ── Dark mode (default ON; pass ?dark=0 to switch to light) ───────────────────
+_dark_mode = st.query_params.get("dark", "1") == "1"
 
 # ── Brand identity ─────────────────────────────────────────────────────────────
 _LOGO_GREEN = """<svg width="140" height="44" viewBox="0 0 123 30" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet">
