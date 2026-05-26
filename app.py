@@ -1878,6 +1878,156 @@ elif page == "Dashboard":
 
     st.divider()
 
+    # ── Deadline Calendar ──────────────────────────────────────────────────────
+    import calendar as _cal_mod
+
+    if "cal_year"  not in st.session_state: st.session_state.cal_year  = _date.today().year
+    if "cal_month" not in st.session_state: st.session_state.cal_month = _date.today().month
+
+    _cal_today = _date.today()
+    _cy = st.session_state.cal_year
+    _cm = st.session_state.cal_month
+
+    st.subheader("Deadline Calendar")
+
+    # Controls: nav + mode toggle
+    _cc1, _cc2, _cc3, _cc4, _cc5 = st.columns([1, 2, 1, 1, 5])
+    _MONTHS_EN = ["Jan","Feb","Mar","Apr","May","Jun",
+                  "Jul","Aug","Sep","Oct","Nov","Dec"]
+    with _cc1:
+        if st.button("◀", key="cal_prev", use_container_width=True):
+            if _cm == 1: st.session_state.cal_month = 12; st.session_state.cal_year -= 1
+            else:        st.session_state.cal_month -= 1
+            st.rerun()
+    with _cc2:
+        st.markdown(
+            f"<p style='text-align:center;font-weight:600;padding:.35rem 0;margin:0'>"
+            f"{_MONTHS_EN[_cm-1]} {_cy}</p>",
+            unsafe_allow_html=True,
+        )
+    with _cc3:
+        if st.button("▶", key="cal_next", use_container_width=True):
+            if _cm == 12: st.session_state.cal_month = 1; st.session_state.cal_year += 1
+            else:         st.session_state.cal_month += 1
+            st.rerun()
+    with _cc5:
+        _cal_mode_sel = st.radio(
+            "View",
+            ["Backlog items", "To-dos"],
+            horizontal=True,
+            key="cal_mode_radio",
+            label_visibility="collapsed",
+        )
+    _cal_mode = "ideas" if _cal_mode_sel == "Backlog items" else "todos"
+
+    # Build deadline map for selected mode
+    _CLOSED_CAL = {"concluído", "descartado", "análise - rejeitado"}
+    _PRIO_ICON  = {"alta": "⭐", "média": "·", "baixa": "·"}
+    _cal_map: dict = {}
+
+    if _cal_mode == "ideas":
+        for _ci in ideas_all:
+            if _ci.due_date and _ci.status not in _CLOSED_CAL:
+                _cal_map.setdefault(_ci.due_date, []).append(_ci)
+    else:
+        for _ci in ideas_all:
+            for _ct in _ci.todos:
+                if not _ct.get("done") and _ct.get("due_date"):
+                    try:
+                        _ctd = _date.fromisoformat(_ct["due_date"])
+                        _cal_map.setdefault(_ctd, []).append({"idea": _ci, "todo": _ct})
+                    except (ValueError, TypeError):
+                        pass
+
+    # Chip urgency class
+    def _chip_cls(d):
+        if d < _cal_today:             return "cal-overdue"
+        if d == _cal_today:            return "cal-today"
+        if (d - _cal_today).days <= 7: return "cal-soon"
+        return "cal-future"
+
+    # Calendar grid HTML
+    _DOW = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    _weeks = _cal_mod.Calendar(firstweekday=0).monthdatescalendar(_cy, _cm)
+    _month_items = {d: v for d, v in _cal_map.items() if d.month == _cm and d.year == _cy}
+
+    _cal_css = (
+        "<style>"
+        ".cal-wrap{overflow-x:auto;margin-top:.5rem}"
+        ".cal-tbl{width:100%;border-collapse:collapse;table-layout:fixed}"
+        ".cal-th{font-family:'DM Mono',monospace;font-size:.65rem;font-weight:500;"
+        "letter-spacing:.08em;text-transform:uppercase;color:#9CA3AF;"
+        "text-align:center;padding:6px 2px;border-bottom:1px solid #E5E7EB}"
+        ".cal-td{vertical-align:top;border:1px solid #F3F4F6;padding:4px;min-height:72px;width:14.28%}"
+        ".cal-td-out{background:#FAFAFA}"
+        ".cal-td-today{background:rgba(2,183,147,.04)!important;border-color:#02B793}"
+        ".cal-dnum{font-size:.7rem;color:#D1D5DB;margin-bottom:3px;display:block}"
+        ".cal-dnum-cur{font-size:.7rem;color:#02B793;font-weight:700;margin-bottom:3px;display:block}"
+        ".cal-chip{display:block;font-size:.65rem;border-radius:3px;padding:2px 5px;"
+        "margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+        "border-left:2px solid;line-height:1.4}"
+        ".cal-overdue{background:#FEE2E2;border-color:#EF4444;color:#EF4444}"
+        ".cal-today{background:#FEF3C7;border-color:#F59E0B;color:#D97706}"
+        ".cal-soon{background:rgba(2,183,147,.08);border-color:#02B793;color:#007167}"
+        ".cal-future{background:#F9FAFB;border-color:#E5E7EB;color:#6B7280}"
+        ".cal-more{font-size:.6rem;color:#9CA3AF;display:block;padding-left:5px}"
+        "</style>"
+    )
+    _th_row = (
+        "<thead><tr>"
+        + "".join(f'<th class="cal-th">{d}</th>' for d in _DOW)
+        + "</tr></thead>"
+    )
+    _body_rows = []
+    for _week in _weeks:
+        _cells = []
+        for _day in _week:
+            _is_cur   = (_day.month == _cm)
+            _is_today = (_day == _cal_today)
+            _td_cls   = ("cal-td"
+                         + (" cal-td-out"   if not _is_cur  else "")
+                         + (" cal-td-today" if _is_today     else ""))
+            _dn_cls   = "cal-dnum-cur" if _is_today else "cal-dnum"
+            _cell     = [f'<td class="{_td_cls}"><span class="{_dn_cls}">{_day.day}</span>']
+            if _is_cur:
+                _day_items = _cal_map.get(_day, [])
+                _cc_cls    = _chip_cls(_day)
+                for _it in _day_items[:3]:
+                    if _cal_mode == "ideas":
+                        _icon = _PRIO_ICON.get(_it.priority, "·")
+                        _lbl  = (f"{_icon} {_it.id} · "
+                                 f"{_it.title[:20]}{'…' if len(_it.title) > 20 else ''}")
+                    else:
+                        _ttxt = _it["todo"]["text"]
+                        _lbl  = (f"{_ttxt[:22]}{'…' if len(_ttxt) > 22 else ''}"
+                                 f" · {_it['idea'].id}")
+                    _safe = (_lbl.replace("&","&amp;")
+                                 .replace("<","&lt;")
+                                 .replace(">","&gt;"))
+                    _cell.append(
+                        f'<span class="cal-chip {_cc_cls}" title="{_safe}">{_safe}</span>'
+                    )
+                if len(_day_items) > 3:
+                    _cell.append(
+                        f'<span class="cal-more">+{len(_day_items) - 3} more</span>'
+                    )
+            _cell.append("</td>")
+            _cells.append("".join(_cell))
+        _body_rows.append("<tr>" + "".join(_cells) + "</tr>")
+
+    if not _month_items:
+        st.caption(f"No deadlines scheduled for {_MONTHS_EN[_cm-1]} {_cy}.")
+    else:
+        st.markdown(
+            _cal_css
+            + '<div class="cal-wrap"><table class="cal-tbl">'
+            + _th_row + "<tbody>" + "".join(_body_rows) + "</tbody>"
+            + "</table></div>",
+            unsafe_allow_html=True,
+        )
+
+    st.divider()
+
     # ── Dialog defined outside expander to avoid re-registration issues ───────
     @st.dialog("Generate period report", width="large")
     def _report_dialog():
