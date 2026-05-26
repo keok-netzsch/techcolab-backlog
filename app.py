@@ -136,7 +136,7 @@ button { white-space: nowrap !important; }
 }
 
 /* Catch-all for idea row buttons that use secondary kind */
-[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]) {
+[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]):not([data-testid*="cc_all"]):not([data-testid*="cc_30d"]):not([data-testid*="cc_7d"]):not([data-testid*="cal_"]):not([data-testid*="tb_"]):not([data-testid*="bulk_"]) {
     text-align: left !important;
     justify-content: flex-start !important;
     background: transparent !important;
@@ -144,7 +144,7 @@ button { white-space: nowrap !important; }
     color: #2A2A2A !important;
     font-size: 0.9rem !important;
 }
-[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]):hover {
+[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]):not([data-testid*="cc_all"]):not([data-testid*="cc_30d"]):not([data-testid*="cc_7d"]):not([data-testid*="cal_"]):not([data-testid*="tb_"]):not([data-testid*="bulk_"]):hover {
     background: rgba(2,183,147,0.07) !important;
     color: #007167 !important;
 }
@@ -281,10 +281,16 @@ _nav_active_bg     = "rgba(2,183,147,0.18)" if _dark_mode else "rgba(2,183,147,0
 _nav_bg            = "#161B2E" if _dark_mode else "#FFFFFF"
 _nav_border        = "rgba(255,255,255,0.07)" if _dark_mode else "rgba(0,0,0,0.09)"
 
+_BTN_BASE = (
+    "display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;"
+    "font-size:0.79rem;font-family:Inter,sans-serif;white-space:nowrap;"
+    "cursor:pointer;border:none;background:transparent;"
+)
+
 def _navlink(label: str, key: str) -> str:
     _a = key == page
     _s = (
-        f"background:{_nav_active_bg};color:{_nav_active_color};font-weight:600;"
+        f"background:{_nav_active_bg}!important;color:{_nav_active_color};font-weight:600;"
         if _a else
         f"color:{_nav_text_color};"
     )
@@ -293,17 +299,14 @@ def _navlink(label: str, key: str) -> str:
         f'<form method="get" action="" style="display:inline-block;margin:0;padding:0">'
         f'<input type="hidden" name="page" value="{key}">'
         f'{_dk}'
-        f'<button type="submit" style="'
-        f'display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;'
-        f'font-size:0.79rem;font-family:Inter,sans-serif;white-space:nowrap;'
-        f'cursor:pointer;border:none;{_s}">{label}</button></form>'
+        f'<button type="submit" style="{_BTN_BASE}{_s}">{label}</button></form>'
     )
 
 def _dark_toggle() -> str:
     _icon = "☀️" if _dark_mode else "🌙"
     _next = "0" if _dark_mode else "1"
     _ts = (
-        f"background:{_nav_active_bg};color:{_nav_active_color};"
+        f"background:{_nav_active_bg}!important;color:{_nav_active_color};"
         if _dark_mode else
         f"color:{_nav_text_color};"
     )
@@ -311,10 +314,7 @@ def _dark_toggle() -> str:
         f'<form method="get" action="" style="display:inline-block;margin:0;padding:0">'
         f'<input type="hidden" name="page" value="{page}">'
         f'<input type="hidden" name="dark" value="{_next}">'
-        f'<button type="submit" style="'
-        f'display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;'
-        f'font-size:0.79rem;font-family:Inter,sans-serif;white-space:nowrap;'
-        f'cursor:pointer;border:none;{_ts}">{_icon}</button></form>'
+        f'<button type="submit" style="{_BTN_BASE}{_ts}">{_icon}</button></form>'
     )
 
 _nav_items  = "".join(_navlink(p, p) for p in _PAGES_MAIN)
