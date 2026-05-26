@@ -234,8 +234,13 @@ hr { border-color: #2D3748 !important; }
 [data-testid="stExpander"] { background: #1A1D2E !important; border-color: #2D3748 !important; }
 [data-testid="stExpander"] summary { color: #E2E8F0 !important; background: #1A1D2E !important; }
 [data-testid="stExpander"] summary:hover { background: #1E2640 !important; }
-[data-testid="stExpanderDetails"] { background: #1A1D2E !important; }
-[data-testid="stExpanderDetails"] > div { padding-bottom: 0.5rem !important; }
+[data-testid="stExpanderDetails"] { background: #1A1D2E !important; padding-bottom: 0.75rem !important; }
+/* stVerticalBlock inside expanders must be transparent so parent bg (#1A1D2E) shows */
+[data-testid="stExpanderDetails"] [data-testid="stVerticalBlock"],
+[data-testid="stExpanderDetails"] [data-testid="stVerticalBlock"] > div { background: transparent !important; }
+/* Ensure last markdown element has breathing room */
+[data-testid="stExpanderDetails"] [data-testid="stMarkdownContainer"]:last-child { margin-bottom: 0.5rem !important; }
+.cp-body-ul { margin-bottom: 0.5rem !important; }
 
 /* Alerts / Notifications */
 [data-testid="stNotification"] { background: #1A1D2E !important; border-color: #2D3748 !important; }
