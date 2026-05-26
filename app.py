@@ -279,6 +279,43 @@ code { background: #2D3748 !important; color: #E2E8F0 !important; }
 /* Scrollbars */
 ::-webkit-scrollbar { background: #161B2E; width: 6px; }
 ::-webkit-scrollbar-thumb { background: #2D3748; border-radius: 4px; }
+
+/* ── Markdown tables ─────────────────────────────────────────────────────── */
+[data-testid="stMarkdownContainer"] table { background: #1A1D2E !important; width: 100% !important; }
+[data-testid="stMarkdownContainer"] th {
+    background: #161B2E !important; color: #64748B !important;
+    border: 1px solid #2D3748 !important; padding: 8px 12px !important;
+}
+[data-testid="stMarkdownContainer"] td {
+    background: #1A1D2E !important; color: #CBD5E0 !important;
+    border: 1px solid #2D3748 !important; padding: 8px 12px !important;
+}
+[data-testid="stMarkdownContainer"] tr:hover td { background: #1E2640 !important; }
+[data-testid="stMarkdownContainer"] blockquote {
+    border-left: 4px solid #2D3748 !important;
+    background: rgba(45,55,72,0.25) !important; color: #94A3B8 !important;
+    padding: 6px 12px !important; border-radius: 0 4px 4px 0 !important;
+}
+
+/* ── Code blocks (markdown fences + st.code) ─────────────────────────────── */
+[data-testid="stMarkdownContainer"] pre {
+    background: #161B2E !important; border: 1px solid #2D3748 !important;
+    border-radius: 6px !important;
+}
+[data-testid="stMarkdownContainer"] pre code {
+    background: transparent !important; color: #E2E8F0 !important;
+}
+[data-testid="stCode"] > div,
+[data-testid="stCode"] pre { background: #161B2E !important; border: 1px solid #2D3748 !important; }
+[data-testid="stCode"] code { color: #E2E8F0 !important; background: transparent !important; }
+
+/* ── st.json() ───────────────────────────────────────────────────────────── */
+[data-testid="stJson"] { background: #161B2E !important; border: 1px solid #2D3748 !important; border-radius: 6px !important; }
+[data-testid="stJson"] span { color: #E2E8F0 !important; }
+
+/* ── st.info / st.warning banners ────────────────────────────────────────── */
+[data-testid="stNotification"] { background: #1A1D2E !important; border-color: #2D3748 !important; color: #CBD5E0 !important; }
+[data-testid="stNotification"] a { color: #02B793 !important; }
 </style>
 """
 
@@ -2397,6 +2434,19 @@ elif page == "Weekly Brief":
     st.markdown('<h1 style="margin-bottom:0.4rem">Weekly Brief</h1>', unsafe_allow_html=True)
     st.caption("Meeting prep panel for Alberto Reuters and Stefan Lautenschlager.")
 
+    # ── Dark-mode aware inline table styles ───────────────────────────────────
+    if _dark_mode:
+        _WB_TH  = ("padding:7px 12px;text-align:left;font-weight:500;font-size:12px;"
+                   "color:#64748B;border-bottom:1px solid #2D3748;white-space:nowrap")
+        _WB_TD  = ("padding:7px 12px;font-size:13px;color:#CBD5E0;"
+                   "border-bottom:1px solid rgba(45,55,72,0.5);vertical-align:top")
+        _WB_ID  = _WB_TD + ";white-space:nowrap;font-family:monospace;font-size:12px;color:#02B793"
+    else:
+        _WB_TH  = ("padding:7px 12px;text-align:left;font-weight:500;font-size:12px;"
+                   "color:rgba(76,77,88,0.55);border-bottom:1px solid rgba(76,77,88,0.18);white-space:nowrap")
+        _WB_TD  = "padding:7px 12px;font-size:13px;border-bottom:1px solid rgba(76,77,88,0.07);vertical-align:top"
+        _WB_ID  = _WB_TD + ";white-space:nowrap;font-family:monospace;font-size:12px;color:#02B793"
+
     # ── Controls ──────────────────────────────────────────────────────────────
     _ctrl1, _ctrl2 = st.columns([1, 3])
     with _ctrl1:
@@ -2472,27 +2522,24 @@ elif page == "Weekly Brief":
             st.info("No developments recorded in this period.")
             _export.append("_No developments recorded._")
         else:
-            _TH = "padding:7px 12px;text-align:left;font-weight:500;font-size:12px;color:rgba(76,77,88,0.55);border-bottom:1px solid rgba(76,77,88,0.18);white-space:nowrap"
-            _TD = "padding:7px 12px;font-size:13px;border-bottom:1px solid rgba(76,77,88,0.07);vertical-align:top"
-            _TD_ID = _TD + ";white-space:nowrap;font-family:monospace;font-size:12px;color:#02B793"
             _rows = ""
             for e in _devs:
                 _tipo = "Created" if e["action"] == "CRIADA" else "Status"
                 _mudanca = e["detail"].replace("status:", "").replace("->", "→").strip() if e["detail"] else "—"
                 _rows += (
-                    f'<tr><td style="{_TD_ID}">{e["idea_id"]}</td>'
-                    f'<td style="{_TD}">{e["title"]}</td>'
-                    f'<td style="{_TD}">{_tipo}</td>'
-                    f'<td style="{_TD}">{_mudanca}</td></tr>'
+                    f'<tr><td style="{_WB_ID}">{e["idea_id"]}</td>'
+                    f'<td style="{_WB_TD}">{e["title"]}</td>'
+                    f'<td style="{_WB_TD}">{_tipo}</td>'
+                    f'<td style="{_WB_TD}">{_mudanca}</td></tr>'
                 )
                 _export.append(f"| {e['idea_id']} | {e['title']} | {_tipo} | {_mudanca} |")
             st.markdown(
                 f'<table style="width:100%;border-collapse:collapse">'
                 f'<thead><tr>'
-                f'<th style="{_TH}">ID</th>'
-                f'<th style="{_TH}">Title</th>'
-                f'<th style="{_TH}">Tipo</th>'
-                f'<th style="{_TH}">Change</th>'
+                f'<th style="{_WB_TH}">ID</th>'
+                f'<th style="{_WB_TH}">Title</th>'
+                f'<th style="{_WB_TH}">Tipo</th>'
+                f'<th style="{_WB_TH}">Change</th>'
                 f'</tr></thead><tbody>{_rows}</tbody></table>',
                 unsafe_allow_html=True,
             )
@@ -2511,25 +2558,22 @@ elif page == "Weekly Brief":
             st.info("No items currently in progress.")
             _export.append("_No items in progress._")
         else:
-            _TH2 = "padding:7px 12px;text-align:left;font-weight:500;font-size:12px;color:rgba(76,77,88,0.55);border-bottom:1px solid rgba(76,77,88,0.18);white-space:nowrap"
-            _TD2 = "padding:7px 12px;font-size:13px;border-bottom:1px solid rgba(76,77,88,0.07);vertical-align:top"
-            _TD2_ID = _TD2 + ";white-space:nowrap;font-family:monospace;font-size:12px;color:#02B793"
             if _active:
                 st.caption("Ideas in development")
                 _rows2 = ""
                 for i in _active:
                     _rows2 += (
-                        f'<tr><td style="{_TD2_ID}">{i.id}</td>'
-                        f'<td style="{_TD2}">{i.title.replace("**","").strip()}</td>'
-                        f'<td style="{_TD2}">{STATUS_LABEL.get(i.status, i.status)}</td></tr>'
+                        f'<tr><td style="{_WB_ID}">{i.id}</td>'
+                        f'<td style="{_WB_TD}">{i.title.replace("**","").strip()}</td>'
+                        f'<td style="{_WB_TD}">{STATUS_LABEL.get(i.status, i.status)}</td></tr>'
                     )
                     _export.append(f"| {i.id} | {i.title} | {STATUS_LABEL.get(i.status, i.status)} |")
                 st.markdown(
                     f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
                     f'<thead><tr>'
-                    f'<th style="{_TH2}">ID</th>'
-                    f'<th style="{_TH2}">Title</th>'
-                    f'<th style="{_TH2}">Status</th>'
+                    f'<th style="{_WB_TH}">ID</th>'
+                    f'<th style="{_WB_TH}">Title</th>'
+                    f'<th style="{_WB_TH}">Status</th>'
                     f'</tr></thead><tbody>{_rows2}</tbody></table>',
                     unsafe_allow_html=True,
                 )
@@ -2539,17 +2583,17 @@ elif page == "Weekly Brief":
                 for i, t in _wip_todos:
                     _due_str = t["due_date"] if t.get("due_date") else "—"
                     _rows3 += (
-                        f'<tr><td style="{_TD2}">{t["text"]}</td>'
-                        f'<td style="{_TD2_ID}">{i.id}</td>'
-                        f'<td style="{_TD2}">{_due_str}</td></tr>'
+                        f'<tr><td style="{_WB_TD}">{t["text"]}</td>'
+                        f'<td style="{_WB_ID}">{i.id}</td>'
+                        f'<td style="{_WB_TD}">{_due_str}</td></tr>'
                     )
                     _export.append(f"| {t['text']} | {i.id} | {_due_str} |")
                 st.markdown(
                     f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
                     f'<thead><tr>'
-                    f'<th style="{_TH2}">To-do</th>'
-                    f'<th style="{_TH2}">Ideia</th>'
-                    f'<th style="{_TH2}">Due date</th>'
+                    f'<th style="{_WB_TH}">To-do</th>'
+                    f'<th style="{_WB_TH}">Ideia</th>'
+                    f'<th style="{_WB_TH}">Due date</th>'
                     f'</tr></thead><tbody>{_rows3}</tbody></table>',
                     unsafe_allow_html=True,
                 )
@@ -2558,20 +2602,19 @@ elif page == "Weekly Brief":
                 _rows4 = ""
                 for i in _upcoming:
                     _dl = (i.due_date - _today).days
-                    _urgency = "vermelho" if _dl <= 2 else "amarelo"
                     _color = "#EF4444" if _dl <= 2 else "#F59E0B"
                     _rows4 += (
-                        f'<tr><td style="{_TD2_ID}">{i.id}</td>'
-                        f'<td style="{_TD2}">{i.title.replace("**","").strip()}</td>'
-                        f'<td style="{_TD2};color:{_color};font-weight:500">{i.due_date.strftime("%d/%m")} ({_dl}d)</td></tr>'
+                        f'<tr><td style="{_WB_ID}">{i.id}</td>'
+                        f'<td style="{_WB_TD}">{i.title.replace("**","").strip()}</td>'
+                        f'<td style="{_WB_TD};color:{_color};font-weight:500">{i.due_date.strftime("%d/%m")} ({_dl}d)</td></tr>'
                     )
                     _export.append(f"| {i.id} | {i.title} | vence {i.due_date.strftime('%d/%m')} |")
                 st.markdown(
                     f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
                     f'<thead><tr>'
-                    f'<th style="{_TH2}">ID</th>'
-                    f'<th style="{_TH2}">Title</th>'
-                    f'<th style="{_TH2}">Due</th>'
+                    f'<th style="{_WB_TH}">ID</th>'
+                    f'<th style="{_WB_TH}">Title</th>'
+                    f'<th style="{_WB_TH}">Due</th>'
                     f'</tr></thead><tbody>{_rows4}</tbody></table>',
                     unsafe_allow_html=True,
                 )
