@@ -2061,7 +2061,7 @@ elif page == "Dashboard":
                         f"Cache: {_cache_pct_diag}% | "
                         f"Projects: {', '.join(list(_cc_projects.keys())[:3])}"
                     )
-                    if st.button("Run Ollama analysis", key="cc_ollama_btn"):
+                    if st.button("Run Ollama analysis", key="cc_ollama_btn", type="primary"):
                         _prompt = (
                             "You are an AI productivity consultant. "
                             "Analyze the Claude Code usage pattern below and provide actionable insights.\n\n"
