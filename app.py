@@ -159,6 +159,11 @@ html, body { background-color: #0E1117 !important; color: #E2E8F0 !important; }
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"] { background-color: #0E1117 !important; }
 
+/* Column/block containers — fixes transparent buttons showing white Streamlit bg */
+[data-testid="column"],
+[data-testid="stHorizontalBlock"],
+[data-testid="stVerticalBlock"] { background-color: #0E1117; }
+
 /* Containers with border */
 [data-testid="stVerticalBlockBorderWrapper"] > div {
     background: #1A1D2E !important;
@@ -194,14 +199,7 @@ h2, h3, h4 { color: #E2E8F0 !important; }
     color: #E2E8F0 !important;
 }
 
-/* Secondary buttons */
-.stButton > button[kind="secondary"] {
-    background: #1A1D2E !important;
-    border-color: #2D3748 !important;
-    color: #CBD5E0 !important;
-}
-
-/* Idea row borderless buttons */
+/* Idea row borderless buttons — keep transparent (now shows dark container bg) */
 [data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]) {
     background: transparent !important;
     border: none !important;
@@ -235,6 +233,20 @@ hr { border-color: #2D3748 !important; }
 
 /* Inline code badges */
 code { background: #2D3748 !important; color: #E2E8F0 !important; }
+
+/* ── Calendar dark overrides ─────────────────────────────────────────────── */
+.cal-th  { border-bottom-color: #2D3748 !important; color: #64748B !important; }
+.cal-td  { border-color: #1F2937 !important; background: #0E1117 !important; }
+.cal-td-out   { background: #080A10 !important; }
+.cal-td-today { background: rgba(2,183,147,0.06) !important; }
+.cal-dnum     { color: #475569 !important; }
+.cal-dnum-cur { color: #02B793 !important; }
+.cal-future   { background: rgba(100,116,139,0.1) !important;
+                border-color: #475569 !important; color: #94A3B8 !important; }
+.cal-overdue  { background: rgba(239,68,68,0.12) !important; }
+.cal-today    { background: rgba(245,158,11,0.12) !important; }
+.cal-soon     { background: rgba(2,183,147,0.1) !important; }
+.cal-more     { color: #64748B !important; }
 
 /* Scrollbars */
 ::-webkit-scrollbar { background: #161B2E; width: 6px; }
@@ -1744,10 +1756,10 @@ elif page == "Dashboard":
         _hm_start = _hm_start - _td(days=_hm_start.weekday())  # align to Monday
 
         def _hm_clr(n):
-            if n == 0:  return "#E9ECEF"
-            if n <= 2:  return "#A7F3D0"
-            if n <= 6:  return "#34D399"
-            if n <= 14: return "#059669"
+            if n == 0:  return "#1A2030" if _dark_mode else "#E9ECEF"
+            if n <= 2:  return "#064E3B" if _dark_mode else "#A7F3D0"
+            if n <= 6:  return "#065F46" if _dark_mode else "#34D399"
+            if n <= 14: return "#047857" if _dark_mode else "#059669"
             return "#02B793"
 
         _hm_weeks = []
