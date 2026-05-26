@@ -25,6 +25,9 @@ st.set_page_config(
     layout="wide",
 )
 
+# ── Dark mode (read early — used by CSS injection and nav) ─────────────────────
+_dark_mode = st.query_params.get("dark", "0") == "1"
+
 # ── Brand identity ─────────────────────────────────────────────────────────────
 _LOGO_GREEN = """<svg width="140" height="44" viewBox="0 0 123 30" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet">
   <path d="M0 14.6087V29.2173H2.61944H5.23889V28.1021V26.987H3.64444H2.05V14.6087V2.23038H3.64444H5.23889V1.11521V5.34058e-05H2.61944H0V14.6087Z" fill="#02B793"/>
@@ -148,7 +151,100 @@ button { white-space: nowrap !important; }
 </style>
 """
 
+_DARK_CSS = """
+<style>
+/* ── Dark mode ─────────────────────────────────────────────────────────────── */
+html, body { background-color: #0E1117 !important; color: #E2E8F0 !important; }
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"] { background-color: #0E1117 !important; }
+
+/* Containers with border */
+[data-testid="stVerticalBlockBorderWrapper"] > div {
+    background: #1A1D2E !important;
+    border-color: #2D3748 !important;
+}
+
+/* Custom stat cards */
+.cc-sc { background: #1A1D2E !important; border-color: #2D3748 !important; }
+.cc-sl { color: #94A3B8 !important; }
+.cc-sv { color: #E2E8F0 !important; }
+
+/* Text */
+.stMarkdown p, .stMarkdown span, .stMarkdown li { color: #E2E8F0 !important; }
+[data-testid="stCaption"] p { color: #94A3B8 !important; }
+h2, h3, h4 { color: #E2E8F0 !important; }
+
+/* Inputs */
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea {
+    background: #1A1D2E !important;
+    border-color: #2D3748 !important;
+    color: #E2E8F0 !important;
+}
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stMultiSelect"] > div > div {
+    background: #1A1D2E !important;
+    border-color: #2D3748 !important;
+    color: #E2E8F0 !important;
+}
+[data-testid="stDateInput"] input {
+    background: #1A1D2E !important;
+    border-color: #2D3748 !important;
+    color: #E2E8F0 !important;
+}
+
+/* Secondary buttons */
+.stButton > button[kind="secondary"] {
+    background: #1A1D2E !important;
+    border-color: #2D3748 !important;
+    color: #CBD5E0 !important;
+}
+
+/* Idea row borderless buttons */
+[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]) {
+    background: transparent !important;
+    border: none !important;
+    color: #CBD5E0 !important;
+}
+[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]):hover {
+    background: rgba(2,183,147,0.1) !important;
+    color: #0AD4A8 !important;
+}
+
+/* Sidebar footer icon buttons */
+.sidebar-footer .stButton > button {
+    color: rgba(200,210,220,0.45) !important;
+    border-color: rgba(200,210,220,0.12) !important;
+}
+
+/* Dividers */
+hr { border-color: #2D3748 !important; }
+
+/* Expanders */
+[data-testid="stExpander"] { background: #1A1D2E !important; border-color: #2D3748 !important; }
+[data-testid="stExpander"] summary { color: #E2E8F0 !important; }
+[data-testid="stExpanderDetails"] { background: #1A1D2E !important; }
+
+/* Alerts / Notifications */
+[data-testid="stNotification"] { background: #1A1D2E !important; border-color: #2D3748 !important; }
+
+/* Labels on checkboxes/radios */
+[data-testid="stCheckbox"] label p,
+[data-testid="stRadio"] label p { color: #E2E8F0 !important; }
+
+/* Inline code badges */
+code { background: #2D3748 !important; color: #E2E8F0 !important; }
+
+/* Scrollbars */
+::-webkit-scrollbar { background: #161B2E; width: 6px; }
+::-webkit-scrollbar-thumb { background: #2D3748; border-radius: 4px; }
+</style>
+"""
+
 st.markdown(_BRAND_CSS, unsafe_allow_html=True)
+if _dark_mode:
+    st.markdown(_DARK_CSS, unsafe_allow_html=True)
 # Favicon: base64-encoded SVG (raw angle brackets in data URIs break the HTML parser)
 _FAVICON_B64 = "PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAzMiAzMic+PHJlY3Qgd2lkdGg9JzMyJyBoZWlnaHQ9JzMyJyByeD0nNicgZmlsbD0nIzAyQjc5MycvPjx0ZXh0IHg9JzE2JyB5PScyMicgdGV4dC1hbmNob3I9J21pZGRsZScgZm9udC1mYW1pbHk9J0ludGVyLHNhbnMtc2VyaWYnIGZvbnQtc2l6ZT0nMTQnIGZvbnQtd2VpZ2h0PSc3MDAnIGZpbGw9J3doaXRlJz50YzwvdGV4dD48L3N2Zz4="
 st.markdown(
@@ -167,20 +263,46 @@ page = _qpage
 
 _LOGO_NAV = _LOGO_GREEN.replace('width="140" height="44"', 'width="88" height="27"')
 
+_nav_text_color    = "#94A3B8" if _dark_mode else "#4C4D58"
+_nav_active_color  = "#0AD4A8" if _dark_mode else "#007167"
+_nav_active_bg     = "rgba(2,183,147,0.18)" if _dark_mode else "rgba(2,183,147,0.14)"
+_nav_bg            = "#161B2E" if _dark_mode else "#FFFFFF"
+_nav_border        = "rgba(255,255,255,0.07)" if _dark_mode else "rgba(0,0,0,0.09)"
+
 def _navlink(label: str, key: str) -> str:
     _a = key == page
     _s = (
-        "background:rgba(2,183,147,0.14);color:#007167;font-weight:600;"
+        f"background:{_nav_active_bg};color:{_nav_active_color};font-weight:600;"
         if _a else
-        "color:#4C4D58;"
+        f"color:{_nav_text_color};"
     )
+    _dk = f'<input type="hidden" name="dark" value="{"1" if _dark_mode else "0"}">'
     return (
         f'<form method="get" action="" style="display:inline-block;margin:0;padding:0">'
         f'<input type="hidden" name="page" value="{key}">'
+        f'{_dk}'
         f'<button type="submit" style="'
         f'display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;'
         f'font-size:0.79rem;font-family:Inter,sans-serif;white-space:nowrap;'
         f'cursor:pointer;border:none;{_s}">{label}</button></form>'
+    )
+
+def _dark_toggle() -> str:
+    _icon = "☀️" if _dark_mode else "🌙"
+    _next = "0" if _dark_mode else "1"
+    _ts = (
+        f"background:{_nav_active_bg};color:{_nav_active_color};"
+        if _dark_mode else
+        f"color:{_nav_text_color};"
+    )
+    return (
+        f'<form method="get" action="" style="display:inline-block;margin:0;padding:0">'
+        f'<input type="hidden" name="page" value="{page}">'
+        f'<input type="hidden" name="dark" value="{_next}">'
+        f'<button type="submit" style="'
+        f'display:inline-flex;align-items:center;padding:3px 10px;border-radius:6px;'
+        f'font-size:0.79rem;font-family:Inter,sans-serif;white-space:nowrap;'
+        f'cursor:pointer;border:none;{_ts}">{_icon}</button></form>'
     )
 
 _nav_items  = "".join(_navlink(p, p) for p in _PAGES_MAIN)
@@ -189,12 +311,13 @@ _nav_extras = (
     _navlink("📖", "Tutorial") +
     _navlink("📚", "Documentation") +
     _navlink("⚙️", "Settings") +
+    _dark_toggle() +
     _navlink("🔄", page)
 )
 
 st.markdown(
-    f'<nav style="display:flex;align-items:center;padding:5px 16px;background:#FFFFFF;'
-    f'border-bottom:1px solid rgba(0,0,0,0.09);gap:2px;margin-bottom:0.9rem">'
+    f'<nav style="display:flex;align-items:center;padding:5px 16px;background:{_nav_bg};'
+    f'border-bottom:1px solid {_nav_border};gap:2px;margin-bottom:0.9rem">'
     f'<div style="line-height:0;margin-right:14px;flex-shrink:0">{_LOGO_NAV}</div>'
     f'{_nav_items}'
     f'<div style="flex:1"></div>'
