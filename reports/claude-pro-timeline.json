@@ -1,5 +1,23 @@
 [
   {
+    "date": "2026-05-26",
+    "display_date": "26 May 2026",
+    "title": "Corrigir paths Backlog-to-do-app residuais â€” agent-reports, Log, FAQ agora sob VAULT_ROOT direto",
+    "detail": ""
+  },
+  {
+    "date": "2026-05-25",
+    "display_date": "25 May 2026",
+    "title": "Preciso que você leia o arquivo jsonl de sessão do Claude Code e extraia toda in",
+    "detail": "Preciso planejar uma migração do renderer de diagramas em um app local Vite 4 +; O arquivo `C:\\Users\\Kelvin.okuda\\Scripts\\call-recorder\\coach.py` usa `import ant; Quero atualizar o arquivo _CLAUDE.md "
+  },
+  {
+    "date": "2026-05-22",
+    "display_date": "22 May 2026",
+    "title": "\\SPM-Bot\n\nNew session. Read /mnt/skills/user/spm-bot/SKILL.md before proceeding.",
+    "detail": "Project: Personal Toolkit · Techco.lab\nLocation: C:\\Users\\Kelvin.okuda\\techcolab"
+  },
+  {
     "date": "2026-05-21",
     "display_date": "21 May 2026",
     "title": "Report auto-update + real activity dashboard",
