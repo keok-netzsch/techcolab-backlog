@@ -1,0 +1,159 @@
+{
+  "last_updated": "2026-05-26",
+  "_comment": "Edit this file to update the Claude Pro page. The daily agent auto-updates fields marked with auto_update=true.",
+  "active": [
+    {
+      "id": "claude-pro-report",
+      "number": "07",
+      "title": "Claude Pro Report — Daily Auto-Update",
+      "category": "Automation · Report",
+      "boss": "This very report — generated and updated by Claude automatically every morning. Goal: make Claude Pro usage and value visible to stakeholders.",
+      "advance": "Integrated into TechColab Backlog App, updated at 8am by the daily agent, with Techco.lab identity.",
+      "body": "Live report integrated into TechColab Backlog App.",
+      "bullets": [
+        "Served locally — no dependency on an external URL",
+        "Daily agent updates statistics at 8am",
+        "Versioned in the techcolab-backlog repository"
+      ]
+    },
+    {
+      "id": "call-recorder",
+      "number": "08",
+      "title": "Call Recorder — Transcription & Obsidian Vault Integration",
+      "category": "Automation · 1:1s",
+      "boss": "Automatic recording and transcription system for meetings and 1:1s, generating structured notes. Goal: eliminate manual effort of recording meetings.",
+      "advance": "Fully integrated: notes auto-saved to vault at Team/{Person}/1on1/. English Coach mode with AI-rated pronunciation and grammar assessment added.",
+      "body": "Recording/transcription pipeline integrated with the Obsidian vault and English Coach.",
+      "bullets": [
+        "Stack: Python 3.13 + faster-whisper (CPU, int8)",
+        "Full vault integration: notes saved to Team/{Person}/1on1/ automatically",
+        "English Coach: AI-rated pronunciation and grammar assessment (Win+Space)"
+      ]
+    },
+    {
+      "id": "toolkit",
+      "number": "09",
+      "title": "Personal Toolkit · Techco.lab — Backlog Management App",
+      "category": "Product · Automation",
+      "boss": "Local productivity app built with Streamlit, integrated with Obsidian vault and daily agent. Centralises idea backlog, to-do management, weekly team brief, bug tracking and Claude Pro report.",
+      "advance": "App in production with 33+ backlog items. Dark mode, kanban, filters, bug tracking, Claude agent integration, and Claude Pro report all integrated locally.",
+      "auto_update": true,
+      "body": "Personal productivity toolkit running 100% offline.",
+      "bullets": [
+        "Streamlit + Obsidian vault + daily agent at 8am",
+        "Backlog with kanban, dark mode, filters, bug tracking and per-idea to-dos",
+        "Weekly team brief with OKR and 1:1 tables",
+        "Claude Pro report served locally — no external dependency"
+      ]
+    },
+    {
+      "id": "toilet-paper",
+      "number": "10",
+      "title": "Toilet Paper — Local Napkin AI Clone",
+      "category": "Product · AI",
+      "boss": "Local app that converts free text into diagrams (Flowchart, Sequence, Mindmap, ER) via Ollama LLM. No cloud dependency, no API keys. Goal: visualise ideas and processes instantly.",
+      "advance": "Core features shipped and stable. Custom SVG renderer for flowcharts (dagre). 91 tests passing. Techco.lab design system applied.",
+      "body": "Vite+React+Mermaid+Ollama local app for text-to-diagram generation.",
+      "bullets": [
+        "Vite 4 + React 18 + Tailwind + Mermaid.js 10 + @dagrejs/dagre",
+        "Custom SVG renderer for flowcharts — reliable with llama3.2:3b",
+        "Two-strategy JSON parser — handles all known llama3.2 output formats",
+        "91 tests passing · Techco.lab design system applied"
+      ]
+    }
+  ],
+  "completed": [
+    {
+      "id": "setup",
+      "number": "01",
+      "title": "Claude Pro Setup & Onboarding",
+      "category": "Setup",
+      "boss": "Initial Claude Pro environment setup for corporate use. Prerequisite for all other initiatives.",
+      "advance": "Environment ready and operational from day one.",
+      "body": "Installation, requirements assessment and Microsoft 365 integration mapping.",
+      "bullets": [
+        "Installation ticket (Claude Desktop App via MSIX)",
+        "Features mapped: Computer Use, Projects, MCP",
+        "Integration assessment with Power Automate and Teams"
+      ]
+    },
+    {
+      "id": "obsidian-vault",
+      "number": "02",
+      "title": "Obsidian Vault — Second Brain for D&A Management",
+      "category": "Management · AI",
+      "boss": "Digital knowledge base integrated with Claude. Replaces scattered notes with a centralised system automatically accessible by Claude.",
+      "advance": "All 5 direct reports have OKRs, plans and 1:1 history recorded and accessible to Claude.",
+      "body": "Obsidian Vault integrated with Claude Code as a persistent knowledge base.",
+      "bullets": [
+        "PARA structure: Inbox, Projects, Areas, Resources, Archive, AI, Templates, Team",
+        "Individual profiles for 5 direct reports with OKR, 1:1, PDI and Overview",
+        "obsidian-second-brain skill with 25 slash commands installed"
+      ]
+    },
+    {
+      "id": "okr-assessment",
+      "number": "03",
+      "title": "D&A Team OKR Assessment & Consolidation",
+      "category": "Governance · OKR",
+      "boss": "Using Claude to review OKRs, find inconsistencies and generate ready-to-report texts — without manual rework.",
+      "advance": "Standardised documentation for all 4 active direct reports, ready for meetings.",
+      "body": "Analysis, correction and consolidation of the OKR matrix for 4 active members.",
+      "bullets": [
+        "Critical KR status review with inconsistency identification",
+        "Clean report texts generated for stakeholder reporting",
+        "Structured records in vault (OKR.md per direct report)"
+      ]
+    },
+    {
+      "id": "deck-skill",
+      "number": "04",
+      "title": "Techco.lab Deck Skill — Branded Presentations",
+      "category": "Productivity · Deck",
+      "boss": "Tool that allows Claude to create presentations in the Techco.lab/NETZSCH standard automatically — no manual formatting.",
+      "advance": "Claude generates slides and .pptx with the correct visual identity from natural language.",
+      "body": "Proprietary deck generation skill for the Techco.lab/NETZSCH standard.",
+      "bullets": [
+        "Output: web deck (Vite + React + Tailwind) or .pptx",
+        "Classification levels: Internal Use Only, Confidential, Strictly Confidential"
+      ]
+    },
+    {
+      "id": "knowledge-base",
+      "number": "05",
+      "title": "Knowledge Base — NETZSCH Corporate Structure",
+      "category": "Knowledge Base",
+      "boss": "Complete NETZSCH group mapping available as permanent context — Claude knows who is who without being reminded each session.",
+      "advance": "50+ entities from all BUs documented and accessible.",
+      "body": "Extraction and organisation of corporate structure in Obsidian vault.",
+      "bullets": [
+        "All BUs: A&T, G&D, P&S, Holding",
+        "50+ entities with code, full name and BU",
+        "Resources/NETZSCH/General.md with change log"
+      ]
+    },
+    {
+      "id": "opl-power-platform",
+      "number": "06",
+      "title": "One-Point Lesson — Power Platform Deployment",
+      "category": "OPL · Power Platform",
+      "boss": "Documentation of the process for publishing Power Platform solutions from test to production — previously relied on one person's tacit knowledge.",
+      "advance": "9-step guide ready. Any team member can execute without asking for help.",
+      "body": "Structured documentation for Power Platform deployment (Test → Prod).",
+      "bullets": [
+        "9 steps with video reference timestamps",
+        "Key notes: unmanaged solution, Upgrade option, connections for service users"
+      ]
+    }
+  ],
+  "tools": [
+    ["Claude Desktop App",              "claude.ai + Computer Use",         "Main interface. Windows-MCP, document generation, vault management.",                                       "Active"],
+    ["Claude Code",                      "CLI agentic coding",               "Obsidian vault operations, automations, slash commands (/obsidian-*).",                                    "Active"],
+    ["Obsidian + obsidian-second-brain", "Local vault + open-source skill",  "Persistent knowledge base: OKRs, 1:1s, PDIs, session logs.",                                              "Active"],
+    ["Techco.lab Deck Skill",            "Proprietary NETZSCH skill",        "Web and .pptx presentation generation with Techco.lab visual identity.",                                  "Configured"],
+    ["TechColab Backlog App",            "Streamlit + Obsidian + Ollama",    "Backlog management with daily agent, dark mode, dashboard and Claude Pro report integrated.",            "Active"],
+    ["Call Recorder",                    "Python + faster-whisper + Claude", "Win+Space recorder: 1:1s and English Coach sessions auto-saved to vault.",                               "Active"],
+    ["Toilet Paper (Napkin Clone)",      "Vite + React + Mermaid + Ollama",  "Local text-to-diagram app: free text → Flowchart / Sequence / Mindmap / ER. No cloud dependency.",      "Active"],
+    ["Windows-MCP",                      "System control via Claude",        "Read/write local files, PowerShell execution via Claude Desktop.",                                        "Active"]
+  ]
+}

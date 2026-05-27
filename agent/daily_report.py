@@ -457,6 +457,63 @@ def _notify(title: str, message: str):
                      creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
 
 
+# ── Claude Pro data auto-updater ─────────────────────────────────────────────
+
+def _update_claude_pro_data(ideas: list) -> None:
+    """
+    Patch auto_update=true fields in claude-pro-data.json with live backlog stats.
+    Currently updates the 'toolkit' initiative advance text with the real item count.
+    Commits and pushes the file if anything changed.
+    """
+    data_path = ROOT / "reports" / "claude-pro-data.json"
+    if not data_path.exists():
+        print("[agent] claude-pro-data.json not found — skipping data auto-update")
+        return
+
+    try:
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+
+        _closed = {"concluído", "descartado", "análise - rejeitado"}
+        total_ideas  = len(ideas)
+        active_ideas = sum(1 for i in ideas if i.status not in _closed)
+        open_bugs    = sum(1 for i in ideas for t in i.todos if t.get("is_bug") and not t.get("done"))
+
+        changed = False
+        for init in data.get("active", []):
+            if init.get("auto_update") and init.get("id") == "toolkit":
+                bug_note = f" · {open_bugs} open bugs" if open_bugs else ""
+                new_advance = (
+                    f"App in production with {total_ideas} backlog items "
+                    f"({active_ideas} active{bug_note}). "
+                    "Dark mode, kanban, filters, bug tracking, Claude agent and Claude Pro report integrated."
+                )
+                if init.get("advance") != new_advance:
+                    init["advance"] = new_advance
+                    changed = True
+
+        if changed:
+            data["last_updated"] = TODAY.isoformat()
+            data_path.write_text(
+                json.dumps(data, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            print(f"[agent] claude-pro-data.json updated (backlog: {total_ideas} items, {active_ideas} active)")
+            subprocess.run(["git", "add", str(data_path)], cwd=str(ROOT), check=True)
+            diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(ROOT))
+            if diff.returncode != 0:
+                subprocess.run(
+                    ["git", "commit", "-m", f"chore: auto-update claude-pro-data to {TODAY}"],
+                    cwd=str(ROOT), check=True,
+                )
+                subprocess.run(["git", "push"], cwd=str(ROOT), check=True)
+                print(f"[agent] claude-pro-data.json pushed")
+        else:
+            print("[agent] claude-pro-data.json: nothing changed")
+
+    except Exception as exc:
+        print(f"[agent] claude-pro-data update failed: {exc}")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -488,6 +545,10 @@ def main():
     # Update Claude Pro Report timeline (commits for today + session backfill for last 7 days)
     print("[agent] Updating Claude Pro Report timeline...")
     _update_claude_pro_report()
+
+    # Auto-patch claude-pro-data.json (backlog count, open bugs)
+    print("[agent] Updating Claude Pro data (backlog stats)...")
+    _update_claude_pro_data(ideas)
 
     # Notify
     all_good = tests["ok"] and not data["overdue"]
