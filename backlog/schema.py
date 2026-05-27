@@ -11,16 +11,12 @@ VALID_IMPACTS = ["alta", "média", "baixa"]
 VALID_EFFORTS = ["alto", "médio", "baixo"]
 VALID_AREAS = [
     "produto",
-    "dados",
+    "dados & IA",
     "automação",
-    "desenvolvimento",
     "gestão",
-    "comunicação",
     "governança",
-    "planejamento",
-    "negócio",
     "infraestrutura",
-    "IA",
+    "comunicação",
 ]
 
 VALID_STATUSES = [
