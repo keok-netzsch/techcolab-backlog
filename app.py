@@ -13,7 +13,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import BACKLOG_DIR, BACKLOG_ARCHIVE_DIR, VAULT_ROOT, EXTRACTION_MODEL, OLLAMA_BASE_URL, CLAUDE_PRO_START_DATE
+from config import BACKLOG_DIR, BACKLOG_ARCHIVE_DIR, VAULT_ROOT, TEAM_DIR, EXTRACTION_MODEL, OLLAMA_BASE_URL, CLAUDE_PRO_START_DATE
 from backlog.store import BacklogStore
 from backlog.schema import VALID_STATUSES, VALID_PRIORITIES, VALID_IMPACTS, VALID_EFFORTS, VALID_AREAS
 from backlog.daily_log import log_entry
@@ -361,7 +361,7 @@ st.markdown(
 )
 
 # ── Top navigation (pure HTML — full height control) ───────────────────────
-_PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Claude Pro", "Weekly Brief", "English Coach"]
+_PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Team", "Claude Pro", "Weekly Brief", "English Coach"]
 _ALL_PAGES  = _PAGES_MAIN + ["FAQ", "Tutorial", "Documentation", "Settings"]
 
 _qpage = st.query_params.get("page", "Dashboard")
@@ -2563,7 +2563,7 @@ elif page == "Weekly Brief":
     from datetime import timedelta
     import re as _wre
 
-    _TEAM_DIR  = VAULT_ROOT / "Team"
+    _TEAM_DIR  = TEAM_DIR
     _LOG_DIR   = VAULT_ROOT / "Log"
     _TEAM = [
         {"name": "Ana Leite",      "folder": "Ana-Leite"},
@@ -3302,6 +3302,269 @@ Anotações livres.
         st.markdown(f"**{k}:** `{v}`")
 
     st.caption("To change settings, edit the `config.py` file in the project root.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE — TEAM
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Team":
+    from datetime import timedelta
+    import re as _tmre
+
+    _TM_CADENCE_DAYS = 28   # structured 1:1 every 4 weeks
+    _TM_MEMBERS = [
+        {"name": "Ana Leite",     "folder": "Ana-Leite"},
+        {"name": "Daniel Lima",   "folder": "Daniel-Lima"},
+        {"name": "Lucas Shizuno", "folder": "Lucas-Shizuno"},
+        {"name": "Pedro Hennig",  "folder": "Pedro-Hennig"},
+        {"name": "Pedro Klein",   "folder": "Pedro-Klein"},
+    ]
+
+    st.markdown('<h1 style="margin-bottom:0.4rem">Team</h1>', unsafe_allow_html=True)
+    st.caption("Direct reports — 1:1 tracker, OKR / PDI status, and agenda prep.")
+
+    st.markdown(
+        '<style>'
+        '.cc-sg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:.5rem 0}'
+        '.cc-sc{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px}'
+        '.cc-sl{font-size:.7rem;color:#6B7280;font-weight:500;margin-bottom:2px;white-space:nowrap}'
+        '.cc-sv{font-size:1.2rem;font-weight:700;color:#111827;line-height:1.2}'
+        '</style>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def _tm_parse_1on1(path):
+        """Return list of session dicts parsed from 1on1.md (order matches file — newest first)."""
+        if not path.exists():
+            return []
+        text = path.read_text(encoding="utf-8", errors="replace")
+        parts = _tmre.split(r"^## (\d{4}-\d{2}-\d{2})\b", text, flags=_tmre.MULTILINE)
+        sessions = []
+        for i in range(1, len(parts) - 1, 2):
+            s_date, content = parts[i], parts[i + 1]
+            topics, actions, in_t, in_a = [], [], False, False
+            for line in content.splitlines():
+                s = line.strip()
+                if _tmre.match(r"\*\*(T[oó]picos?|Topics?)\*\*", s):
+                    in_t, in_a = True, False; continue
+                if _tmre.match(r"\*\*(Action [Ii]tems?|Ac[oõ]es?)\*\*", s):
+                    in_t, in_a = False, True; continue
+                if s.startswith("**") or s.startswith("---"):
+                    in_t = in_a = False
+                if in_t and s.startswith("- "):
+                    topics.append(s[2:])
+                if in_a and _tmre.match(r"- \[[ x]\]", s):
+                    actions.append({"text": s[6:].strip(), "done": s[3] == "x"})
+            sessions.append({"date": s_date, "topics": topics, "actions": actions})
+        return sessions
+
+    def _tm_all_dates(folder, sessions):
+        """Return sorted list of unique 1:1 dates (desc) from log + standalone notes."""
+        dates = set()
+        for s in sessions:
+            try:
+                dates.add(date.fromisoformat(s["date"]))
+            except ValueError:
+                pass
+        sd = folder / "1on1"
+        if sd.exists():
+            for f in sd.glob("*.md"):
+                if f.name.startswith("_"):
+                    continue
+                try:
+                    dates.add(date.fromisoformat(f.stem[:10]))
+                except ValueError:
+                    pass
+        return sorted(dates, reverse=True)
+
+    def _tm_parse_okr(path):
+        """Return list of (kr_name, status) from OKR.md."""
+        if not path.exists():
+            return []
+        text = path.read_text(encoding="utf-8", errors="replace")
+        krs, cur_kr = [], None
+        for line in text.splitlines():
+            m = _tmre.match(r"###\s+KR:\s+(.+)", line)
+            if m:
+                cur_kr = m.group(1).strip()
+            elif cur_kr:
+                ms = _tmre.search(r"\*\*Status:\*\*\s*(.+)", line)
+                if ms:
+                    krs.append((cur_kr, ms.group(1).strip()))
+                    cur_kr = None
+        return krs
+
+    def _tm_parse_pdi(path):
+        """Return list of (name, deadline, progress_pct) for active PDI objectives."""
+        if not path.exists():
+            return []
+        text = path.read_text(encoding="utf-8", errors="replace")
+        objs, cur_name, cur_dl, cur_prog = [], None, None, None
+        for line in text.splitlines():
+            m = _tmre.match(r"###\s+(.+)", line)
+            if m:
+                if cur_name:
+                    objs.append((cur_name, cur_dl, cur_prog))
+                cur_name = m.group(1).strip()
+                cur_dl, cur_prog = None, None
+            elif cur_name:
+                md = _tmre.search(r"\*\*Deadline:\*\*\s*(.+)", line)
+                mp = _tmre.search(r"\*\*Progress:\*\*\s*(\d+)%", line)
+                if md:
+                    cur_dl = md.group(1).strip()
+                if mp:
+                    cur_prog = int(mp.group(1))
+        if cur_name:
+            objs.append((cur_name, cur_dl, cur_prog))
+        return objs
+
+    def _tm_parse_role(path):
+        if not path.exists():
+            return ""
+        text = path.read_text(encoding="utf-8", errors="replace")
+        m = _tmre.search(r"\*\*Role:\*\*\s*(.+)", text)
+        return m.group(1).strip() if m else ""
+
+    # ── Member cards ──────────────────────────────────────────────────────────
+    if not TEAM_DIR.exists():
+        st.info("Team folder not found. Check TEAM_DIR in config.py.")
+    else:
+        for _tm in _TM_MEMBERS:
+            _tm_folder  = TEAM_DIR / _tm["folder"]
+            _tm_sess    = _tm_parse_1on1(_tm_folder / "1on1.md")
+            _tm_dates   = _tm_all_dates(_tm_folder, _tm_sess)
+            _tm_last    = _tm_dates[0] if _tm_dates else None
+            _tm_count   = len(_tm_dates)
+            _tm_next    = (_tm_last + timedelta(days=_TM_CADENCE_DAYS)) if _tm_last else None
+            _tm_days    = (_tm_next - date.today()).days if _tm_next else None
+            _tm_role    = _tm_parse_role(_tm_folder / "Overview.md")
+            _tm_krs     = _tm_parse_okr(_tm_folder / "OKR.md")
+            _tm_pdi     = _tm_parse_pdi(_tm_folder / "PDI.md")
+
+            with st.expander(
+                f"**{_tm['name']}**" + (f" — {_tm_role}" if _tm_role else ""),
+                expanded=True,
+            ):
+                # ── KPI cards ─────────────────────────────────────────────────
+                _last_str  = _tm_last.strftime("%d/%m/%Y") if _tm_last else "—"
+                _next_str  = _tm_next.strftime("%d/%m/%Y") if _tm_next else "—"
+                _next_c    = "#111827"
+                if _tm_days is not None:
+                    _next_c = "#EF4444" if _tm_days <= 0 else ("#F59E0B" if _tm_days <= 7 else "#111827")
+                _pdi_s = f"{len(_tm_pdi)} active" if _tm_pdi else "—"
+
+                st.markdown(
+                    '<div class="cc-sg">'
+                    f'<div class="cc-sc"><div class="cc-sl">Last 1:1</div>'
+                    f'<div class="cc-sv">{_last_str}</div></div>'
+                    f'<div class="cc-sc"><div class="cc-sl">Total sessions</div>'
+                    f'<div class="cc-sv">{_tm_count}</div></div>'
+                    f'<div class="cc-sc"><div class="cc-sl">Next 1:1 (4-week)</div>'
+                    f'<div class="cc-sv" style="color:{_next_c}">{_next_str}</div></div>'
+                    f'<div class="cc-sc"><div class="cc-sl">PDI</div>'
+                    f'<div class="cc-sv">{_pdi_s}</div></div>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+
+                # ── Due-soon / overdue alert ──────────────────────────────────
+                if _tm_days is not None and _tm_days <= 7:
+                    _ac = "#EF4444" if _tm_days <= 0 else "#F59E0B"
+                    _al = "Overdue" if _tm_days <= 0 else "Due soon"
+                    _am = (
+                        f"Structured 1:1 was due {abs(_tm_days)}d ago ({_next_str}). Schedule now."
+                        if _tm_days <= 0
+                        else f"Structured 1:1 due in {_tm_days}d ({_next_str}). Plan the agenda."
+                    )
+                    st.markdown(
+                        f'<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
+                        f'border-left:3px solid {_ac};background:rgba(245,158,11,.07)">'
+                        f'<span style="font-size:.7rem;color:{_ac};font-weight:700;'
+                        f'text-transform:uppercase;letter-spacing:.04em">{_al}</span>'
+                        f'<br><span style="font-size:.82rem">{_am}</span></div>',
+                        unsafe_allow_html=True,
+                    )
+
+                # ── Latest 1:1 content ────────────────────────────────────────
+                if _tm_sess:
+                    _lat = _tm_sess[0]
+                    st.caption(f"Last session: {_lat['date']}")
+                    if _lat["topics"]:
+                        st.markdown("**Topics:**")
+                        for _t in _lat["topics"][:5]:
+                            st.markdown(f"  - {_t}")
+                    _open_ai = [a for a in _lat["actions"] if not a["done"]]
+                    if _open_ai:
+                        st.markdown("**Open action items:**")
+                        for _a in _open_ai[:6]:
+                            st.markdown(f"  - ☐ {_a['text']}")
+                else:
+                    st.caption("No 1:1 sessions recorded.")
+
+                # ── PDI details ───────────────────────────────────────────────
+                if _tm_pdi:
+                    with st.expander("PDI objectives", expanded=False):
+                        for _pn, _pd, _pp in _tm_pdi:
+                            _prog = f"{_pp}%" if _pp is not None else "—"
+                            st.markdown(f"- **{_pn}** — progress: {_prog} · deadline: {_pd or '—'}")
+
+                # ── OKR details ───────────────────────────────────────────────
+                if _tm_krs:
+                    with st.expander("OKR", expanded=False):
+                        for _kr_name, _kr_status in _tm_krs:
+                            st.markdown(f"- **{_kr_name}** — {_kr_status}")
+
+                # ── Generate agenda (Ollama) ──────────────────────────────────
+                _ag_key = f"tm_agenda_{_tm['folder']}"
+                if st.button("📋 Generate agenda", key=f"tm_btn_{_tm['folder']}"):
+                    with st.spinner("Generating agenda via Ollama…"):
+                        try:
+                            _okr_txt = ((_tm_folder / "OKR.md").read_text(encoding="utf-8", errors="replace")[:700]
+                                        if (_tm_folder / "OKR.md").exists() else "")
+                            _pdi_txt = ((_tm_folder / "PDI.md").read_text(encoding="utf-8", errors="replace")[:600]
+                                        if (_tm_folder / "PDI.md").exists() else "")
+                            _ctx = ""
+                            if _tm_sess:
+                                _s0 = _tm_sess[0]
+                                _ctx = (f"Last 1:1 ({_s0['date']}) topics:\n"
+                                        + "\n".join(f"- {t}" for t in _s0["topics"][:5]))
+                                _oa = [a["text"] for a in _s0["actions"] if not a["done"]]
+                                if _oa:
+                                    _ctx += "\n\nOpen actions:\n" + "\n".join(f"- {a}" for a in _oa[:5])
+                            _prompt = (
+                                f"You are a management coach. "
+                                f"Prepare a concise 1:1 agenda for {_tm['name']}.\n\n"
+                                f"=== OKR ===\n{_okr_txt}\n\n"
+                                f"=== PDI ===\n{_pdi_txt}\n\n"
+                                f"=== Last 1:1 context ===\n{_ctx}\n\n"
+                                f"Suggest 4-6 agenda topics, each with one focus line. "
+                                f"Numbered list only. No preamble."
+                            )
+                            import urllib.request as _tmurl
+                            _payload = json.dumps({
+                                "model": EXTRACTION_MODEL,
+                                "messages": [{"role": "user", "content": _prompt}],
+                                "stream": False,
+                                "temperature": 0.4,
+                            }).encode()
+                            _req = _tmurl.Request(
+                                OLLAMA_BASE_URL + "/chat/completions",
+                                data=_payload,
+                                headers={"Content-Type": "application/json"},
+                                method="POST",
+                            )
+                            with _tmurl.urlopen(_req, timeout=60) as _resp:
+                                _result = json.loads(_resp.read())
+                            st.session_state[_ag_key] = (
+                                _result["choices"][0]["message"]["content"].strip()
+                            )
+                        except Exception as _e:
+                            st.session_state[_ag_key] = f"⚠ Error: {_e}"
+
+                if _ag_key in st.session_state:
+                    st.markdown("**Suggested agenda:**")
+                    st.markdown(st.session_state[_ag_key])
 
 
 elif page == "Claude Pro":

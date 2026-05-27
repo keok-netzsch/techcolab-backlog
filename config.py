@@ -27,6 +27,9 @@ VAULT_ROOT = Path(
     )
 )
 
+# ── Team folder (one level above vault, under TechColab_D&A_KO) ───────────────
+TEAM_DIR = VAULT_ROOT.parent.parent / "Team"
+
 # ── Source: raw notes to be ingested ───────────────────────────────────────────
 VAULT_NOTES_DIR = VAULT_ROOT / "notes"
 
