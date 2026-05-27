@@ -123,8 +123,7 @@ button { white-space: nowrap !important; }
 }
 
 /* ── Idea row buttons (title column) — left-aligned, borderless ── */
-[data-testid="column"] .stButton > button[kind="tertiary"],
-[data-testid="column"] .stButton > button[data-testid*="row_btn"] {
+[data-testid="column"] div[data-testid*="row_btn"] > button {
     text-align: left !important;
     justify-content: flex-start !important;
     background: transparent !important;
@@ -227,12 +226,14 @@ h2, h3, h4 { color: #E2E8F0 !important; }
 }
 
 /* Idea row borderless buttons — keep transparent (now shows dark container bg) */
-[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]) {
+[data-testid="stHorizontalBlock"]:not([data-sidebar]) div[data-testid*="row_btn"] > button {
     background: transparent !important;
     border: none !important;
     color: #CBD5E0 !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
 }
-[data-testid="stHorizontalBlock"]:not([data-sidebar]) .stButton > button[kind="secondary"]:not([data-testid*="nav_"]):hover {
+[data-testid="stHorizontalBlock"]:not([data-sidebar]) div[data-testid*="row_btn"] > button:hover {
     background: rgba(2,183,147,0.1) !important;
     color: #0AD4A8 !important;
 }
@@ -856,7 +857,7 @@ if page == "Backlog":
             st.caption(f"{len(filtered)} item(s)")
 
             # Column headers
-            _h1, _h2, _h3, _h4 = st.columns([0.06, 0.09, 0.04, 0.81])
+            _h1, _h2, _h3, _h4 = st.columns([0.06, 0.09, 0.07, 0.78])
             _h1.caption("ID")
             _h2.caption("Prio")
             _h3.caption("Status")
@@ -880,7 +881,7 @@ if page == "Backlog":
                     if exp_key not in st.session_state:
                         st.session_state[exp_key] = False
 
-                    c1, c2, c3, c4 = st.columns([0.06, 0.09, 0.04, 0.81])
+                    c1, c2, c3, c4 = st.columns([0.06, 0.09, 0.07, 0.78])
                     c1.markdown(f"**{short_id}**")
                     c2.markdown(prio_icon, unsafe_allow_html=True)
                     c3.markdown(status_icon, unsafe_allow_html=True)
