@@ -670,29 +670,51 @@ if page == "Backlog":
             for _nsi, _nstgd in enumerate(st.session_state["ni_staged_todos"]):
                 _nsc1, _nsc2, _nsc3 = st.columns([0.5, 9, 0.5])
                 _nsc1.markdown('<span style="color:#02B793;font-size:0.85rem">➕</span>', unsafe_allow_html=True)
-                _nsc2.caption(_nstgd["text"])
+                _staged_badges = ""
+                if _nstgd.get("is_bug"):
+                    _staged_badges += ' <span style="background:rgba(220,38,38,0.18);color:#F87171;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px">BUG</span>'
+                if _nstgd.get("due_date"):
+                    _staged_badges += f' <span style="font-size:0.75rem;color:#64748B">📅 {_nstgd["due_date"]}</span>'
+                _nsc2.markdown(f'<span style="font-size:0.85rem">{_nstgd["text"]}</span>{_staged_badges}', unsafe_allow_html=True)
                 if _nsc3.button("✕", key=f"rm_ni_staged_{_nsi}", help="Remove"):
                     st.session_state["ni_staged_todos"].pop(_nsi)
                     st.rerun()
 
-            # Input row
-            _ni_col_txt, _ni_col_btn = st.columns([10, 1])
-            with _ni_col_txt:
+            # Input row — text + due date + bug flag + add button
+            _ni_c_txt, _ni_c_date, _ni_c_bug, _ni_c_btn = st.columns([5.5, 2.5, 1.5, 0.5])
+            with _ni_c_txt:
                 ni_new_todo = st.text_input(
                     "To-dos", placeholder="Add a to-do and press ➕...",
                     key=f"ni_new_todo_{_ni_ctr}",
                 )
-            with _ni_col_btn:
+            with _ni_c_date:
+                ni_todo_due = st.date_input(
+                    "Due date", value=None, key=f"ni_todo_due_{_ni_ctr}",
+                    format="DD/MM/YYYY",
+                )
+            with _ni_c_bug:
+                st.markdown('<div style="margin-top:4px">', unsafe_allow_html=True)
+                ni_todo_bug = st.checkbox("Bug", value=False, key=f"ni_todo_bug_{_ni_ctr}",
+                                          help="Mark this to-do as a bug")
+                st.markdown('</div>', unsafe_allow_html=True)
+            with _ni_c_btn:
                 st.markdown('<div style="margin-top:28px">', unsafe_allow_html=True)
                 if st.button("➕", key="ni_add_todo_btn",
                              disabled=not ni_new_todo.strip(),
                              use_container_width=True):
+                    _due_str = ni_todo_due.isoformat() if ni_todo_due else None
                     st.session_state["ni_staged_todos"].append(
-                        {"text": ni_new_todo.strip(), "done": False, "due_date": None}
+                        {"text": ni_new_todo.strip(), "done": False,
+                         "due_date": _due_str, "is_bug": ni_todo_bug}
                     )
                     st.session_state[_ni_ctr_key] += 1
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
+
+            ni_agente = st.checkbox(
+                "Agent authorized", value=False, key="ni_agente",
+                help="Allow the daily agent to automatically work on this item",
+            )
 
             if st.button("Add to backlog", type="primary", disabled=not ni_title.strip()):
                 store = get_store()
@@ -706,14 +728,14 @@ if page == "Backlog":
                     esforco=ni_effort or None,
                     origin="entrada direta",
                     todos=all_ni_todos,
-                    agente_autorizado=False,
+                    agente_autorizado=ni_agente,
                 )
                 log_entry("criada", idea)
                 _rebuild_index(store)
                 st.session_state["backlog_flash"] = ("success", f"✅ {idea.id} added to backlog.")
                 st.session_state["backlog_panel"] = None
                 for k in ["ni_title", "ni_area", "ni_desc", "ni_priority", "ni_impact", "ni_effort",
-                          "ni_suggested_todos", "ni_staged_todos"]:
+                          "ni_suggested_todos", "ni_staged_todos", "ni_agente"]:
                     st.session_state.pop(k, None)
                 st.session_state[_ni_ctr_key] = 0
                 st.rerun()
