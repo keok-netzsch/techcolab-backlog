@@ -2814,6 +2814,88 @@ elif page == "Weekly Brief":
                 _export.append(f"- Call com {_c['member']} em {_c['date'].strftime('%d/%m/%Y')}")
         _export.append(""); st.divider()
 
+    # ── Section 5: English Coach snapshot ────────────────────────────────────
+    st.subheader("English Coach")
+    _EC_PROGRESS_WB = VAULT_ROOT / "English-Coach" / "progress.md"
+    _EC_REPORTS_WB  = VAULT_ROOT / "agent-reports"
+
+    # Latest weekly report
+    _ec_weekly_files = sorted(_EC_REPORTS_WB.glob("english-coach-*.md"), reverse=True) if _EC_REPORTS_WB.exists() else []
+    _ec_latest_report = _ec_weekly_files[0] if _ec_weekly_files else None
+
+    # Progress rows from progress.md
+    _ec_prog_rows_wb = []
+    if _EC_PROGRESS_WB.exists():
+        import re as _wbre
+        for _ln in _EC_PROGRESS_WB.read_text(encoding="utf-8").splitlines():
+            _em = _wbre.match(
+                r"\|\s*(\d{4}-\d{2}-\d{2})[^|]*\|\s*([\d.]+)/10\s*\|\s*(\w+)\s*\|([^|]+)\|([^|]*)\|",
+                _ln,
+            )
+            if _em:
+                try:
+                    _ed = date.fromisoformat(_em.group(1))
+                except ValueError:
+                    continue
+                _ec_prog_rows_wb.append({"date": _ed, "overall": float(_em.group(2)), "level": _em.group(3).strip()})
+
+    # Sessions in the selected period
+    _ec_period_sessions = [r for r in _ec_prog_rows_wb if r["date"] >= _start]
+
+    if not _ec_prog_rows_wb:
+        st.info("No English Coach sessions recorded yet.", icon="🎙️")
+        _export.append("## English Coach\n_No sessions recorded yet._\n")
+    else:
+        _ec_latest_score = _ec_prog_rows_wb[-1]["overall"]
+        _ec_latest_level = _ec_prog_rows_wb[-1]["level"]
+        _ec_avg_all      = sum(r["overall"] for r in _ec_prog_rows_wb) / len(_ec_prog_rows_wb)
+        _ec_period_avg   = (sum(r["overall"] for r in _ec_period_sessions) / len(_ec_period_sessions)
+                            if _ec_period_sessions else None)
+        _ec_delta        = round(_ec_period_avg - _ec_avg_all, 1) if _ec_period_avg else None
+
+        _bg   = "#1A1D2E" if _dark_mode else "#F9FAFB"
+        _brd  = "#2D3748" if _dark_mode else "#E5E7EB"
+        _lbl  = "#64748B" if _dark_mode else "#6B7280"
+        _val  = "#E2E8F0" if _dark_mode else "#111827"
+        _acc  = "#02B793"
+
+        _ec_cards = (
+            f'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:.5rem 0">'
+            f'<div style="background:{_bg};border:1px solid {_brd};border-radius:8px;padding:8px 12px">'
+            f'<div style="font-size:.7rem;color:{_lbl};font-weight:500">Latest score</div>'
+            f'<div style="font-size:1.2rem;font-weight:700;color:{_acc}">{_ec_latest_score:.1f}/10</div></div>'
+            f'<div style="background:{_bg};border:1px solid {_brd};border-radius:8px;padding:8px 12px">'
+            f'<div style="font-size:.7rem;color:{_lbl};font-weight:500">Level</div>'
+            f'<div style="font-size:1.2rem;font-weight:700;color:{_val}">{_ec_latest_level}</div></div>'
+            f'<div style="background:{_bg};border:1px solid {_brd};border-radius:8px;padding:8px 12px">'
+            f'<div style="font-size:.7rem;color:{_lbl};font-weight:500">All-time avg</div>'
+            f'<div style="font-size:1.2rem;font-weight:700;color:{_val}">{_ec_avg_all:.1f}/10</div></div>'
+            f'<div style="background:{_bg};border:1px solid {_brd};border-radius:8px;padding:8px 12px">'
+            f'<div style="font-size:.7rem;color:{_lbl};font-weight:500">Sessions (period)</div>'
+            f'<div style="font-size:1.2rem;font-weight:700;color:{_val}">{len(_ec_period_sessions)}</div></div>'
+            f'</div>'
+        )
+        st.markdown(_ec_cards, unsafe_allow_html=True)
+
+        if _ec_latest_report:
+            _ec_report_week = _ec_latest_report.stem.replace("english-coach-", "")
+            with st.expander(f"Latest weekly report — {_ec_report_week}"):
+                _ec_body = _wbre.sub(r"^---.*?---\n", "",
+                                     _ec_latest_report.read_text(encoding="utf-8", errors="replace"),
+                                     flags=_wbre.DOTALL).strip()
+                st.markdown(_ec_body[:3000] + ("…" if len(_ec_body) > 3000 else ""))
+
+        _export.append("## English Coach")
+        _export.append(f"- Latest: {_ec_latest_score:.1f}/10 ({_ec_latest_level})")
+        _export.append(f"- All-time avg: {_ec_avg_all:.1f}/10")
+        if _ec_period_avg:
+            _export.append(f"- Period avg ({_start.strftime('%d/%m/%Y')} → today): {_ec_period_avg:.1f}/10")
+        if _ec_latest_report:
+            _export.append(f"- Latest weekly report: {_ec_latest_report.name}")
+        _export.append("")
+
+    st.divider()
+
     # ── Export ────────────────────────────────────────────────────────────────
     st.subheader("Export summary")
     _export_md = "\n".join(_export)
