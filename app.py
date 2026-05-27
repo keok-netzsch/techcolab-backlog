@@ -101,7 +101,7 @@ div[data-testid="stSidebar"] { display: none !important; }
 button { white-space: nowrap !important; }
 
 /* ── Footer icon buttons ─────────────────────────────────── */
-.sidebar-footer .stButton > button {
+.sidebar-footer button {
     font-size: 1.2rem !important;
     text-align: center !important;
     justify-content: center !important;
@@ -111,7 +111,7 @@ button { white-space: nowrap !important; }
     border-radius: 8px !important;
     color: rgba(76,77,88,0.5) !important;
 }
-.sidebar-footer .stButton > button:hover {
+.sidebar-footer button:hover {
     background: rgba(2,183,147,0.08) !important;
     border-color: #02B793 !important;
     color: #007167 !important;
@@ -122,25 +122,10 @@ button { white-space: nowrap !important; }
     background: linear-gradient(90deg, #02B793, #0AD4A8) !important;
 }
 
-/* ── Idea row buttons (title column) — left-aligned, borderless ── */
-/* border=True on the container generates stVerticalBlockBorderWrapper in DOM */
-[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] {
+/* ── Idea row buttons — left-aligned (Streamlit 1.49 selector) ── */
+button[data-testid="stBaseButton-secondary"] {
     text-align: left !important;
     justify-content: flex-start !important;
-    background: transparent !important;
-    border: none !important;
-    color: #2A2A2A !important;
-    font-size: 0.9rem !important;
-}
-/* Inner div/p Streamlit renders inside the button as flex container */
-[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] > div,
-[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] > p {
-    justify-content: flex-start !important;
-    text-align: left !important;
-}
-[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"]:hover {
-    background: rgba(2,183,147,0.07) !important;
-    color: #007167 !important;
 }
 </style>
 """
@@ -153,17 +138,8 @@ html, body { background-color: #0E1117 !important; color: #E2E8F0 !important; }
 [data-testid="stMain"],
 [data-testid="stMainBlockContainer"] { background-color: #0E1117 !important; }
 
-/* Column/block containers — fixes transparent buttons showing white Streamlit bg */
-[data-testid="column"],
-[data-testid="stHorizontalBlock"],
-[data-testid="stVerticalBlock"] { background-color: #0E1117; }
-
-/* Containers with border — suppress visible border on scrollable list containers */
-[data-testid="stVerticalBlockBorderWrapper"] > div {
-    background: transparent !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
-}
+/* Column containers */
+[data-testid="stColumn"] { background-color: #0E1117; }
 
 /* Custom stat cards */
 .cc-sc { background: #1A1D2E !important; border-color: #2D3748 !important; }
@@ -210,37 +186,33 @@ h2, h3, h4 { color: #E2E8F0 !important; }
     color: #E2E8F0 !important;
 }
 
-/* General secondary buttons */
-.stButton > button[kind="secondary"] {
+/* General secondary buttons — Streamlit 1.49 selector */
+button[data-testid="stBaseButton-secondary"] {
     background: #1A1D2E !important;
     border-color: #2D3748 !important;
     color: #E2E8F0 !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
 }
-.stButton > button[kind="secondary"]:hover {
+button[data-testid="stBaseButton-secondary"]:hover {
     background: #1E2640 !important;
     border-color: #02B793 !important;
 }
 
-/* Idea row borderless buttons — dark mode (transparent, left-aligned) */
-[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] {
+/* Row buttons inside columns — transparent, borderless */
+[data-testid="stColumn"] button[data-testid="stBaseButton-secondary"] {
     background: transparent !important;
     border: none !important;
     color: #CBD5E0 !important;
-    text-align: left !important;
-    justify-content: flex-start !important;
 }
-[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] > div,
-[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] > p {
-    justify-content: flex-start !important;
-    text-align: left !important;
-}
-[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"]:hover {
+[data-testid="stColumn"] button[data-testid="stBaseButton-secondary"]:hover {
     background: rgba(2,183,147,0.1) !important;
     color: #0AD4A8 !important;
+    border: none !important;
 }
 
 /* Sidebar footer icon buttons */
-.sidebar-footer .stButton > button {
+.sidebar-footer button {
     color: rgba(200,210,220,0.45) !important;
     border-color: rgba(200,210,220,0.12) !important;
 }
