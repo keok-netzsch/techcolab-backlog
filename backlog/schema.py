@@ -21,7 +21,6 @@ VALID_AREAS = [
     "negócio",
     "infraestrutura",
     "IA",
-    "call-recorder",
 ]
 
 VALID_STATUSES = [
