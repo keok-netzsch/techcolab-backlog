@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import date
-from backlog.schema import Idea, VALID_STATUSES, VALID_PRIORITIES
+from backlog.schema import Idea, VALID_STATUSES, VALID_PRIORITIES, VALID_AREAS
 
 
 def test_default_status():
@@ -53,3 +53,44 @@ def test_valid_statuses_contains_expected():
 
 def test_valid_priorities():
     assert set(VALID_PRIORITIES) == {"alta", "média", "baixa"}
+
+
+# ── VALID_AREAS ───────────────────────────────────────────────────────────────
+
+def test_valid_areas_contains_all_expected():
+    expected = {"produto", "dados & IA", "automação", "gestão",
+                "governança", "infraestrutura", "comunicação", "business"}
+    assert expected == set(VALID_AREAS)
+
+
+def test_valid_areas_excludes_removed():
+    removed = {"call-recorder", "dados", "IA", "desenvolvimento",
+               "planejamento", "negócio", "infra"}
+    assert removed.isdisjoint(set(VALID_AREAS)), \
+        f"Old areas still present: {removed & set(VALID_AREAS)}"
+
+
+# ── Idea field defaults ───────────────────────────────────────────────────────
+
+def test_idea_is_bug_default_false():
+    idea = Idea(id="idea-001", title="Test")
+    assert idea.is_bug is False
+
+
+def test_idea_agente_autorizado_default_false():
+    idea = Idea(id="idea-001", title="Test")
+    assert idea.agente_autorizado is False
+
+
+def test_to_frontmatter_includes_is_bug():
+    idea = Idea(id="idea-001", title="Bug idea", is_bug=True)
+    fm = idea.to_frontmatter()
+    assert "is_bug" in fm
+    assert fm["is_bug"] is True
+
+
+def test_to_frontmatter_agente_autorizado():
+    idea = Idea(id="idea-001", title="Auto idea", agente_autorizado=True)
+    fm = idea.to_frontmatter()
+    assert "agente_autorizado" in fm
+    assert fm["agente_autorizado"] is True

@@ -168,4 +168,28 @@ _sem notas_
 
 ---
 
-*Atualizado em 2026-05-21. Para adicionar entradas, editar `docs/FAQ.md` diretamente.*
+---
+
+## To-Do List
+
+### Cliquei no número da ideia na To-Do List mas nada aconteceu
+
+**Causa:** o botão de navegação escrevia em `st.session_state["page"]`, mas a app determina a página via `st.query_params.get("page")` — a session state nunca era lida, então a navegação silenciosamente falhava.
+
+**Correção aplicada (2026-05-27):** o botão agora usa `st.query_params["page"] = "Backlog"`, que atualiza o URL e dispara o rerun com a página correta. O estado de expansão da ideia (`exp_{id}`) é gravado na session state antes da navegação e persiste normalmente.
+
+---
+
+### Adicionei um to-do mas o campo `is_bug` não apareceu no arquivo
+
+O marcador `{bug}` é anexado ao final da linha do to-do no arquivo `.md`. Exemplo:
+
+```
+- [ ] Fix crash {bug}
+```
+
+Se o to-do foi adicionado via código externo (não pelo app) sem incluir esse sufixo, o campo `is_bug` aparecerá como `False` ao carregar. Corrigir diretamente no arquivo `.md` adicionando `{bug}` ao final da linha.
+
+---
+
+*Atualizado em 2026-05-27. Para adicionar entradas, editar `docs/FAQ.md` diretamente.*

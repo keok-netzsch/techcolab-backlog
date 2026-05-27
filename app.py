@@ -1560,9 +1560,8 @@ elif page == "To-Do List":
                         st.markdown('<div class="tdl-num">', unsafe_allow_html=True)
                         if st.button(short, key=f"nav_{item['idea_id']}_{item['todo_idx']}",
                                      use_container_width=True):
-                            st.session_state["page"] = "Backlog"
                             st.session_state[f"exp_{item['idea_id']}"] = True
-                            st.rerun()
+                            st.query_params["page"] = "Backlog"
                         st.markdown('</div>', unsafe_allow_html=True)
 
                     c_prio.markdown(PRIORITY_NUM.get(item["priority"], "⚪"), unsafe_allow_html=True)
