@@ -1258,15 +1258,26 @@ if page == "Backlog":
 
                             st.markdown(
                                 "<style>"
-                                "div[data-testid='stMarkdown']:has(.save-del-marker)"
-                                " ~ div[data-testid='stColumns']"
-                                " > div[data-testid='column']:nth-child(2) button"
-                                "{ border-color:rgba(185,28,28,0.5)!important; color:#B91C1C!important; }"
-                                "div[data-testid='stMarkdown']:has(.save-del-marker)"
-                                " ~ div[data-testid='stColumns']"
-                                " > div[data-testid='column']:nth-child(2) button:hover"
-                                "{ background:rgba(185,28,28,0.85)!important; color:#fff!important;"
-                                " border-color:#B91C1C!important; }"
+                                # base: red border + red text
+                                # anchor: stVerticalBlock with direct stElementContainer child containing marker,
+                                # then its last stLayoutWrapper child > stHorizontalBlock > col 2
+                                "div[data-testid='stVerticalBlock']"
+                                ":has(>div[data-testid='stElementContainer'] .save-del-marker)"
+                                ">div[data-testid='stLayoutWrapper']:last-child"
+                                ">div[data-testid='stHorizontalBlock']"
+                                ">div[data-testid='stColumn']:nth-child(2)"
+                                " button[data-testid='stBaseButton-secondary']"
+                                "{border:1px solid rgba(220,38,38,0.55)!important;"
+                                " color:#FCA5A5!important;background:transparent!important;}"
+                                # hover: red fill
+                                "div[data-testid='stVerticalBlock']"
+                                ":has(>div[data-testid='stElementContainer'] .save-del-marker)"
+                                ">div[data-testid='stLayoutWrapper']:last-child"
+                                ">div[data-testid='stHorizontalBlock']"
+                                ">div[data-testid='stColumn']:nth-child(2)"
+                                " button[data-testid='stBaseButton-secondary']:hover"
+                                "{background:rgba(220,38,38,0.85)!important;"
+                                " color:#fff!important;border:1px solid #DC2626!important;}"
                                 "</style>"
                                 '<div class="save-del-marker"></div>',
                                 unsafe_allow_html=True,
