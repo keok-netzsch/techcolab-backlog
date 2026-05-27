@@ -123,8 +123,8 @@ button { white-space: nowrap !important; }
 }
 
 /* ── Idea row buttons (title column) — left-aligned, borderless ── */
-/* Targets buttons inside the height-constrained scrollable container */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] {
+/* border=True on the container generates stVerticalBlockBorderWrapper in DOM */
+[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] {
     text-align: left !important;
     justify-content: flex-start !important;
     background: transparent !important;
@@ -132,13 +132,13 @@ button { white-space: nowrap !important; }
     color: #2A2A2A !important;
     font-size: 0.9rem !important;
 }
-/* Inner flex container that Streamlit renders inside the button element */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] > div,
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] > p {
+/* Inner div/p Streamlit renders inside the button as flex container */
+[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] > div,
+[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] > p {
     justify-content: flex-start !important;
     text-align: left !important;
 }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"]:hover {
+[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"]:hover {
     background: rgba(2,183,147,0.07) !important;
     color: #007167 !important;
 }
@@ -158,10 +158,11 @@ html, body { background-color: #0E1117 !important; color: #E2E8F0 !important; }
 [data-testid="stHorizontalBlock"],
 [data-testid="stVerticalBlock"] { background-color: #0E1117; }
 
-/* Containers with border */
+/* Containers with border — suppress visible border on scrollable list containers */
 [data-testid="stVerticalBlockBorderWrapper"] > div {
-    background: #1A1D2E !important;
-    border-color: #2D3748 !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
 }
 
 /* Custom stat cards */
@@ -221,19 +222,19 @@ h2, h3, h4 { color: #E2E8F0 !important; }
 }
 
 /* Idea row borderless buttons — dark mode (transparent, left-aligned) */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] {
+[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] {
     background: transparent !important;
     border: none !important;
     color: #CBD5E0 !important;
     text-align: left !important;
     justify-content: flex-start !important;
 }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] > div,
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] > p {
+[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] > div,
+[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"] > p {
     justify-content: flex-start !important;
     text-align: left !important;
 }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"]:hover {
+[data-testid="stVerticalBlockBorderWrapper"] .stButton > button[kind="secondary"]:hover {
     background: rgba(2,183,147,0.1) !important;
     color: #0AD4A8 !important;
 }
@@ -826,7 +827,7 @@ if page == "Backlog":
 
         # ── KANBAN ──────────────────────────────────────────────────────────────
         if view_mode == "Kanban":
-            with st.container(height=600, border=False):
+            with st.container(height=600):
                 kanban_statuses = [
                     "backlog", "em análise", "em desenvolvimento", "em validação", "concluído", "descartado"
                 ]
@@ -864,7 +865,7 @@ if page == "Backlog":
             _h4.caption("Backlog item")
             st.markdown('<hr style="margin:2px 0 6px 0;border-color:rgba(76,77,88,0.12)">', unsafe_allow_html=True)
 
-            with st.container(height=600, border=False):
+            with st.container(height=600):
                 for idea in filtered:
                     prio_icon = PRIORITY_NUM.get(idea.priority, "⚪")
                     status_icon = STATUS_COLOR.get(idea.status, _sdot("backlog"))
@@ -1515,7 +1516,7 @@ elif page == "To-Do List":
             "{ height:calc(100vh - 360px)!important; }</style>",
             unsafe_allow_html=True,
         )
-        with st.container(height=600, border=False):
+        with st.container(height=600):
             for group_label, group_items in groupby(filtered_todos, key=get_group_key):
                 items = list(group_items)
                 # intra-group sort by header column
