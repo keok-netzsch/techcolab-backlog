@@ -2623,9 +2623,9 @@ elif page == "Weekly Brief":
         topics, actions, in_topics, in_actions = [], [], False, False
         for line in content.splitlines():
             s = line.strip()
-            if _wre.match(r"\*\*(T[oó]picos?|Topics?)\*\*", s):
+            if _wre.match(r"\*\*(T[oó]picos?|Topics?):?\*\*", s):
                 in_topics, in_actions = True, False; continue
-            if _wre.match(r"\*\*(Action [Ii]tems?|Ac[oõ]es?)\*\*", s):
+            if _wre.match(r"\*\*(Action [Ii]tems?|Ac[oõ]es?):?\*\*", s):
                 in_topics, in_actions = False, True; continue
             if s.startswith("**") or s.startswith("---"):
                 in_topics = in_actions = False
@@ -3024,6 +3024,7 @@ The app has a **top navigation bar** with the logo on the left and page links ac
 | Dashboard | Home — metrics overview, status/priority breakdown, to-dos due this week |
 | Backlog | Create, edit and view ideas (list or kanban view) |
 | To-Do List | All action items consolidated across all ideas, sortable and filterable |
+| Team | Direct reports — 1:1 tracker, OKR / PDI status, and Ollama agenda generation |
 | Claude Pro | HTML adoption report + Token Coach calculator |
 | Weekly Brief | Preparation panel for meetings with leadership |
 | English Coach | Progress tracker for AI-evaluated English practice sessions |
@@ -3346,9 +3347,9 @@ elif page == "Team":
             topics, actions, in_t, in_a = [], [], False, False
             for line in content.splitlines():
                 s = line.strip()
-                if _tmre.match(r"\*\*(T[oó]picos?|Topics?)\*\*", s):
+                if _tmre.match(r"\*\*(T[oó]picos?|Topics?):?\*\*", s):
                     in_t, in_a = True, False; continue
-                if _tmre.match(r"\*\*(Action [Ii]tems?|Ac[oõ]es?)\*\*", s):
+                if _tmre.match(r"\*\*(Action [Ii]tems?|Ac[oõ]es?):?\*\*", s):
                     in_t, in_a = False, True; continue
                 if s.startswith("**") or s.startswith("---"):
                     in_t = in_a = False
