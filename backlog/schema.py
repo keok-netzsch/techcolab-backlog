@@ -17,6 +17,7 @@ VALID_AREAS = [
     "governança",
     "infraestrutura",
     "comunicação",
+    "business",
 ]
 
 VALID_STATUSES = [
