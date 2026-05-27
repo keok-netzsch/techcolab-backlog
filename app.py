@@ -166,6 +166,18 @@ h2, h3, h4 { color: #E2E8F0 !important; }
     -webkit-text-fill-color: #64748B !important;
     opacity: 1 !important;
 }
+/* Disabled text area used as read-only preview — keep full legibility */
+[data-testid="stTextArea"] textarea:disabled {
+    background: #161B2E !important;
+    border-color: #2D3748 !important;
+    color: #CBD5E0 !important;
+    -webkit-text-fill-color: #CBD5E0 !important;
+    opacity: 1 !important;
+    font-family: monospace !important;
+    font-size: 0.82rem !important;
+    line-height: 1.6 !important;
+    resize: none !important;
+}
 /* Input / selectbox labels */
 [data-testid="stTextInput"] label p,
 [data-testid="stTextArea"] label p,
@@ -2812,12 +2824,12 @@ elif page == "Weekly Brief":
                            file_name=f"weekly-brief-{_today.isoformat()}.md",
                            mime="text/markdown", type="primary")
     with st.expander("Exported summary preview"):
-        _escaped_md = _export_md.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        st.markdown(
-            f'<pre style="background:#161B2E;color:#CBD5E0;padding:1rem 1.2rem;border-radius:6px;'
-            f'font-size:0.8rem;font-family:monospace;white-space:pre-wrap;word-break:break-word;'
-            f'border:1px solid #2D3748;margin:0;line-height:1.6">{_escaped_md}</pre>',
-            unsafe_allow_html=True,
+        st.text_area(
+            label="preview",
+            value=_export_md,
+            height=420,
+            disabled=True,
+            label_visibility="collapsed",
         )
 
 
