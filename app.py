@@ -2812,7 +2812,13 @@ elif page == "Weekly Brief":
                            file_name=f"weekly-brief-{_today.isoformat()}.md",
                            mime="text/markdown", type="primary")
     with st.expander("Exported summary preview"):
-        st.code(_export_md, language="markdown")
+        _escaped_md = _export_md.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        st.markdown(
+            f'<pre style="background:#161B2E;color:#CBD5E0;padding:1rem 1.2rem;border-radius:6px;'
+            f'font-size:0.8rem;font-family:monospace;white-space:pre-wrap;word-break:break-word;'
+            f'border:1px solid #2D3748;margin:0;line-height:1.6">{_escaped_md}</pre>',
+            unsafe_allow_html=True,
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
