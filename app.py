@@ -3531,8 +3531,10 @@ elif page == "Claude Pro":
     st.caption("Sequence of configurations and milestones since Pro plan access — most recent first.")
 
     if _cp_timeline:
-        _today_iso = date.today().isoformat()
-        _tl_html = ""
+        _today_iso  = date.today().isoformat()
+        _TL_VISIBLE = 3          # entries shown without interaction
+        _tl_top  = ""
+        _tl_rest = ""
         for _ti, _entry in enumerate(_cp_timeline):
             _is_today   = (_entry["date"] == _today_iso)
             _cls        = "cp-tl-item cp-tl-latest" if _ti == 0 else "cp-tl-item"
@@ -3540,13 +3542,33 @@ elif page == "Claude Pro":
             _disp_date  = _entry.get("display_date") or _fmt_cp_date(_entry["date"])
             _detail_htm = (f'<div class="cp-tl-detail">{_entry["detail"]}</div>'
                            if _entry.get("detail") else "")
-            _tl_html += (
+            _item = (
                 f'<div class="{_cls}">'
                 f'<div class="cp-tl-date">{_disp_date}{_badge}</div>'
                 f'<div class="cp-tl-title">{_entry["title"]}</div>'
                 f'{_detail_htm}</div>'
             )
-        st.markdown(f'<div class="cp-tl-wrap">{_tl_html}</div>', unsafe_allow_html=True)
+            if _ti < _TL_VISIBLE:
+                _tl_top += _item
+            else:
+                _tl_rest += _item
+
+        _older = len(_cp_timeline) - _TL_VISIBLE
+        _sum_clr = "#475569" if _dark_mode else "rgba(76,77,88,.5)"
+        _rest_block = (
+            f'<details style="margin:0;padding:0">'
+            f'<summary style="cursor:pointer;color:{_sum_clr};font-size:11.5px;'
+            f'font-family:\'DM Mono\',monospace;letter-spacing:.05em;'
+            f'margin-bottom:14px;outline:none">'
+            f'+ {_older} older entries</summary>'
+            f'{_tl_rest}'
+            f'</details>'
+        ) if _tl_rest else ""
+
+        st.markdown(
+            f'<div class="cp-tl-wrap">{_tl_top}{_rest_block}</div>',
+            unsafe_allow_html=True,
+        )
     else:
         st.info("No timeline entries found. The JSON file may be missing.")
 
