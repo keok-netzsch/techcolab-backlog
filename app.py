@@ -13,7 +13,7 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import BACKLOG_DIR, BACKLOG_ARCHIVE_DIR, VAULT_ROOT, TEAM_DIR, EXTRACTION_MODEL, OLLAMA_BASE_URL, CLAUDE_PRO_START_DATE
+from config import BACKLOG_DIR, BACKLOG_ARCHIVE_DIR, VAULT_ROOT, TEAM_DIR, EC_DIR, EXTRACTION_MODEL, OLLAMA_BASE_URL, CLAUDE_PRO_START_DATE
 from backlog.store import BacklogStore
 from backlog.schema import VALID_STATUSES, VALID_PRIORITIES, VALID_IMPACTS, VALID_EFFORTS, VALID_AREAS
 from backlog.daily_log import log_entry
@@ -2827,7 +2827,7 @@ elif page == "Weekly Brief":
 
     # ── Section 5: English Coach snapshot ────────────────────────────────────
     st.subheader("English Coach")
-    _EC_PROGRESS_WB = VAULT_ROOT / "English-Coach" / "progress.md"
+    _EC_PROGRESS_WB = EC_DIR / "progress.md"
     _EC_REPORTS_WB  = VAULT_ROOT / "agent-reports"
 
     # Latest weekly report
@@ -3886,7 +3886,7 @@ elif page == "Claude Pro":
 elif page == "English Coach":
     import re as _ecre
 
-    _EC_DIR      = VAULT_ROOT / "English-Coach"
+    _EC_DIR      = EC_DIR
     _EC_PROGRESS = _EC_DIR / "progress.md"
     _EC_SESSIONS = _EC_DIR / "sessions"
 
@@ -3937,6 +3937,27 @@ elif page == "English Coach":
             _df.columns = ["Overall (0–10)"]
             st.subheader("Score progression")
             st.line_chart(_df, height=200)
+
+            # ── English Curves — per-dimension trend ──────────────────────────
+            _dim_rows = []
+            for _r in _prog_rows:
+                _row_d: dict = {"date": _r["date"]}
+                for _part in _r["scores"].split(" | "):
+                    if ": " in _part:
+                        _dname, _dval = _part.rsplit(": ", 1)
+                        try:
+                            _row_d[_dname.strip()] = int(_dval.strip())
+                        except ValueError:
+                            pass
+                _dim_rows.append(_row_d)
+
+            if _dim_rows and len(_dim_rows) >= 2:
+                _dim_df = _ecpd.DataFrame(_dim_rows).set_index("date")
+                _dim_df = _dim_df[[c for c in _dim_df.columns if _dim_df[c].notna().any()]]
+                if not _dim_df.empty:
+                    st.subheader("English Curves")
+                    st.caption("Per-dimension score evolution across sessions.")
+                    st.line_chart(_dim_df, height=220)
 
             st.divider()
 

@@ -26,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import VAULT_ROOT
+from config import VAULT_ROOT, TEAM_DIR, EC_DIR
 
 import requests
 
@@ -35,11 +35,12 @@ REPORTS_DIR = VAULT_ROOT / "agent-reports"
 OLLAMA_URL   = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5-coder:latest"   # better JSON + structured output
 
-# Directories to scan (relative to VAULT_ROOT)
-SCAN_DIRS = [
-    "Team",          # Team/*/1on1/*.md
-    "Stakeholders",  # Stakeholders/*/1on1/*.md
-    "English-Coach", # English-Coach/sessions/*.md
+# Absolute paths to scan (Team and English-Coach live one level above VAULT_ROOT)
+_VAULT_BASE  = VAULT_ROOT.parent.parent   # .../TechColab_D&A_KO
+SCAN_DIRS_ABS = [
+    TEAM_DIR,                        # Team/*/1on1/*.md
+    _VAULT_BASE / "Stakeholders",    # Stakeholders/*/1on1/*.md
+    EC_DIR / "sessions",             # English-Coach/sessions/*.md
 ]
 
 MAX_CHARS_PER_SESSION = 1500   # cap per transcript to stay within 3B context
@@ -89,8 +90,7 @@ def find_english_sessions(days: int) -> list[dict]:
     cutoff = date.today() - timedelta(days=days)
     sessions = []
 
-    for scan_dir in SCAN_DIRS:
-        base = VAULT_ROOT / scan_dir
+    for base in SCAN_DIRS_ABS:
         if not base.exists():
             continue
 
