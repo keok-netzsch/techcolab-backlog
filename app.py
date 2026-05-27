@@ -123,19 +123,8 @@ button { white-space: nowrap !important; }
 }
 
 /* ── Idea row buttons (title column) — left-aligned, borderless ── */
-[data-testid="column"] div[data-testid*="row_btn"] > button {
-    text-align: left !important;
-    justify-content: flex-start !important;
-    background: transparent !important;
-    border: none !important;
-    color: #2A2A2A !important;
-    padding: 0.15rem 0.4rem !important;
-    font-size: 0.9rem !important;
-    width: 100%;
-}
-
-/* Idea row buttons — only inside scrollable list containers (backlog, todo-list) */
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"]:not([data-testid*="nav_"]) {
+/* Targets buttons inside the height-constrained scrollable container */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] {
     text-align: left !important;
     justify-content: flex-start !important;
     background: transparent !important;
@@ -143,7 +132,13 @@ button { white-space: nowrap !important; }
     color: #2A2A2A !important;
     font-size: 0.9rem !important;
 }
-[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"]:not([data-testid*="nav_"]):hover {
+/* Inner flex container that Streamlit renders inside the button element */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] > div,
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] > p {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"]:hover {
     background: rgba(2,183,147,0.07) !important;
     color: #007167 !important;
 }
@@ -225,15 +220,20 @@ h2, h3, h4 { color: #E2E8F0 !important; }
     border-color: #02B793 !important;
 }
 
-/* Idea row borderless buttons — keep transparent (now shows dark container bg) */
-[data-testid="stHorizontalBlock"]:not([data-sidebar]) div[data-testid*="row_btn"] > button {
+/* Idea row borderless buttons — dark mode (transparent, left-aligned) */
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] {
     background: transparent !important;
     border: none !important;
     color: #CBD5E0 !important;
     text-align: left !important;
     justify-content: flex-start !important;
 }
-[data-testid="stHorizontalBlock"]:not([data-sidebar]) div[data-testid*="row_btn"] > button:hover {
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] > div,
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] > p {
+    justify-content: flex-start !important;
+    text-align: left !important;
+}
+[data-testid="stVerticalBlockBorderWrapper"] [data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"]:hover {
     background: rgba(2,183,147,0.1) !important;
     color: #0AD4A8 !important;
 }
