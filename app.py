@@ -3218,26 +3218,40 @@ elif page == "Claude Pro":
             "title": "Call Recorder — Transcription & Obsidian Vault Integration",
             "category": "Automation · 1:1s",
             "boss": "Automatic recording and transcription system for meetings and 1:1s, generating structured notes. Goal: eliminate manual effort of recording meetings.",
-            "advance": "Pipeline running locally (no data sent to the cloud). Next: full vault integration.",
-            "body": "Recording/transcription pipeline integrated with the vault.",
+            "advance": "Fully integrated: notes auto-saved to vault at Team/{Person}/1on1/. English Coach mode with AI-rated pronunciation and grammar assessment added.",
+            "body": "Recording/transcription pipeline integrated with the Obsidian vault and English Coach.",
             "bullets": [
                 "Stack: Python 3.13 + faster-whisper (CPU, int8)",
-                "record.py + call-recorder.ps1 — complete orchestrator",
-                "Next step: full Obsidian vault integration",
+                "Full vault integration: notes saved to Team/{Person}/1on1/ automatically",
+                "English Coach: AI-rated pronunciation and grammar assessment (Win+Space)",
             ],
         },
         {
             "number": "09",
             "title": "Personal Toolkit · Techco.lab — Backlog Management App",
             "category": "Product · Automation",
-            "boss": "Local productivity app built with Streamlit, integrated with Obsidian vault and daily agent. Centralises idea backlog, to-do management, weekly team brief and bug tracking.",
-            "advance": "App in production with 24+ backlog items, bug tracking per to-do, kanban, Claude agent integration and Claude Pro report served locally.",
+            "boss": "Local productivity app built with Streamlit, integrated with Obsidian vault and daily agent. Centralises idea backlog, to-do management, weekly team brief, bug tracking and Claude Pro report.",
+            "advance": "App in production with 33+ backlog items. Dark mode, kanban, filters, bug tracking, Claude agent integration, and Claude Pro report all integrated locally.",
             "body": "Personal productivity toolkit running 100% offline.",
             "bullets": [
                 "Streamlit + Obsidian vault + daily agent at 8am",
-                "Backlog with kanban, filters, bug tracking and per-idea to-dos",
+                "Backlog with kanban, dark mode, filters, bug tracking and per-idea to-dos",
                 "Weekly team brief with OKR and 1:1 tables",
-                "Serves the Claude Pro Report locally — no external dependency",
+                "Claude Pro report served locally — no external dependency",
+            ],
+        },
+        {
+            "number": "10",
+            "title": "Toilet Paper — Local Napkin AI Clone",
+            "category": "Product · AI",
+            "boss": "Local app that converts free text into diagrams (Flowchart, Sequence, Mindmap, ER) via Ollama LLM. No cloud dependency, no API keys. Goal: visualise ideas and processes instantly.",
+            "advance": "Core features shipped and stable. Custom SVG renderer for flowcharts (dagre). 91 tests passing. Techco.lab design system applied.",
+            "body": "Vite+React+Mermaid+Ollama local app for text-to-diagram generation.",
+            "bullets": [
+                "Vite 4 + React 18 + Tailwind + Mermaid.js 10 + @dagrejs/dagre",
+                "Custom SVG renderer for flowcharts — reliable with llama3.2:3b",
+                "Two-strategy JSON parser — handles all known llama3.2 output formats",
+                "91 tests passing · Techco.lab design system applied",
             ],
         },
     ]
@@ -3324,12 +3338,14 @@ elif page == "Claude Pro":
 
     # ── Static data — Tools ───────────────────────────────────────────────────
     _CP_TOOLS = [
-        ("Claude Desktop App",               "claude.ai + Computer Use",         "Main interface. Windows-MCP, document generation, vault management.",                              "Active"),
-        ("Claude Code",                       "CLI agentic coding",               "Obsidian vault operations, automations, slash commands (/obsidian-*).",                           "Active"),
-        ("Obsidian + obsidian-second-brain",  "Local vault + open-source skill",  "Persistent knowledge base: OKRs, 1:1s, PDIs, session logs.",                                      "Active"),
-        ("Techco.lab Deck Skill",             "Proprietary NETZSCH skill",        "Web and .pptx presentation generation with Techco.lab visual identity.",                          "Configured"),
-        ("TechColab Backlog App",             "Streamlit + Obsidian + Ollama",    "Backlog management with daily agent, dashboard and this report integrated.",                      "Active"),
-        ("Windows-MCP",                       "System control via Claude",        "Read/write local files, PowerShell execution via Claude Desktop.",                                "Active"),
+        ("Claude Desktop App",               "claude.ai + Computer Use",         "Main interface. Windows-MCP, document generation, vault management.",                                        "Active"),
+        ("Claude Code",                       "CLI agentic coding",               "Obsidian vault operations, automations, slash commands (/obsidian-*).",                                     "Active"),
+        ("Obsidian + obsidian-second-brain",  "Local vault + open-source skill",  "Persistent knowledge base: OKRs, 1:1s, PDIs, session logs.",                                               "Active"),
+        ("Techco.lab Deck Skill",             "Proprietary NETZSCH skill",        "Web and .pptx presentation generation with Techco.lab visual identity.",                                   "Configured"),
+        ("TechColab Backlog App",             "Streamlit + Obsidian + Ollama",    "Backlog management with daily agent, dark mode, dashboard and Claude Pro report integrated.",             "Active"),
+        ("Call Recorder",                     "Python + faster-whisper + Claude", "Win+Space recorder: 1:1s and English Coach sessions auto-saved to vault.",                                "Active"),
+        ("Toilet Paper (Napkin Clone)",       "Vite + React + Mermaid + Ollama",  "Local text-to-diagram app: free text → Flowchart / Sequence / Mindmap / ER. No cloud dependency.",       "Active"),
+        ("Windows-MCP",                       "System control via Claude",        "Read/write local files, PowerShell execution via Claude Desktop.",                                         "Active"),
     ]
 
     # ── Computed stats ────────────────────────────────────────────────────────
@@ -3472,7 +3488,8 @@ elif page == "Claude Pro":
         <li><strong>Governance:</strong> OKRs reviewed and consolidated; corporate structure mapped</li>
         <li><strong>Productivity:</strong> presentations generated automatically in the visual standard</li>
         <li><strong>Documentation:</strong> technical processes documented as practical guides (OPLs)</li>
-        <li><strong>Automation:</strong> automatic meeting transcription in progress</li>
+        <li><strong>Automation:</strong> meeting transcription and note-saving fully running; English Coach integrated</li>
+        <li><strong>Development:</strong> local AI apps (Backlog Toolkit + Toilet Paper diagram generator) built and active</li>
         <li><strong>Visibility:</strong> this report — updated automatically every morning</li>
       </ul>
     </div>""", unsafe_allow_html=True)
