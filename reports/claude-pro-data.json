@@ -36,7 +36,7 @@
       "title": "Personal Toolkit · Techco.lab — Backlog Management App",
       "category": "Product · Automation",
       "boss": "Local productivity app built with Streamlit, integrated with Obsidian vault and daily agent. Centralises idea backlog, to-do management, weekly team brief, bug tracking and Claude Pro report.",
-      "advance": "App in production with 33+ backlog items. Dark mode, kanban, filters, bug tracking, Claude agent integration, and Claude Pro report all integrated locally.",
+      "advance": "App in production with 30 backlog items (23 active · 4 open bugs). Dark mode, kanban, filters, bug tracking, Claude agent and Claude Pro report integrated.",
       "auto_update": true,
       "body": "Personal productivity toolkit running 100% offline.",
       "bullets": [
@@ -147,13 +147,53 @@
     }
   ],
   "tools": [
-    ["Claude Desktop App",              "claude.ai + Computer Use",         "Main interface. Windows-MCP, document generation, vault management.",                                       "Active"],
-    ["Claude Code",                      "CLI agentic coding",               "Obsidian vault operations, automations, slash commands (/obsidian-*).",                                    "Active"],
-    ["Obsidian + obsidian-second-brain", "Local vault + open-source skill",  "Persistent knowledge base: OKRs, 1:1s, PDIs, session logs.",                                              "Active"],
-    ["Techco.lab Deck Skill",            "Proprietary NETZSCH skill",        "Web and .pptx presentation generation with Techco.lab visual identity.",                                  "Configured"],
-    ["TechColab Backlog App",            "Streamlit + Obsidian + Ollama",    "Backlog management with daily agent, dark mode, dashboard and Claude Pro report integrated.",            "Active"],
-    ["Call Recorder",                    "Python + faster-whisper + Claude", "Win+Space recorder: 1:1s and English Coach sessions auto-saved to vault.",                               "Active"],
-    ["Toilet Paper (Napkin Clone)",      "Vite + React + Mermaid + Ollama",  "Local text-to-diagram app: free text → Flowchart / Sequence / Mindmap / ER. No cloud dependency.",      "Active"],
-    ["Windows-MCP",                      "System control via Claude",        "Read/write local files, PowerShell execution via Claude Desktop.",                                        "Active"]
+    [
+      "Claude Desktop App",
+      "claude.ai + Computer Use",
+      "Main interface. Windows-MCP, document generation, vault management.",
+      "Active"
+    ],
+    [
+      "Claude Code",
+      "CLI agentic coding",
+      "Obsidian vault operations, automations, slash commands (/obsidian-*).",
+      "Active"
+    ],
+    [
+      "Obsidian + obsidian-second-brain",
+      "Local vault + open-source skill",
+      "Persistent knowledge base: OKRs, 1:1s, PDIs, session logs.",
+      "Active"
+    ],
+    [
+      "Techco.lab Deck Skill",
+      "Proprietary NETZSCH skill",
+      "Web and .pptx presentation generation with Techco.lab visual identity.",
+      "Configured"
+    ],
+    [
+      "TechColab Backlog App",
+      "Streamlit + Obsidian + Ollama",
+      "Backlog management with daily agent, dark mode, dashboard and Claude Pro report integrated.",
+      "Active"
+    ],
+    [
+      "Call Recorder",
+      "Python + faster-whisper + Claude",
+      "Win+Space recorder: 1:1s and English Coach sessions auto-saved to vault.",
+      "Active"
+    ],
+    [
+      "Toilet Paper (Napkin Clone)",
+      "Vite + React + Mermaid + Ollama",
+      "Local text-to-diagram app: free text → Flowchart / Sequence / Mindmap / ER. No cloud dependency.",
+      "Active"
+    ],
+    [
+      "Windows-MCP",
+      "System control via Claude",
+      "Read/write local files, PowerShell execution via Claude Desktop.",
+      "Active"
+    ]
   ]
 }
