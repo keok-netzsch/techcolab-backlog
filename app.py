@@ -681,7 +681,7 @@ if page == "Backlog":
                     st.rerun()
 
             # Input row — text + due date + bug flag + add button
-            _ni_c_txt, _ni_c_date, _ni_c_bug, _ni_c_btn = st.columns([5.5, 2.5, 1.5, 0.5])
+            _ni_c_txt, _ni_c_date, _ni_c_bug, _ni_c_btn = st.columns([6, 2.5, 1, 1])
             with _ni_c_txt:
                 ni_new_todo = st.text_input(
                     "To-dos", placeholder="Add a to-do and press ➕...",
@@ -693,13 +693,13 @@ if page == "Backlog":
                     format="DD/MM/YYYY",
                 )
             with _ni_c_bug:
-                st.markdown('<div style="margin-top:4px">', unsafe_allow_html=True)
-                ni_todo_bug = st.checkbox("Bug", value=False, key=f"ni_todo_bug_{_ni_ctr}",
-                                          help="Mark this to-do as a bug")
-                st.markdown('</div>', unsafe_allow_html=True)
+                st.caption("Bug")
+                ni_todo_bug = st.checkbox("🐛", value=False, key=f"ni_todo_bug_{_ni_ctr}",
+                                          help="Mark this to-do as a bug",
+                                          label_visibility="collapsed")
             with _ni_c_btn:
                 st.markdown('<div style="margin-top:28px">', unsafe_allow_html=True)
-                if st.button("➕", key="ni_add_todo_btn",
+                if st.button("➕ Add", key="ni_add_todo_btn",
                              disabled=not ni_new_todo.strip(),
                              use_container_width=True):
                     _due_str = ni_todo_due.isoformat() if ni_todo_due else None
@@ -711,12 +711,18 @@ if page == "Backlog":
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            ni_agente = st.checkbox(
-                "Agent authorized", value=False, key="ni_agente",
-                help="Allow the daily agent to automatically work on this item",
+            # Bottom row — agent flag + submit button on same line
+            _ni_bot_chk, _ni_bot_btn = st.columns([3, 2])
+            with _ni_bot_chk:
+                ni_agente = st.checkbox(
+                    "Agent authorized", value=False, key="ni_agente",
+                    help="Allow the daily agent to automatically work on this item",
+                )
+            _ni_submit = _ni_bot_btn.button(
+                "Add to backlog", type="primary", disabled=not ni_title.strip()
             )
 
-            if st.button("Add to backlog", type="primary", disabled=not ni_title.strip()):
+            if _ni_submit:
                 store = get_store()
                 all_ni_todos = ni_todos + st.session_state.get("ni_staged_todos", [])
                 idea = store.create(
