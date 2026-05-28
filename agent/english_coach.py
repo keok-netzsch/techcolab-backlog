@@ -35,12 +35,12 @@ REPORTS_DIR = VAULT_ROOT / "agent-reports"
 OLLAMA_URL   = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5-coder:latest"   # better JSON + structured output
 
-# Absolute paths to scan (Team and English-Coach live one level above VAULT_ROOT)
+# Absolute paths to scan (all relative to TechColab_D&A_KO, one level above App/Personal toolkit)
 _VAULT_BASE  = VAULT_ROOT.parent.parent   # .../TechColab_D&A_KO
 SCAN_DIRS_ABS = [
     TEAM_DIR,                        # Team/*/1on1/*.md
     _VAULT_BASE / "Stakeholders",    # Stakeholders/*/1on1/*.md
-    EC_DIR / "sessions",             # English-Coach/sessions/*.md
+    EC_DIR / "sessions",             # Areas/English-Learning/sessions/*.md (vault v2)
 ]
 
 MAX_CHARS_PER_SESSION = 1500   # cap per transcript to stay within 3B context

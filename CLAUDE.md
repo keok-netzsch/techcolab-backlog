@@ -145,7 +145,7 @@ read **`DESIGN_SYSTEM.md`** at the project root. It defines:
 - Page structure template
 
 **The design system is a hard requirement.** Any page that deviates from it must be updated.
-The same document lives in the Obsidian vault at `Design System/design-system-techcolab.md`.
+The same document lives in the Obsidian vault at `Resources/Techcolab/design-system-techcolab.md` (vault v2 — moved 2026-05-28).
 
 ---
 

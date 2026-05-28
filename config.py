@@ -30,8 +30,8 @@ VAULT_ROOT = Path(
 # ── Team folder (one level above vault, under TechColab_D&A_KO) ───────────────
 TEAM_DIR = VAULT_ROOT.parent.parent / "Team"
 
-# ── English Coach folder (same level as Team) ──────────────────────────────────
-EC_DIR = VAULT_ROOT.parent.parent / "English-Coach"
+# ── English Coach folder (vault restructure 2026-05-28: English-Coach → Areas/English-Learning)
+EC_DIR = VAULT_ROOT.parent.parent / "Areas" / "English-Learning"
 
 # ── Source: raw notes to be ingested ───────────────────────────────────────────
 VAULT_NOTES_DIR = VAULT_ROOT / "notes"
