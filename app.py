@@ -1098,7 +1098,8 @@ if page == "Backlog":
                                 unsafe_allow_html=True,
                             )
                             _TODO_STATE_OPTS = ["⬜", "🔄", "✅"]
-                            h_state, h_txt, h_date, h_auto, h_bug, h_del = st.columns([0.6, 7.5, 1.5, 0.4, 0.4, 0.4])
+                            h_state, h_txt, h_date, h_auto, h_bug, h_del = st.columns([1.5, 6.5, 1.5, 0.4, 0.4, 0.4])
+                            h_state.caption("State")
                             h_txt.caption("To-dos")
                             h_date.caption("📅 Prazo")
                             h_auto.caption("🤖")
@@ -1111,7 +1112,7 @@ if page == "Backlog":
                             for idx, todo in enumerate(idea.todos):
                                 if idx in st.session_state[deleted_idx_key]:
                                     continue
-                                c_state, c_txt, c_date, c_auto, c_bug, c_del = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
+                                c_state, c_txt, c_date, c_auto, c_bug, c_del = st.columns([1.5, 5.2, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
                                 with c_state:
                                     if todo.get("done"):
                                         cur_idx = 2
@@ -1672,11 +1673,14 @@ elif page == "Dashboard":
         from collections import Counter
         from datetime import datetime as _dt
 
-        msgs_by_day:   Counter = Counter()
-        msgs_by_hour:  Counter = Counter()
-        tokens_by_day: Counter = Counter()
-        output_by_day: Counter = Counter()
+        msgs_by_day:        Counter = Counter()
+        msgs_by_hour:       Counter = Counter()
+        msgs_by_day_hour:   dict    = {}        # date -> Counter(hour -> count)
+        tokens_by_day:      Counter = Counter()
+        output_by_day:      Counter = Counter()
         cache_read = cache_create = 0
+        cache_read_by_day:  Counter = Counter()
+        cache_create_by_day: Counter = Counter()
         model_counts: Counter = Counter()
         sessions: set = set()
         projects: Counter = Counter()
@@ -1717,6 +1721,9 @@ elif page == "Dashboard":
                                     if isinstance(_cnt, str) and _cnt.strip():
                                         msgs_by_day[_d] += 1
                                         msgs_by_hour[_dobj.hour] += 1
+                                        if _d not in msgs_by_day_hour:
+                                            msgs_by_day_hour[_d] = Counter()
+                                        msgs_by_day_hour[_d][_dobj.hour] += 1
                                 elif _etype == "assistant":
                                     _mod = _e.get("message", {}).get("model", "")
                                     if _mod and _mod != "<synthetic>":
@@ -1731,6 +1738,8 @@ elif page == "Dashboard":
                                         output_by_day[_d] += _out
                                         cache_read  += _cr
                                         cache_create += _cc2
+                                        cache_read_by_day[_d]   += _cr
+                                        cache_create_by_day[_d] += _cc2
                             except Exception:
                                 continue
                 except Exception:
@@ -1740,10 +1749,13 @@ elif page == "Dashboard":
             sessions=len(sessions),
             msgs_by_day=msgs_by_day,
             msgs_by_hour=msgs_by_hour,
+            msgs_by_day_hour=msgs_by_day_hour,
             tokens_by_day=tokens_by_day,
             output_by_day=output_by_day,
             cache_read=cache_read,
             cache_create=cache_create,
+            cache_read_by_day=cache_read_by_day,
+            cache_create_by_day=cache_create_by_day,
             models=model_counts,
             projects=projects,
         )
@@ -1833,12 +1845,20 @@ elif page == "Dashboard":
         _msgs_by_day  = {d: c for d, c in _all_stats["msgs_by_day"].items()   if d >= _cutoff_disp}
         _tk_total     = {d: c for d, c in _all_stats["tokens_by_day"].items() if d >= _cutoff_disp}
         _tk_out       = {d: c for d, c in _all_stats["output_by_day"].items() if d >= _cutoff_disp}
+        _cr_total     = sum(v for d, v in _all_stats["cache_read_by_day"].items()   if d >= _cutoff_disp)
+        _cc_total     = sum(v for d, v in _all_stats["cache_create_by_day"].items() if d >= _cutoff_disp)
+        from collections import Counter as _Ctr
+        _peak_hours   = _Ctr()
+        for _d2, _hc in _all_stats["msgs_by_day_hour"].items():
+            if _d2 >= _cutoff_disp:
+                _peak_hours += _hc
     else:
         _msgs_by_day  = dict(_all_stats["msgs_by_day"])
         _tk_total     = dict(_all_stats["tokens_by_day"])
         _tk_out       = dict(_all_stats["output_by_day"])
-    _cr_total    = _all_stats["cache_read"]
-    _cc_total    = _all_stats["cache_create"]
+        _cr_total     = _all_stats["cache_read"]
+        _cc_total     = _all_stats["cache_create"]
+        _peak_hours   = _all_stats["msgs_by_hour"]
     _cc_projects = _all_stats["projects"]
 
     if not _all_stats["msgs_by_day"] and not _all_stats["tokens_by_day"]:
@@ -1848,8 +1868,7 @@ elif page == "Dashboard":
         _total_tk_val = sum(_tk_total.values())
         _active_days  = set(_msgs_by_day.keys())
         _streak_cur, _streak_max = _compute_streaks(_active_days)
-        _peak_h       = max(_all_stats["msgs_by_hour"], key=_all_stats["msgs_by_hour"].get) \
-                        if _all_stats["msgs_by_hour"] else 0
+        _peak_h       = max(_peak_hours, key=_peak_hours.get) if _peak_hours else 0
         _fav_mod      = max(_all_stats["models"], key=_all_stats["models"].get) \
                         if _all_stats["models"] else ""
         _fav_mod_str  = _fmt_model(_fav_mod) if _fav_mod else "—"
