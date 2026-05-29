@@ -1544,10 +1544,15 @@ elif page == "To-Do List":
             for group_label, group_items in groupby(filtered_todos, key=get_group_key):
                 items = list(group_items)
                 # intra-group sort by header column
+                _todo_state_order = {"open": 0, "in_progress": 1, "done": 2}
+                def _todo_state(t):
+                    return "done" if t["done"] else ("in_progress" if t.get("in_progress") else "open")
                 if _sc == "id":
                     items.sort(key=lambda t: t["idea_id"], reverse=(_sd == -1))
                 elif _sc == "priority":
                     items.sort(key=lambda t: prio_order.get(t["priority"], 9), reverse=(_sd == -1))
+                elif _sc == "state":
+                    items.sort(key=lambda t: _todo_state_order.get(_todo_state(t), 0), reverse=(_sd == -1))
                 elif _sc == "text":
                     items.sort(key=lambda t: t["text"].lower(), reverse=(_sd == -1))
                 elif _sc == "due_date":
