@@ -3923,23 +3923,33 @@ elif page == "English Coach":
         _prog_text = _EC_PROGRESS.read_text(encoding="utf-8")
         _prog_rows = []
         for _line in _prog_text.splitlines():
-            _m = _ecre.match(
-                r"\|\s*(\d{4}-\d{2}-\d{2})[^|]*\|\s*([\d.]+)/10\s*\|\s*(\w+)\s*\|([^|]+)\|([^|]*)\|",
-                _line,
-            )
-            if _m:
-                _topic_raw  = _m.group(5).strip()
-                _tt_m       = _ecre.match(r"\[(\w+)\](.*)", _topic_raw)
-                _topic_type_p = _tt_m.group(1).lower() if _tt_m else ""
-                _topic_clean  = _tt_m.group(2).strip() if _tt_m else _topic_raw
-                _prog_rows.append({
-                    "date":       _m.group(1),
-                    "overall":    float(_m.group(2)),
-                    "level":      _m.group(3).strip(),
-                    "scores":     _m.group(4).strip(),
-                    "topic":      _topic_clean,
-                    "topic_type": _topic_type_p,
-                })
+            # Progress.md format has pipe-separated scores as separate columns:
+            # | date | overall | level | dim1 | dim2 | dim3 | dim4 | dim5 | topic |
+            # Use column-index parsing instead of regex to handle embedded pipes correctly.
+            if not _line.startswith("|"):
+                continue
+            _cols = [_c.strip() for _c in _line.strip("|").split("|")]
+            if len(_cols) < 9:
+                continue
+            if not _ecre.match(r"\d{4}-\d{2}-\d{2}", _cols[0]):
+                continue
+            _om = _ecre.match(r"([\d.]+)/10", _cols[1])
+            if not _om:
+                continue
+            _topic_raw    = _cols[8] if len(_cols) > 8 else ""
+            _tt_m         = _ecre.match(r"\[(\w+)\](.*)", _topic_raw)
+            _topic_type_p = _tt_m.group(1).lower() if _tt_m else ""
+            _topic_clean  = _tt_m.group(2).strip() if _tt_m else _topic_raw
+            # Scores: re-join the 5 dimension columns so downstream split(" | ") still works
+            _scores_str   = " | ".join(_cols[3:8])
+            _prog_rows.append({
+                "date":       _cols[0],
+                "overall":    float(_om.group(1)),
+                "level":      _cols[2],
+                "scores":     _scores_str,
+                "topic":      _topic_clean,
+                "topic_type": _topic_type_p,
+            })
 
         if _prog_rows:
             # ── KPIs ─────────────────────────────────────────────────────────
@@ -3974,10 +3984,26 @@ elif page == "English Coach":
 
             # ── Score trend chart ─────────────────────────────────────────────
             import pandas as _ecpd
-            _df = _ecpd.DataFrame(_prog_rows).set_index("date")[["overall"]]
-            _df.columns = ["Overall (0–10)"]
+            import altair as _ecalt
+
+            _chart_src = _ecpd.DataFrame([{"date": r["date"], "score": r["overall"]} for r in _prog_rows])
+            _overall_chart = (
+                _ecalt.Chart(_chart_src)
+                .mark_line(point=True, color="#3B82F6", strokeWidth=2)
+                .encode(
+                    x=_ecalt.X("date:O", axis=_ecalt.Axis(labelAngle=-30, title=None)),
+                    y=_ecalt.Y("score:Q",
+                               scale=_ecalt.Scale(domain=[0, 10]),
+                               axis=_ecalt.Axis(title="Score (0–10)", tickCount=5)),
+                    tooltip=[
+                        _ecalt.Tooltip("date:O", title="Date"),
+                        _ecalt.Tooltip("score:Q", title="Overall", format=".1f"),
+                    ],
+                )
+                .properties(height=200)
+            )
             st.subheader("Score progression")
-            st.line_chart(_df, height=200)
+            st.altair_chart(_overall_chart, use_container_width=True)
 
             # ── English Curves — per-dimension trend ──────────────────────────
             _dim_rows = []
@@ -3993,12 +4019,32 @@ elif page == "English Coach":
                 _dim_rows.append(_row_d)
 
             if _dim_rows and len(_dim_rows) >= 2:
-                _dim_df = _ecpd.DataFrame(_dim_rows).set_index("date")
-                _dim_df = _dim_df[[c for c in _dim_df.columns if _dim_df[c].notna().any()]]
-                if not _dim_df.empty:
-                    st.subheader("English Curves")
-                    st.caption("Per-dimension score evolution across sessions.")
-                    st.line_chart(_dim_df, height=220)
+                _dim_df = _ecpd.DataFrame(_dim_rows)
+                _dim_cols = [c for c in _dim_df.columns if c != "date" and _dim_df[c].notna().any()]
+                if _dim_cols:
+                    _dim_long = _dim_df.melt(
+                        id_vars=["date"], value_vars=_dim_cols,
+                        var_name="Dimension", value_name="Score"
+                    ).dropna(subset=["Score"])
+                    if not _dim_long.empty:
+                        _curves_chart = (
+                            _ecalt.Chart(_dim_long)
+                            .mark_line(point=True, strokeWidth=1.8)
+                            .encode(
+                                x=_ecalt.X("date:O", axis=_ecalt.Axis(labelAngle=-30, title=None)),
+                                y=_ecalt.Y("Score:Q",
+                                           scale=_ecalt.Scale(domain=[0, 10]),
+                                           axis=_ecalt.Axis(title="Score (0–10)", tickCount=5)),
+                                color=_ecalt.Color("Dimension:N",
+                                                   legend=_ecalt.Legend(title="Dimension")),
+                                tooltip=["date:O", "Dimension:N",
+                                         _ecalt.Tooltip("Score:Q", format=".0f")],
+                            )
+                            .properties(height=220)
+                        )
+                        st.subheader("English Curves")
+                        st.caption("Per-dimension score evolution across sessions.")
+                        st.altair_chart(_curves_chart, use_container_width=True)
 
             st.divider()
 
