@@ -3928,12 +3928,17 @@ elif page == "English Coach":
                 _line,
             )
             if _m:
+                _topic_raw  = _m.group(5).strip()
+                _tt_m       = _ecre.match(r"\[(\w+)\](.*)", _topic_raw)
+                _topic_type_p = _tt_m.group(1).lower() if _tt_m else ""
+                _topic_clean  = _tt_m.group(2).strip() if _tt_m else _topic_raw
                 _prog_rows.append({
-                    "date":    _m.group(1),
-                    "overall": float(_m.group(2)),
-                    "level":   _m.group(3).strip(),
-                    "scores":  _m.group(4).strip(),
-                    "topic":   _m.group(5).strip(),
+                    "date":       _m.group(1),
+                    "overall":    float(_m.group(2)),
+                    "level":      _m.group(3).strip(),
+                    "scores":     _m.group(4).strip(),
+                    "topic":      _topic_clean,
+                    "topic_type": _topic_type_p,
                 })
 
         if _prog_rows:
@@ -3947,6 +3952,23 @@ elif page == "English Coach":
             _k3.metric("Overall average", f"{_avg:.1f}/10")
             _k4.metric("Best score", f"{_best:.1f}/10")
             _k1.caption(f"Current level: **{_latest['level']}**")
+
+            # ── Topic type breakdown ──────────────────────────────────────────
+            _typed_rows = [_r for _r in _prog_rows if _r.get("topic_type")]
+            if _typed_rows:
+                from collections import defaultdict as _ecdd
+                _type_data: dict = _ecdd(list)
+                for _r in _typed_rows:
+                    _type_data[_r["topic_type"]].append(_r["overall"])
+                st.markdown("**Sessions by type**")
+                _tc_cols = st.columns(min(len(_type_data), 6))
+                for _ti, (_tt, _tscores) in enumerate(sorted(_type_data.items())):
+                    _tavg = sum(_tscores) / len(_tscores)
+                    _tc_cols[_ti].metric(
+                        _tt.title(),
+                        f"{_tavg:.1f}/10",
+                        help=f"{len(_tscores)} session(s)",
+                    )
 
             st.divider()
 
@@ -3995,15 +4017,20 @@ elif page == "English Coach":
                     continue
                 import yaml as _ecyaml
                 _sfm = _ecyaml.safe_load(_fm_m.group(1))
-                _s_date    = _sfm.get("date", _sf.stem[:10])
-                _s_overall = _sfm.get("overall", "?")
-                _s_level   = _sfm.get("level", "?")
-                _s_body    = _stext[_fm_m.end():].strip()
-                _summary_m = _ecre.search(r"> (.+)", _s_body)
-                _summary   = _summary_m.group(1) if _summary_m else ""
+                _s_date       = _sfm.get("date", _sf.stem[:10])
+                _s_overall    = _sfm.get("overall", "?")
+                _s_level      = _sfm.get("level", "?")
+                _s_topic_type = _sfm.get("topic_type", "")
+                _s_body       = _stext[_fm_m.end():].strip()
+                _summary_m    = _ecre.search(r"> (.+)", _s_body)
+                _summary      = _summary_m.group(1) if _summary_m else ""
+                _type_badge   = f" · {_s_topic_type.title()}" if _s_topic_type else ""
 
-                with st.expander(f"**{_s_date}** — {_s_overall}/10 · {_s_level}  _{_summary[:80]}_"):
-                    st.markdown(_s_body, unsafe_allow_html=False)
+                with st.expander(f"**{_s_date}** — {_s_overall}/10 · {_s_level}{_type_badge}  _{_summary[:80]}_"):
+                    # Strip transcript sections before rendering — full transcript is in Obsidian
+                    _body_display = _ecre.split(r"\n## (?:Evaluated excerpt|Full transcript|Transcript)\b", _s_body)[0]
+                    st.markdown(_body_display, unsafe_allow_html=False)
+                    st.caption(f"Full transcript saved in Obsidian · Areas/English-Learning/sessions/{_sf.name}")
 
         if _prog_rows:
             st.divider()
