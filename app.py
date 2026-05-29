@@ -4020,13 +4020,15 @@ elif page == "English Coach":
                 _s_date       = _sfm.get("date", _sf.stem[:10])
                 _s_overall    = _sfm.get("overall", "?")
                 _s_level      = _sfm.get("level", "?")
+                _s_level_conf = _sfm.get("level_confidence", "")
                 _s_topic_type = _sfm.get("topic_type", "")
                 _s_body       = _stext[_fm_m.end():].strip()
                 _summary_m    = _ecre.search(r"> (.+)", _s_body)
                 _summary      = _summary_m.group(1) if _summary_m else ""
                 _type_badge   = f" · {_s_topic_type.title()}" if _s_topic_type else ""
+                _conf_badge   = " ⚠️" if _s_level_conf == "low" else ""
 
-                with st.expander(f"**{_s_date}** — {_s_overall}/10 · {_s_level}{_type_badge}  _{_summary[:80]}_"):
+                with st.expander(f"**{_s_date}** — {_s_overall}/10 · {_s_level}{_conf_badge}{_type_badge}  _{_summary[:80]}_"):
                     # Strip transcript sections before rendering — full transcript is in Obsidian
                     _body_display = _ecre.split(r"\n## (?:Evaluated excerpt|Full transcript|Transcript)\b", _s_body)[0]
                     st.markdown(_body_display, unsafe_allow_html=False)
