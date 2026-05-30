@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-05-29",
+  "last_updated": "2026-05-30",
   "_comment": "Edit this file to update the Claude Pro page. The daily agent auto-updates fields marked with auto_update=true.",
   "active": [
     {
@@ -36,7 +36,7 @@
       "title": "Personal Toolkit · Techco.lab — Backlog Management App",
       "category": "Product · Automation",
       "boss": "Local productivity app built with Streamlit, integrated with Obsidian vault and daily agent. Centralises idea backlog, to-do management, weekly team brief, bug tracking and Claude Pro report.",
-      "advance": "App in production with 33 backlog items (24 active · 4 open bugs). Dark mode, kanban, filters, bug tracking, Claude agent and Claude Pro report integrated.",
+      "advance": "App in production with 38 backlog items (26 active · 4 open bugs). Dark mode, kanban, filters, bug tracking, Claude agent and Claude Pro report integrated.",
       "auto_update": true,
       "body": "Personal productivity toolkit running 100% offline.",
       "bullets": [
