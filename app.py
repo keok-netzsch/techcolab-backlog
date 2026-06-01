@@ -488,6 +488,27 @@ STATUS_LABEL = {
 PRIORITY_LABEL = {"alta": "High", "média": "Medium", "baixa": "Low"}
 IMPACT_LABEL = {"alta": "High", "média": "Medium", "baixa": "Low"}
 EFFORT_LABEL = {"alto": "High", "médio": "Medium", "baixo": "Low"}
+AREA_LABEL = {
+    "produto": "Product",
+    "dados & IA": "Data & AI",
+    "automação": "Automation",
+    "gestão": "Management",
+    "governança": "Governance",
+    "infraestrutura": "Infrastructure",
+    "comunicação": "Communication",
+    "business": "Business",
+}
+
+def _area_chip(area: str | None) -> str:
+    """Compact muted chip for the backlog area column."""
+    if not area:
+        return '<span style="color:#9CA3AF;font-size:0.78rem">—</span>'
+    label = AREA_LABEL.get(area, area.title())
+    return (
+        f'<span style="display:inline-block;font-size:0.72rem;font-weight:600;'
+        f'color:#64748B;background:rgba(100,116,139,0.12);padding:2px 8px;'
+        f'border-radius:10px;white-space:nowrap">{label}</span>'
+    )
 
 # ── Store ─────────────────────────────────────────────────────────────────────
 def get_store() -> BacklogStore:
@@ -612,7 +633,7 @@ if page == "Backlog":
             ni_col1, ni_col2 = st.columns(2)
             with ni_col1:
                 ni_area = st.selectbox("Area", [""] + VALID_AREAS, index=0, key="ni_area",
-                                       format_func=lambda x: x if x else "— selecione —")
+                                       format_func=lambda x: AREA_LABEL.get(x, x) if x else "— select —")
                 ni_priority = st.selectbox("Priority", VALID_PRIORITIES, index=1, key="ni_priority",
                                            format_func=lambda x: PRIORITY_LABEL.get(x, x))
             with ni_col2:
@@ -797,7 +818,8 @@ if page == "Backlog":
     _CLOSED = {"concluído", "descartado"}
 
     # ── Filtros ──────────────────────────────────────────────────────────────────
-    col_f1, col_f2, col_f3 = st.columns([1.2, 1.8, 5])
+    _area_options = sorted({i.area for i in ideas if i.area})
+    col_f1, col_f2, col_f3, col_f4 = st.columns([1.2, 1.8, 1.8, 3.4])
     with col_f1:
         filter_priority = st.multiselect("Priority", VALID_PRIORITIES, placeholder="All",
                                          format_func=lambda x: PRIORITY_LABEL.get(x, x))
@@ -805,6 +827,9 @@ if page == "Backlog":
         filter_status = st.multiselect("Status", VALID_STATUSES, placeholder="All statuses",
                                        format_func=lambda x: STATUS_LABEL.get(x, x))
     with col_f3:
+        filter_area = st.multiselect("Area", _area_options, placeholder="All areas",
+                                     format_func=lambda x: AREA_LABEL.get(x, x.title()))
+    with col_f4:
         filter_text = st.text_input("Search", placeholder="Title, description or notes...")
 
     # ── View toggle + Show closed na mesma linha ─────────────────────────────────
@@ -820,6 +845,8 @@ if page == "Backlog":
         filtered = [i for i in filtered if i.status in filter_status]
     if filter_priority:
         filtered = [i for i in filtered if i.priority in filter_priority]
+    if filter_area:
+        filtered = [i for i in filtered if i.area in filter_area]
     if filter_text:
         q = filter_text.lower()
         filtered = [
@@ -870,11 +897,12 @@ if page == "Backlog":
             st.caption(f"{len(filtered)} item(s)")
 
             # Column headers
-            _h1, _h2, _h3, _h4 = st.columns([0.06, 0.09, 0.07, 0.78])
+            _h1, _h2, _h3, _h4, _h5 = st.columns([0.06, 0.09, 0.07, 0.63, 0.15])
             _h1.caption("ID")
             _h2.caption("Prio")
             _h3.caption("Status")
             _h4.caption("Backlog item")
+            _h5.caption("Area")
             st.markdown('<hr style="margin:2px 0 6px 0;border-color:rgba(76,77,88,0.12)">', unsafe_allow_html=True)
 
             with st.container(height=600):
@@ -894,7 +922,7 @@ if page == "Backlog":
                     if exp_key not in st.session_state:
                         st.session_state[exp_key] = False
 
-                    c1, c2, c3, c4 = st.columns([0.06, 0.09, 0.07, 0.78])
+                    c1, c2, c3, c4, c5 = st.columns([0.06, 0.09, 0.07, 0.63, 0.15], vertical_alignment="center")
                     c1.markdown(f"**{short_id}**")
                     c2.markdown(prio_icon, unsafe_allow_html=True)
                     c3.markdown(status_icon, unsafe_allow_html=True)
@@ -908,6 +936,7 @@ if page == "Backlog":
                         if not new_exp and st.session_state.get("return_to_kanban") == idea.id:
                             st.session_state["view_mode"] = "Kanban"
                             st.session_state.pop("return_to_kanban", None)
+                    c5.markdown(_area_chip(idea.area), unsafe_allow_html=True)
 
                     if st.session_state[exp_key]:
                         with st.container(border=True):
@@ -935,7 +964,7 @@ if page == "Backlog":
                                 new_area = st.selectbox("Area", _area_opts,
                                                         index=_area_opts.index(_area_cur) if _area_cur in _area_opts else 0,
                                                         key=f"area_{idea.id}",
-                                                        format_func=lambda x: x if x else "— selecione —")
+                                                        format_func=lambda x: AREA_LABEL.get(x, x) if x else "— select —")
                                 new_due = st.date_input(
                                     "Due date",
                                     value=idea.due_date,
@@ -3189,23 +3218,25 @@ Execute the approved items from today's agent report
 
 ## Claude Pro Report
 
-The **Claude Pro Report** (**Claude Pro** page) is a live HTML report that tracks Claude Pro usage and adoption metrics for the NBS D&A team. The page also includes the **Token Coach** calculator.
+The **Claude Pro** page is a native Streamlit page that tracks Claude Pro usage and adoption metrics for the NBS D&A team.
 
-It is stored as an HTML file inside the project repository (`reports/claude-pro-report.html`) and published automatically via GitHub Pages.
+Data is driven by two JSON files in `reports/`:
+- `claude-pro-data.json` — initiatives, tools and executive summary (edit manually or via agent)
+- `claude-pro-timeline.json` — chronological activity log (auto-updated by the daily agent)
+
+There is no external HTML file or GitHub Pages dependency — the page renders live from the JSON on every load.
 
 ### What gets updated automatically
 
-Every morning when the daily agent runs, it updates three values in the HTML file:
+Every morning when the daily agent runs, it:
 
-| Field | Example |
+| Action | Target |
 |---|---|
-| "Atualizado em" (header meta) | 19/05/2026 |
-| "Dias desde adoção" (stat counter) | 47 |
-| Footer date | 19/05/2026 |
+| Adds today's git commits as a timeline entry | `claude-pro-timeline.json` |
+| Backfills any missing session dates (last 7 days) from JSONL scraping | `claude-pro-timeline.json` |
+| Patches live backlog stats (total items, open bugs) into the toolkit initiative | `claude-pro-data.json` |
 
-After updating, the agent commits the file to the repository and pushes it — GitHub Pages then serves the new version within ~1 minute.
-
-To update manually outside the agent schedule, use the **Update now** button on the **Claude Pro** page.
+The page also auto-refreshes the timeline once on first load each day. To force an immediate refresh at any time, use the **🔄 Refresh** button in the top-right of the Claude Pro page.
 """)
 
 
@@ -3601,6 +3632,7 @@ elif page == "Claude Pro":
 
     # ── Load data from JSON (auto-updated by daily agent) ────────────────────
     _cp_data_updated = ""
+    _CP_EXEC: dict = {}
     if _CP_DATA_JSON.exists():
         try:
             _cp_raw = _cpjson.loads(_CP_DATA_JSON.read_text(encoding="utf-8"))
@@ -3608,6 +3640,7 @@ elif page == "Claude Pro":
             _CP_COMPLETED = _cp_raw.get("completed", [])
             _CP_TOOLS     = [tuple(t) for t in _cp_raw.get("tools", [])]
             _cp_data_updated = _cp_raw.get("last_updated", "")
+            _CP_EXEC      = _cp_raw.get("exec_summary", {})
         except Exception as _e:
             st.warning(f"⚠ Could not load claude-pro-data.json: {_e}")
             _CP_ACTIVE = _CP_COMPLETED = []
@@ -3620,6 +3653,19 @@ elif page == "Claude Pro":
     # ── Computed stats ────────────────────────────────────────────────────────
     _cp_start = date.fromisoformat(CLAUDE_PRO_START_DATE)
     _cp_days  = (date.today() - _cp_start).days
+
+    # ── Auto-update timeline once per day on first page load (non-blocking) ──
+    _cp_auto_key = f"cp_timeline_updated_{date.today().isoformat()}"
+    if _cp_auto_key not in st.session_state:
+        st.session_state[_cp_auto_key] = True
+        import threading as _threading
+        def _bg_update():
+            try:
+                from agent.daily_report import _update_claude_pro_report
+                _update_claude_pro_report()
+            except Exception:
+                pass
+        _threading.Thread(target=_bg_update, daemon=True).start()
 
     # ── Load timeline ─────────────────────────────────────────────────────────
     _cp_timeline: list = []
@@ -3689,6 +3735,9 @@ elif page == "Claude Pro":
     .cp-badge-cat{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.08em;
                   text-transform:uppercase;padding:3px 9px;border-radius:999px;
                   background:rgba(76,77,88,.07);color:rgba(76,77,88,.55);display:inline-block}
+    .cp-badge-draft{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.08em;
+                    text-transform:uppercase;padding:3px 9px;border-radius:999px;
+                    background:rgba(99,102,241,.1);color:#6366f1;display:inline-block;margin-right:4px}
     .cp-tl-wrap{position:relative;padding-left:28px;margin-top:.5rem}
     .cp-tl-wrap::before{content:'';position:absolute;left:0;top:8px;bottom:0;width:1px;
                          background:rgba(76,77,88,.12)}
@@ -3726,18 +3775,32 @@ elif page == "Claude Pro":
     </style>""", unsafe_allow_html=True)
 
     # ── Header ────────────────────────────────────────────────────────────────
-    st.markdown(f"""<div class="cp-header">
-      <div>
-        <div class="cp-org">NBS D&amp;A &middot; Techco.lab &middot; Team Lead</div>
-        <div class="cp-h1">Claude Pro — Initiatives<br>&amp; Developments</div>
-      </div>
-      <div class="cp-meta">
-        <strong>Kelvin Okuda</strong><br>
-        Team Lead · D&amp;A Projects &amp; Governance<br>
-        Period: 11/05/2026 &rarr; present<br>
-        Updated: {date.today().strftime('%d/%m/%Y')}
-      </div>
-    </div>""", unsafe_allow_html=True)
+    _cp_h_left, _cp_h_right = st.columns([6, 1])
+    with _cp_h_left:
+        st.markdown(f"""<div class="cp-header">
+          <div>
+            <div class="cp-org">NBS D&amp;A &middot; Techco.lab &middot; Team Lead</div>
+            <div class="cp-h1">Claude Pro — Initiatives<br>&amp; Developments</div>
+          </div>
+          <div class="cp-meta">
+            <strong>Kelvin Okuda</strong><br>
+            Team Lead · D&amp;A Projects &amp; Governance<br>
+            Period: 11/05/2026 &rarr; present<br>
+            Updated: {date.today().strftime('%d/%m/%Y')}
+          </div>
+        </div>""", unsafe_allow_html=True)
+    with _cp_h_right:
+        st.markdown('<div style="height:2.4rem"></div>', unsafe_allow_html=True)
+        if st.button("🔄 Refresh", type="primary", key="cp_update_btn_top", use_container_width=True,
+                     help="Check for new commits and sessions since last update"):
+            from agent.daily_report import _update_claude_pro_report
+            with st.spinner("Checking..."):
+                ok = _update_claude_pro_report()
+            if ok:
+                st.session_state.pop(f"cp_timeline_updated_{date.today().isoformat()}", None)
+                st.rerun()
+            else:
+                st.toast("Already up to date.", icon="✅")
 
     # ── Data freshness indicator ──────────────────────────────────────────────
     if _cp_data_updated:
@@ -3751,27 +3814,41 @@ elif page == "Claude Pro":
 
     # ── Overview ──────────────────────────────────────────────────────────────
     st.markdown('<div class="cp-sect-lbl">Overview</div>', unsafe_allow_html=True)
-    _cp_total_init = len(_CP_ACTIVE) + len(_CP_COMPLETED)
+    _cp_total_init  = len(_CP_ACTIVE) + len(_CP_COMPLETED)
+    _cp_active_days = len({e["date"] for e in _cp_timeline}) if _cp_timeline else 0
+    _cp_last_iso    = max((e["date"] for e in _cp_timeline), default=None) if _cp_timeline else None
+    _cp_last_ago    = (date.today() - date.fromisoformat(_cp_last_iso)).days if _cp_last_iso else None
+    _cp_last_lbl    = ("today" if _cp_last_ago == 0
+                       else f"{_cp_last_ago}d ago" if _cp_last_ago is not None else "—")
+    _cp_pct         = int(_cp_total_init and (len(_CP_COMPLETED) / _cp_total_init * 100))
+    _cp_bar_clr     = "#02B793" if not _dark_mode else "#0AD4A8"
+    _cp_bar_bg      = "rgba(2,183,147,.12)" if not _dark_mode else "rgba(10,212,168,.08)"
+
     st.markdown(f"""<div class="cp-stat-strip">
       <div class="cp-stat-box"><div class="cp-stat-num">{_cp_total_init}</div><div class="cp-stat-lbl">Total initiatives</div></div>
-      <div class="cp-stat-box"><div class="cp-stat-num">{len(_CP_COMPLETED)}</div><div class="cp-stat-lbl">Completed</div></div>
-      <div class="cp-stat-box"><div class="cp-stat-num">{len(_cp_timeline)}</div><div class="cp-stat-lbl">Sessions logged</div></div>
-      <div class="cp-stat-box"><div class="cp-stat-num">{_cp_days}</div><div class="cp-stat-lbl">Days since adoption</div></div>
-    </div>
-    <div class="cp-exec">
-      <div class="cp-exec-lbl">For the manager — what is being done with Claude Pro</div>
-      <p class="cp-exec-lead">Claude Pro is being used to increase productivity and quality of D&amp;A area management.
-      In {_cp_days} days, {_cp_total_init} initiatives were configured covering documentation, governance, automations and development tools.</p>
-      <ul class="cp-exec-grid">
-        <li><strong>Team management:</strong> knowledge base with OKRs, plans and history for all 5 direct reports</li>
-        <li><strong>Governance:</strong> OKRs reviewed and consolidated; corporate structure mapped</li>
-        <li><strong>Productivity:</strong> presentations generated automatically in the visual standard</li>
-        <li><strong>Documentation:</strong> technical processes documented as practical guides (OPLs)</li>
-        <li><strong>Automation:</strong> meeting transcription and note-saving fully running; English Coach integrated</li>
-        <li><strong>Development:</strong> local AI apps (Backlog Toolkit + Toilet Paper diagram generator) built and active</li>
-        <li><strong>Visibility:</strong> this report — updated automatically every morning</li>
-      </ul>
+      <div class="cp-stat-box">
+        <div class="cp-stat-num">{len(_CP_COMPLETED)}</div>
+        <div class="cp-stat-lbl">Completed</div>
+        <div style="margin-top:8px;height:4px;border-radius:2px;background:{_cp_bar_bg};overflow:hidden">
+          <div style="height:100%;width:{_cp_pct}%;background:{_cp_bar_clr};border-radius:2px;transition:width .4s ease"></div>
+        </div>
+        <div style="font-size:10px;color:rgba(76,77,88,.4);margin-top:3px;font-family:'DM Mono',monospace">{_cp_pct}% done</div>
+      </div>
+      <div class="cp-stat-box"><div class="cp-stat-num">{_cp_active_days}</div><div class="cp-stat-lbl">Active days</div></div>
+      <div class="cp-stat-box"><div class="cp-stat-num">{_cp_last_lbl}</div><div class="cp-stat-lbl">Last active</div></div>
     </div>""", unsafe_allow_html=True)
+
+    # ── Executive summary (from JSON) ─────────────────────────────────────────
+    if _CP_EXEC:
+        _exec_lead = (_CP_EXEC.get("lead", "")
+                      .replace("{days}", str(_cp_days))
+                      .replace("{total}", str(_cp_total_init)))
+        _exec_bullets = "".join(f"<li>{b}</li>" for b in _CP_EXEC.get("bullets", []))
+        st.markdown(f"""<div class="cp-exec">
+          <div class="cp-exec-lbl">For the manager — what is being done with Claude Pro</div>
+          <p class="cp-exec-lead">{_exec_lead}</p>
+          <ul class="cp-exec-grid">{_exec_bullets}</ul>
+        </div>""", unsafe_allow_html=True)
 
     # ── Active initiatives ────────────────────────────────────────────────────
     st.markdown('<div class="cp-sect-lbl">Initiatives</div>', unsafe_allow_html=True)
@@ -3780,26 +3857,45 @@ elif page == "Claude Pro":
 
     _cp_body_clr = "#94A3B8" if _dark_mode else "rgba(76,77,88,.7)"
     for _init in _CP_ACTIVE:
-        _bl = "".join(f"<li>{b}</li>" for b in _init["bullets"])
-        with st.expander(f"**{_init['number']}** · {_init['title']}", expanded=True):
-            st.markdown(
-                f'<span class="cp-badge-prog">In progress</span>'
-                f'<span class="cp-badge-cat">{_init["category"]}</span>',
-                unsafe_allow_html=True,
-            )
-            st.markdown(f"""<div class="cp-boss">
-              <div class="cp-boss-lbl">In summary</div>
-              <p class="cp-boss-p">{_init['boss']}</p>
-              <p class="cp-boss-adv"><strong>Key advance:</strong> {_init['advance']}</p>
-            </div>
-            <p style="font-size:13.5px;color:{_cp_body_clr};margin:.4rem 0 .3rem">{_init['body']}</p>
-            <ul class="cp-body-ul">{_bl}</ul>""", unsafe_allow_html=True)
+        _is_draft = _init.get("status") == "draft"
+        _init_num = _init.get("number", "??")
+        _bl = "".join(f"<li>{b}</li>" for b in _init.get("bullets", []))
+        _exp_lbl = (f"**{_init_num}** · {_init['title']}"
+                    if _init_num != "??" else f"🔍 {_init['title']} *(draft)*")
+        with st.expander(_exp_lbl, expanded=not _is_draft):
+            if _is_draft:
+                _proj_path = _init.get("project_path", "")
+                st.markdown(
+                    f'<span class="cp-badge-draft">Draft</span>'
+                    f'<span class="cp-badge-cat">{_init["category"]}</span>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(
+                    f'<p style="font-size:13px;color:{_cp_body_clr};margin:.6rem 0">'
+                    f'Auto-discovered from Claude Code sessions in <code>{_proj_path}</code>.<br>'
+                    f'Narrative will be auto-generated in the next agent run (Phase 2).</p>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    f'<span class="cp-badge-prog">In progress</span>'
+                    f'<span class="cp-badge-cat">{_init["category"]}</span>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(f"""<div class="cp-boss">
+                  <div class="cp-boss-lbl">In summary</div>
+                  <p class="cp-boss-p">{_init['boss']}</p>
+                  <p class="cp-boss-adv"><strong>Key advance:</strong> {_init['advance']}</p>
+                </div>
+                <p style="font-size:13.5px;color:{_cp_body_clr};margin:.4rem 0 .3rem">{_init['body']}</p>
+                <ul class="cp-body-ul">{_bl}</ul>""", unsafe_allow_html=True)
 
     # ── Completed toggle ──────────────────────────────────────────────────────
     if "cp_show_completed" not in st.session_state:
         st.session_state["cp_show_completed"] = False
-    _ct_lbl = ("▴ Completed (6) — hide" if st.session_state["cp_show_completed"]
-               else "▾ Completed (6) — show")
+    _ct_n   = len(_CP_COMPLETED)
+    _ct_lbl = (f"▴ Completed ({_ct_n}) — hide" if st.session_state["cp_show_completed"]
+               else f"▾ Completed ({_ct_n}) — show")
     if st.button(_ct_lbl, key="cp_toggle_completed", use_container_width=True):
         st.session_state["cp_show_completed"] = not st.session_state["cp_show_completed"]
         st.rerun()
@@ -3836,12 +3932,14 @@ elif page == "Claude Pro":
             _cls        = "cp-tl-item cp-tl-latest" if _ti == 0 else "cp-tl-item"
             _badge      = ' <span class="cp-tl-badge">today</span>' if _is_today else ""
             _disp_date  = _entry.get("display_date") or _fmt_cp_date(_entry["date"])
+            _tl_title   = (_entry["title"].split("\n")[0].strip()
+                           if "\n" in _entry.get("title", "") else _entry.get("title", ""))
             _detail_htm = (f'<div class="cp-tl-detail">{_entry["detail"]}</div>'
                            if _entry.get("detail") else "")
             _item = (
                 f'<div class="{_cls}">'
                 f'<div class="cp-tl-date">{_disp_date}{_badge}</div>'
-                f'<div class="cp-tl-title">{_entry["title"]}</div>'
+                f'<div class="cp-tl-title">{_tl_title}</div>'
                 f'{_detail_htm}</div>'
             )
             if _ti < _TL_VISIBLE:
@@ -3889,20 +3987,7 @@ elif page == "Claude Pro":
       <tbody>{_tool_rows}</tbody>
     </table>""", unsafe_allow_html=True)
 
-    # ── Update button + footer ────────────────────────────────────────────────
     st.markdown('<div style="height:1rem"></div>', unsafe_allow_html=True)
-    _cp_spacer, _cp_btn_col = st.columns([5, 1])
-    with _cp_btn_col:
-        if st.button("🔄 Update timeline", type="primary", key="cp_update_btn",
-                     use_container_width=True):
-            from agent.daily_report import _update_claude_pro_report
-            with st.spinner("Checking for new commits and sessions..."):
-                ok = _update_claude_pro_report()
-            if ok:
-                st.success("✅ Timeline updated.")
-                st.rerun()
-            else:
-                st.info("No new commits to add today.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 7 — ENGLISH COACH
