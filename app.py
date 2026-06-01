@@ -818,19 +818,35 @@ if page == "Backlog":
     _CLOSED = {"concluído", "descartado"}
 
     # ── Filtros ──────────────────────────────────────────────────────────────────
+    # Reset must run before the widgets are instantiated this rerun.
+    if st.session_state.pop("_clear_backlog_filters", False):
+        for _fk in ("flt_priority", "flt_status", "flt_area", "flt_text"):
+            st.session_state.pop(_fk, None)
+
     _area_options = sorted({i.area for i in ideas if i.area})
-    col_f1, col_f2, col_f3, col_f4 = st.columns([1.2, 1.8, 1.8, 3.4])
+    col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns([1.2, 1.6, 1.6, 2.8, 0.8],
+                                                         vertical_alignment="bottom")
     with col_f1:
         filter_priority = st.multiselect("Priority", VALID_PRIORITIES, placeholder="All",
-                                         format_func=lambda x: PRIORITY_LABEL.get(x, x))
+                                         format_func=lambda x: PRIORITY_LABEL.get(x, x),
+                                         key="flt_priority")
     with col_f2:
         filter_status = st.multiselect("Status", VALID_STATUSES, placeholder="All statuses",
-                                       format_func=lambda x: STATUS_LABEL.get(x, x))
+                                       format_func=lambda x: STATUS_LABEL.get(x, x),
+                                       key="flt_status")
     with col_f3:
         filter_area = st.multiselect("Area", _area_options, placeholder="All areas",
-                                     format_func=lambda x: AREA_LABEL.get(x, x.title()))
+                                     format_func=lambda x: AREA_LABEL.get(x, x.title()),
+                                     key="flt_area")
     with col_f4:
-        filter_text = st.text_input("Search", placeholder="Title, description or notes...")
+        filter_text = st.text_input("Search", placeholder="Title, description, notes, to-dos or area...",
+                                    key="flt_text")
+    with col_f5:
+        _filters_active = bool(filter_priority or filter_status or filter_area or filter_text)
+        if st.button("Clear", help="Reset all filters", use_container_width=True,
+                     disabled=not _filters_active):
+            st.session_state["_clear_backlog_filters"] = True
+            st.rerun()
 
     # ── View toggle + Show closed na mesma linha ─────────────────────────────────
     col_v1, col_v2 = st.columns([1.4, 6.6], vertical_alignment="bottom")
@@ -849,12 +865,14 @@ if page == "Backlog":
         filtered = [i for i in filtered if i.area in filter_area]
     if filter_text:
         q = filter_text.lower()
-        filtered = [
-            i for i in filtered
-            if q in i.title.lower()
-            or q in (i.description or "").lower()
-            or q in (i.notes or "").lower()
-        ]
+        def _idea_matches(i):
+            haystack = [
+                i.title, i.description or "", i.notes or "",
+                i.area or "", AREA_LABEL.get(i.area, ""),
+            ]
+            haystack += [t.get("text", "") for t in i.todos]
+            return any(q in (h or "").lower() for h in haystack)
+        filtered = [i for i in filtered if _idea_matches(i)]
 
     priority_order = {"alta": 0, "média": 1, "baixa": 2}
     filtered.sort(key=lambda i: (priority_order.get(i.priority, 9), i.created_at))
@@ -884,6 +902,8 @@ if page == "Backlog":
                         card_col.markdown(
                             f"{picon} `{idea.id}`  \n**{_ktitle[:45]}**"
                             + (f"  \n📅 {idea.due_date.strftime('%d/%m/%y')}" if idea.due_date else "")
+                            + (f"  \n{_area_chip(idea.area)}" if idea.area else ""),
+                            unsafe_allow_html=True,
                         )
                         if edit_col.button("✏️", key=f"kb_edit_{idea.id}", help="Edit"):
                             st.session_state[f"exp_{idea.id}"] = True
@@ -903,7 +923,7 @@ if page == "Backlog":
             _h3.caption("Status")
             _h4.caption("Backlog item")
             _h5.caption("Area")
-            st.markdown('<hr style="margin:2px 0 6px 0;border-color:rgba(76,77,88,0.12)">', unsafe_allow_html=True)
+            st.divider()
 
             with st.container(height=600):
                 for idea in filtered:
