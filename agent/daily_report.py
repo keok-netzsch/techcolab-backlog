@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import BACKLOG_DIR, VAULT_ROOT, EXTRACTION_MODEL, CLAUDE_PRO_REPORT_HTML, CLAUDE_PRO_START_DATE
+from config import BACKLOG_DIR, VAULT_ROOT, EXTRACTION_MODEL, CLAUDE_PRO_START_DATE
 from backlog.store import BacklogStore
 from backlog.schema import VALID_STATUSES
 
@@ -457,6 +457,233 @@ def _notify(title: str, message: str):
                      creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
 
 
+# ── Project auto-discovery ────────────────────────────────────────────────────
+
+def _folder_to_title(folder: str) -> str:
+    """'C--Users-Kelvin-okuda-my-project' → 'My Project'"""
+    prefix = "C--Users-Kelvin-okuda-"
+    name = folder[len(prefix):] if folder.startswith(prefix) else folder
+    return name.replace("-", " ").title()
+
+
+def _auto_discover_projects(data: dict) -> bool:
+    """
+    Scan recent Claude Code sessions for project folders not yet mapped to any
+    initiative. For each unknown folder, insert a draft skeleton into data['active'].
+    Returns True if at least one new draft was added.
+    """
+    try:
+        from agent.scrape_sessions import get_recent_sessions, get_unknown_project_folders
+        sessions = get_recent_sessions(days_back=30)
+        unknown = get_unknown_project_folders(sessions)
+        if not unknown:
+            return False
+
+        existing_ids = {
+            i.get("id") for section in ("active", "completed")
+            for i in data.get(section, [])
+        }
+        added = False
+        for folder in sorted(unknown):
+            draft_id = f"draft-{folder}"
+            if draft_id in existing_ids:
+                continue
+            title = _folder_to_title(folder)
+            data.setdefault("active", []).append({
+                "id": draft_id,
+                "number": "??",
+                "project_path": folder,
+                "status": "draft",
+                "title": title,
+                "category": "Uncategorized",
+                "boss": f"Auto-discovered from Claude Code sessions in `{folder}`.",
+                "advance": "Narrative pending — will be auto-generated in Phase 2.",
+                "body": "",
+                "bullets": [],
+                "auto_narrative": True,
+            })
+            print(f"[agent] Auto-discovered project: {title} ({folder})")
+            added = True
+        return added
+    except Exception as exc:
+        print(f"[agent] Auto-discovery failed: {exc}")
+        return False
+
+
+# ── Narrative generation via Ollama ──────────────────────────────────────────
+
+def _ollama_base_url() -> str:
+    """Return native Ollama base (strip /v1 suffix if present)."""
+    from config import OLLAMA_BASE_URL
+    url = OLLAMA_BASE_URL.rstrip("/")
+    return url[:-3] if url.endswith("/v1") else url
+
+
+def _generate_narrative_with_ollama(
+    initiative: dict,
+    sessions: list[dict],
+    model: str,
+) -> dict | None:
+    """
+    Ask Ollama to generate boss/advance/body/bullets for an initiative.
+    Uses the last 8 sessions (titles + first user message) as context.
+    Returns a dict with the four fields, or None on any failure.
+    """
+    import urllib.request
+
+    if not sessions:
+        return None
+
+    _tag_re = re.compile(r'<[^>]+>.*?</[^>]+>|<[^>]+/>', re.DOTALL)
+    _skip_msg = re.compile(
+        r'^(execute (approved|the )?|<command|#\s*/obsidian|use the obsidian)',
+        re.IGNORECASE,
+    )
+
+    _path_re = re.compile(r'[A-Za-z]:\\[^\s,]+')  # strip Windows paths
+
+    def _clean_msg(text: str) -> str:
+        text = _tag_re.sub('', text)
+        text = _path_re.sub('', text)
+        text = text.split('\n')[0].strip()  # first line only
+        return text[:120] if len(text) > 8 else ""
+
+    session_lines = []
+    for s in sessions[:8]:
+        title = s.get("ai_title") or ""
+        msgs  = s.get("user_messages", [])
+        clean_msgs = [_clean_msg(m) for m in msgs[:3]]
+        clean_msgs = [m for m in clean_msgs if m and not _skip_msg.search(m)]
+        msg_text = " | ".join(clean_msgs[:2]) if clean_msgs else ""
+        parts = [f"[{s['date']}]"]
+        if title and not _skip_msg.search(title):
+            parts.append(title)
+        if msg_text and msg_text != title:
+            parts.append(msg_text)
+        if len(parts) > 1:
+            session_lines.append(" — ".join(parts).strip())
+
+    context = "\n".join(session_lines)
+    init_title = initiative.get("title", "Unknown Project")
+
+    prompt = (
+        f'You are a technical writer summarizing a software project for a productivity dashboard.\n'
+        f'Project name: "{init_title}"\n\n'
+        f'Recent Claude Code work sessions (most recent first):\n{context}\n\n'
+        f'Write four fields in English. Be specific — avoid restating the project name.\n'
+        f'- boss: 1-2 sentences for a manager — what problem does this solve and for whom?\n'
+        f'- advance: 1 sentence — the most recent concrete progress or current status\n'
+        f'- body: 1 sentence — technical stack or architecture overview\n'
+        f'- bullets: 3-4 bullet points (max 12 words each) listing the most important features or outcomes\n\n'
+        f'Return ONLY valid JSON. No markdown, no explanation.\n'
+        f'{{"boss": "...", "advance": "...", "body": "...", "bullets": ["...", "...", "..."]}}'
+    )
+
+    try:
+        payload = json.dumps({
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {"temperature": 0.3},
+        }).encode()
+        base = _ollama_base_url()
+        req = urllib.request.Request(
+            f"{base}/api/generate",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            raw = json.loads(resp.read()).get("response", "")
+
+        # Extract JSON block from response (model may wrap it in markdown)
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if not match:
+            return None
+        json_str = match.group()
+        try:
+            result = json.loads(json_str)
+        except json.JSONDecodeError:
+            # Fix invalid backslash escapes (e.g. Windows paths in model output)
+            json_str = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', json_str)
+            result = json.loads(json_str)
+        if not all(k in result for k in ("boss", "advance", "body", "bullets")):
+            return None
+        if not isinstance(result["bullets"], list):
+            return None
+        return result
+
+    except Exception as exc:
+        print(f"[agent] Ollama narrative failed for '{init_title}': {exc}")
+        return None
+
+
+def _auto_update_narratives(data: dict) -> bool:
+    """
+    For each active initiative with auto_narrative=true, fetch its recent sessions
+    and use Ollama to generate/refresh boss, advance, body and bullets.
+    Draft initiatives are promoted (status field removed) when narrative is generated.
+    Returns True if anything changed.
+    """
+    from agent.scrape_sessions import get_recent_sessions
+    from config import EXTRACTION_MODEL
+
+    model   = EXTRACTION_MODEL
+    changed = False
+
+    # Build session index keyed by project_folder
+    sessions_by_folder: dict[str, list[dict]] = {}
+    all_sessions = get_recent_sessions(days_back=30)
+    for s in all_sessions:
+        folder = s.get("project_folder", "")
+        sessions_by_folder.setdefault(folder, []).append(s)
+
+    for init in data.get("active", []):
+        if not init.get("auto_narrative"):
+            continue
+        folder = init.get("project_path", "")
+        sessions = sessions_by_folder.get(folder, [])
+
+        if not sessions:
+            print(f"[agent] Narrative: no sessions found for '{init.get('title')}' ({folder})")
+            continue
+
+        is_draft   = init.get("status") == "draft"
+        has_manual = bool(init.get("boss", "").strip())
+        # Don't overwrite a manually-written narrative unless it's still a draft
+        if has_manual and not is_draft:
+            print(f"[agent] Narrative: skipping '{init.get('title')}' (manual narrative preserved)")
+            continue
+
+        print(f"[agent] Generating narrative for '{init.get('title')}' ({len(sessions)} sessions)...")
+        result = _generate_narrative_with_ollama(init, sessions, model)
+        if not result:
+            print(f"[agent] Narrative generation failed for '{init.get('title')}'")
+            continue
+
+        # Update only fields that actually changed
+        updated = False
+        for field in ("boss", "advance", "body"):
+            if result.get(field) and result[field] != init.get(field):
+                init[field] = result[field]
+                updated = True
+        if result.get("bullets") and result["bullets"] != init.get("bullets"):
+            init["bullets"] = result["bullets"]
+            updated = True
+
+        # Promote draft → active when narrative is generated
+        if updated and init.get("status") == "draft":
+            del init["status"]
+            print(f"[agent] Draft promoted to active: '{init.get('title')}'")
+
+        if updated:
+            changed = True
+            print(f"[agent] Narrative updated for '{init.get('title')}'")
+        else:
+            print(f"[agent] Narrative unchanged for '{init.get('title')}'")
+
+    return changed
+
+
 # ── Claude Pro data auto-updater ─────────────────────────────────────────────
 
 def _update_claude_pro_data(ideas: list) -> None:
@@ -478,7 +705,10 @@ def _update_claude_pro_data(ideas: list) -> None:
         active_ideas = sum(1 for i in ideas if i.status not in _closed)
         open_bugs    = sum(1 for i in ideas for t in i.todos if t.get("is_bug") and not t.get("done"))
 
-        changed = False
+        changed = _auto_discover_projects(data)
+        if _auto_update_narratives(data):
+            changed = True
+
         for init in data.get("active", []):
             if init.get("auto_update") and init.get("id") == "toolkit":
                 bug_note = f" · {open_bugs} open bugs" if open_bugs else ""

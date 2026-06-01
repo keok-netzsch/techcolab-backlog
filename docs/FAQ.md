@@ -113,9 +113,9 @@ Se algum desses textos for alterado no HTML (ex: refatoração visual), os regex
 
 ## GitHub / Deploy
 
-### GitHub Pages retornou 404 para o Claude Pro Report
+### Onde está o Claude Pro Report?
 
-O repositório isolado `claude-pro-report` foi deletado. O relatório foi migrado para dentro do próprio `techcolab-backlog/reports/claude-pro-report.html` e agora é servido localmente via `components.html()` no Streamlit. Não depende mais de GitHub Pages.
+O relatório é uma página nativa do Streamlit — acesse **Claude Pro** no menu lateral do app. Não existe mais HTML estático nem dependência de GitHub Pages. Os dados vêm de `reports/claude-pro-data.json` e `reports/claude-pro-timeline.json`, atualizados automaticamente pelo agente diário.
 
 ---
 

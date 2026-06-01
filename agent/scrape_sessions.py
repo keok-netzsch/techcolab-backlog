@@ -25,24 +25,62 @@ sys.path.insert(0, str(ROOT))
 
 PROJECTS_DIR = Path.home() / ".claude" / "projects"
 DEFAULT_DAYS_BACK = 14
+_DATA_JSON = ROOT / "reports" / "claude-pro-data.json"
 
 _EN_MONTHS = {
     1: "Jan", 2: "Feb", 3: "Mar", 4: "Apr", 5: "May", 6: "Jun",
     7: "Jul", 8: "Aug", 9: "Sep", 10: "Oct", 11: "Nov", 12: "Dec",
 }
 
-# Project folder name → (initiative number, label)
-PROJECT_MAP: dict[str, tuple[Optional[str], str]] = {
-    "C--Users-Kelvin-okuda-techcolab-backlog": (
-        "09", "Personal Toolkit · Techco.lab"
-    ),
-    "C--Users-Kelvin-okuda-OneDrive---NETZSCH-Documents-TechColab-D-A-KO": (
-        "02", "Obsidian Vault"
-    ),
-    "C--Users-Kelvin-okuda": (
-        None, "Generic session"
-    ),
-}
+# Folders that are always ignored — never auto-discovered as new initiatives.
+# - _GENERIC_FOLDER: home directory ad-hoc sessions
+# - "subagents": Claude Code internal folder for spawned sub-agents
+_GENERIC_FOLDER = "C--Users-Kelvin-okuda"
+_IGNORED_FOLDERS = {_GENERIC_FOLDER, "subagents"}
+
+
+def build_project_map(
+    data_path: Path = _DATA_JSON,
+) -> dict[str, tuple[Optional[str], str]]:
+    """
+    Build {project_folder: (initiative_num, initiative_title)} from claude-pro-data.json.
+    Falls back to minimal hardcoded map if the file is missing or unreadable.
+    """
+    result: dict[str, tuple[Optional[str], str]] = {
+        folder: (None, "Ignored") for folder in _IGNORED_FOLDERS
+    }
+    if not data_path.exists():
+        return result
+    try:
+        data = json.loads(data_path.read_text(encoding="utf-8"))
+        for section in ("active", "completed"):
+            for init in data.get(section, []):
+                path = init.get("project_path")
+                if path:
+                    result[path] = (init.get("number"), init.get("title", path))
+    except Exception:
+        pass
+    return result
+
+
+def get_unknown_project_folders(
+    sessions: list[dict],
+    project_map: Optional[dict] = None,
+) -> set[str]:
+    """
+    Return project_folder values from sessions that have no mapping in project_map
+    and are not the generic home folder.
+    """
+    if project_map is None:
+        project_map = build_project_map()
+    known = set(project_map.keys())
+    return {
+        s["project_folder"]
+        for s in sessions
+        if s.get("project_folder")
+        and s["project_folder"] not in known
+        and s["project_folder"] not in _IGNORED_FOLDERS
+    }
 
 # Skip titles / first messages that are meta / too generic
 _SKIP_RE = re.compile(
@@ -64,7 +102,10 @@ def _fmt_display_date(iso_date: str) -> str:
     return f"{dt.day} {_EN_MONTHS[dt.month]} {dt.year}"
 
 
-def parse_session(jsonl_path: Path) -> Optional[dict]:
+def parse_session(
+    jsonl_path: Path,
+    project_map: Optional[dict] = None,
+) -> Optional[dict]:
     """
     Read a single .jsonl and return:
       date (ISO str), ai_title, user_messages[:6],
@@ -116,7 +157,9 @@ def parse_session(jsonl_path: Path) -> Optional[dict]:
         return None
 
     proj = jsonl_path.parent.name
-    init_num, init_lbl = PROJECT_MAP.get(proj, (None, proj))
+    if project_map is None:
+        project_map = build_project_map()
+    init_num, init_lbl = project_map.get(proj, (None, proj))
 
     return {
         "date": ts_first,
@@ -139,12 +182,13 @@ def get_recent_sessions(
         return []
 
     cutoff = (date.today() - timedelta(days=days_back)).isoformat()
+    project_map = build_project_map()
     results: list[dict] = []
 
     for jsonl_path in sorted(PROJECTS_DIR.rglob("*.jsonl")):
         if project_filter and jsonl_path.parent.name != project_filter:
             continue
-        meta = parse_session(jsonl_path)
+        meta = parse_session(jsonl_path, project_map)
         if meta and meta["date"] >= cutoff:
             results.append(meta)
 

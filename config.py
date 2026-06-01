@@ -48,15 +48,8 @@ CLAUDE_MD = VAULT_ROOT / "claude.md"
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
 EXTRACTION_MODEL = os.environ.get("EXTRACTION_MODEL", "llama3.2:3b")
 
-# ── Claude Pro Report (served locally, auto-updated daily by agent) ───────────
-# HTML file lives inside this project under reports/. No external URL needed.
-# Set CLAUDE_PRO_REPORT_HTML env var to override the path.
-CLAUDE_PRO_REPORT_HTML = Path(
-    os.environ.get(
-        "CLAUDE_PRO_REPORT_HTML",
-        str(_PROJECT_ROOT_EARLY / "reports" / "claude-pro-report.html"),
-    )
-)
+# ── Claude Pro Report ─────────────────────────────────────────────────────────
+# Rendered natively as a Streamlit page — no HTML file or external URL needed.
 # Date when Claude Pro adoption started — used to compute "Days since adoption"
 CLAUDE_PRO_START_DATE = os.environ.get("CLAUDE_PRO_START_DATE", "2026-05-11")
 
