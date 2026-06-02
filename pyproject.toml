@@ -1,0 +1,23 @@
+[project]
+name = "techcolab-personal-toolkit"
+version = "0.1.0"
+description = "Local productivity toolkit (Streamlit + Obsidian + Ollama). Runs fully offline, no API keys."
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["call-recorder/model", ".venv"]
+
+[tool.ruff.lint]
+# E/F = pyflakes+pycodestyle, I = isort, UP = pyupgrade, B = bugbear
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    "E501",  # line-too-long — handled by the formatter
+    "E701",  # multiple statements on one line (colon) — intentional dense style
+    "E702",  # multiple statements on one line (semicolon) — intentional dense style
+    "E402",  # module import not at top — agent scripts adjust sys.path first (intentional)
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -13,9 +13,8 @@ from typing import Any
 
 from openai import OpenAI
 
-from config import OLLAMA_BASE_URL, EXTRACTION_MODEL
+from config import EXTRACTION_MODEL, OLLAMA_BASE_URL
 from ingestion.parser import RawNote
-
 
 _SYSTEM_PROMPT = """
 Você é um assistente de gestão de produto e inovação.

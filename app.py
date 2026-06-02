@@ -3,20 +3,29 @@ Personal Toolkit · Techco.lab — Streamlit UI
 Run with: streamlit run app.py
 """
 
-import sys
 import json
-import requests
-from pathlib import Path
+import sys
 from datetime import date
+from pathlib import Path
 
+import requests
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from config import BACKLOG_DIR, BACKLOG_ARCHIVE_DIR, VAULT_ROOT, TEAM_DIR, EC_DIR, EXTRACTION_MODEL, OLLAMA_BASE_URL, CLAUDE_PRO_START_DATE
-from backlog.store import BacklogStore
-from backlog.schema import VALID_STATUSES, VALID_PRIORITIES, VALID_IMPACTS, VALID_EFFORTS, VALID_AREAS
 from backlog.daily_log import log_entry
+from backlog.schema import VALID_AREAS, VALID_EFFORTS, VALID_IMPACTS, VALID_PRIORITIES, VALID_STATUSES
+from backlog.store import BacklogStore
+from config import (
+    BACKLOG_ARCHIVE_DIR,
+    BACKLOG_DIR,
+    CLAUDE_PRO_START_DATE,
+    EC_DIR,
+    EXTRACTION_MODEL,
+    OLLAMA_BASE_URL,
+    TEAM_DIR,
+    VAULT_ROOT,
+)
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -28,107 +37,10 @@ st.set_page_config(
 # ── Dark mode (default ON; pass ?dark=0 to switch to light) ───────────────────
 _dark_mode = st.query_params.get("dark", "1") == "1"
 
-# ── Brand identity ─────────────────────────────────────────────────────────────
-_LOGO_GREEN = """<svg width="140" height="44" viewBox="0 0 123 30" fill="none" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMinYMin meet">
-  <path d="M0 14.6087V29.2173H2.61944H5.23889V28.1021V26.987H3.64444H2.05V14.6087V2.23038H3.64444H5.23889V1.11521V5.34058e-05H2.61944H0V14.6087Z" fill="#02B793"/>
-  <path d="M117.761 1.11521V2.23038H119.356H120.95V14.6087V26.987H119.356H117.761V28.1021V29.2173H120.381H123V14.6087V5.34058e-05H120.381H117.761V1.11521Z" fill="#02B793"/>
-  <path d="M42.2528 5.64268C42.1844 5.7765 42.1617 9.9249 42.1844 14.8316L42.2528 23.7529L43.0044 23.8198L43.7333 23.8867V18.9131C43.7333 12.289 43.9611 11.8207 47.2183 11.8207C49.0861 11.8207 49.9744 12.1998 50.3161 13.1812C50.4756 13.6272 50.5667 15.813 50.5667 18.8685V23.8644H51.3639H52.1611V18.5562C52.1611 13.828 52.1156 13.1812 51.7056 12.3336C51.0222 10.8393 50.2022 10.4825 47.5372 10.4825C45.305 10.4825 44.1433 10.7724 43.8928 11.4192C43.8244 11.5753 43.7561 10.2817 43.7561 8.51979L43.7333 5.35274H43.05C42.6628 5.35274 42.2983 5.48656 42.2528 5.64268Z" fill="#02B793"/>
-  <path d="M84.0498 14.6084V23.8643H85.4165H86.7831V14.6084V5.35258H85.4165H84.0498V14.6084Z" fill="#02B793"/>
-  <path d="M103.343 5.50886C103.252 5.57577 103.183 9.74647 103.183 14.7647V23.8867L107.488 23.8198C112.203 23.7529 112.408 23.686 113.524 22.214C113.98 21.6341 114.003 21.2995 114.003 17.1065C114.003 12.7574 113.98 12.579 113.479 11.8653C112.613 10.6832 111.771 10.371 109.402 10.371C107.602 10.371 107.238 10.4379 106.623 10.8839L105.917 11.3969V8.36367V5.35274H104.709C104.026 5.35274 103.411 5.41965 103.343 5.50886ZM110.882 13.2258C111.224 13.5603 111.269 14.0956 111.269 17.0396C111.269 21.5003 111.292 21.4557 108.217 21.3665L106.031 21.2995L105.962 18.1548C105.871 13.3373 106.281 12.6236 109.06 12.7797C110.017 12.8243 110.609 12.9804 110.882 13.2258Z" fill="#02B793"/>
-  <path d="M10.9333 9.14412V10.4823H9.9083C8.92886 10.4823 8.8833 10.5046 8.8833 11.1514C8.8833 11.7982 8.92886 11.8205 9.88552 11.8205H10.9105L10.9789 16.6603C11.0472 20.9648 11.0927 21.6116 11.48 22.2361C12.1633 23.329 13.3477 23.8643 15.1472 23.8643H16.6505L16.5822 23.2398C16.5139 22.6822 16.4227 22.6376 15.17 22.5038C14.1677 22.3922 13.7122 22.2138 13.2339 21.7678L12.6416 21.1879L12.5733 16.5042L12.505 11.8428L14.3955 11.7759C16.2405 11.709 16.2861 11.6867 16.2861 11.1514C16.2861 10.6161 16.2177 10.5938 14.4639 10.4823L12.6416 10.3708L12.5733 9.07722L12.505 7.80593H11.7305H10.9333V9.14412Z" fill="#02B793"/>
-  <path d="M20.4772 10.9953C19.065 11.9097 18.9055 12.5342 18.9055 17.1733C18.9055 21.8124 19.065 22.4369 20.4772 23.3513C21.2061 23.842 21.4794 23.8643 24.9644 23.8643H28.7V23.2175V22.5484L25.1694 22.4815C21.8666 22.4145 21.6161 22.3922 21.1377 21.9016C20.705 21.5001 20.6138 21.0987 20.5455 19.7382L20.4544 18.0654L24.6227 18.0208L28.8138 17.9539L28.8822 15.6121C28.9277 13.5379 28.8822 13.1587 28.4266 12.2666C27.6522 10.7723 26.8777 10.4823 23.78 10.4823C21.525 10.4823 21.1605 10.5492 20.4772 10.9953ZM26.0577 12.0435C26.9233 12.3558 27.3333 13.3594 27.3333 15.166V16.7272H23.9166H20.5V14.9207C20.5 13.2256 20.5455 13.0918 21.1605 12.4673C21.7983 11.8651 21.935 11.8205 23.6661 11.8205C24.6683 11.8205 25.7388 11.9097 26.0577 12.0435Z" fill="#02B793"/>
-  <path d="M33.4832 10.9061C31.9343 11.709 31.7749 12.2666 31.7749 17.1733C31.7749 21.2994 31.7977 21.567 32.2988 22.3253C33.096 23.5966 33.916 23.8643 37.1049 23.8643H39.861V23.1952V22.5261H37.4693C33.4832 22.5261 33.2555 22.2361 33.2555 17.1733C33.2555 12.1105 33.4832 11.8205 37.4693 11.8205H39.861V11.1514V10.4823H37.0593C34.7816 10.4823 34.121 10.5492 33.4832 10.9061Z" fill="#02B793"/>
-  <path d="M56.7166 10.9733C55.0539 12.0885 55.0083 12.2446 55.0083 17.1736C55.0083 21.2997 55.0311 21.6343 55.4866 22.2141C56.5572 23.6192 56.9216 23.7531 60.3839 23.82L63.5727 23.9092L63.5044 22.7048L63.4361 21.5227L61.0216 21.4558C57.6733 21.3666 57.7416 21.4558 57.7416 17.1736C57.7416 12.8914 57.6733 12.9806 61.0216 12.8914L63.4361 12.8245L63.5044 11.6424L63.5727 10.4826H60.5205C57.7189 10.4826 57.4 10.5272 56.7166 10.9733Z" fill="#02B793"/>
-  <path d="M67.5134 10.7948C65.7368 11.5754 65.304 12.9582 65.4179 17.7088C65.4862 21.6341 65.6912 22.3032 67.0351 23.2846C67.6273 23.7083 67.9918 23.7529 70.839 23.7529C74.4606 23.7529 74.8934 23.5968 75.8045 21.8572C76.2601 20.9427 76.3056 20.5636 76.3056 17.1735C76.3056 13.7834 76.2601 13.4042 75.8045 12.4898C74.9162 10.7948 74.4379 10.594 71.1123 10.5271C69.0395 10.5048 68.0145 10.5717 67.5134 10.7948ZM73.0256 13.4042C73.4129 13.828 73.4584 14.2518 73.4584 17.1735C73.4584 21.3219 73.4129 21.4111 70.8845 21.4111C68.3106 21.4111 68.3334 21.4334 68.3334 17.2181C68.3334 12.9136 68.3334 12.9359 70.839 12.9359C72.3195 12.9359 72.6612 13.0028 73.0256 13.4042Z" fill="#02B793"/>
-  <path d="M91.6578 10.7946C89.8812 11.5752 89.4484 12.958 89.5623 17.7086C89.6306 20.8087 89.6989 21.4109 90.0862 22.0577C90.9289 23.4405 91.5667 23.7528 94.0039 23.842C95.94 23.9089 96.2589 23.8643 96.8284 23.4405L97.4889 22.9498V23.4182C97.4889 23.842 97.6028 23.8866 98.9239 23.8197L100.336 23.7528V17.1733V10.5938L96.35 10.5492C93.4117 10.5046 92.1817 10.5715 91.6578 10.7946ZM97.4889 16.6157C97.4889 20.2511 97.4889 20.3181 96.9195 20.8533C96.4412 21.344 96.1678 21.4109 94.8695 21.4109C92.5462 21.4109 92.4778 21.2771 92.4778 17.1287C92.4778 12.8465 92.4095 12.9357 95.3706 12.9357H97.4889V16.6157Z" fill="#02B793"/>
-  <path d="M78.5833 21.7455V23.8643H79.9499H81.3166V21.7455V19.6266H79.9499H78.5833V21.7455Z" fill="#02B793"/>
-</svg>"""
-
-_BRAND_CSS = """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-/* ── Ocultar header padrão do Streamlit ─────────────────── */
-[data-testid="stHeader"] { display: none !important; }
-[data-testid="stToolbar"] { display: none !important; }
-
-/* ── Global font ─────────────────────────────────────────── */
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif !important;
-}
-
-/* ── Primary buttons ──────────────────────────────────────── */
-.stButton > button[kind="primary"] {
-    background: linear-gradient(90deg, #02B793, #0AD4A8) !important;
-    border: none !important;
-    color: #ffffff !important;
-    font-family: 'Inter', sans-serif !important;
-}
-.stButton > button[kind="primary"]:hover {
-    background: linear-gradient(90deg, #007167, #02B793) !important;
-}
-
-/* ── Page title gradient ──────────────────────────────────── */
-h1 {
-    background: linear-gradient(135deg, #007167, #8AC6BD);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    font-family: 'Inter', sans-serif !important;
-}
-
-/* ── Prevent outer page scroll ───────────────────────────── */
-html, body { overflow: hidden !important; height: 100vh !important; }
-[data-testid="stAppViewContainer"] { height: 100vh !important; overflow: hidden !important; }
-[data-testid="stMain"] { height: 100vh !important; overflow: hidden !important; }
-[data-testid="stMainBlockContainer"] {
-    height: 100vh !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    padding-bottom: 1rem !important;
-}
-
-/* ── Top navigation (pure HTML) ──────────────────────────── */
-div[data-testid="stSidebar"] { display: none !important; }
-[data-testid="stMainBlockContainer"] {
-    padding-top: 0 !important;
-    padding-bottom: 0.5rem !important;
-}
-
-/* ── Global: never wrap button text ──────────────────────── */
-button { white-space: nowrap !important; }
-
-/* ── Footer icon buttons ─────────────────────────────────── */
-.sidebar-footer button {
-    font-size: 1.2rem !important;
-    text-align: center !important;
-    justify-content: center !important;
-    padding: 0.4rem !important;
-    background: transparent !important;
-    border: 1px solid rgba(76,77,88,0.12) !important;
-    border-radius: 8px !important;
-    color: rgba(76,77,88,0.5) !important;
-}
-.sidebar-footer button:hover {
-    background: rgba(2,183,147,0.08) !important;
-    border-color: #02B793 !important;
-    color: #007167 !important;
-}
-
-/* ── Progress bars ────────────────────────────────────────── */
-[data-testid="stProgressBar"] > div > div {
-    background: linear-gradient(90deg, #02B793, #0AD4A8) !important;
-}
-
-/* ── Idea row buttons — left-aligned (Streamlit 1.49 selector) ── */
-button[data-testid="stBaseButton-secondary"] {
-    text-align: left !important;
-    justify-content: flex-start !important;
-}
-</style>
-"""
+# ── Brand identity (logo + CSS loaded from assets/) ─────────────────────────────
+_ASSETS_DIR = Path(__file__).parent / "assets"
+_LOGO_GREEN = (_ASSETS_DIR / "logo.svg").read_text(encoding="utf-8")
+_BRAND_CSS = "<style>\n" + (_ASSETS_DIR / "brand.css").read_text(encoding="utf-8") + "\n</style>"
 
 _DARK_CSS = """
 <style>
@@ -646,7 +558,7 @@ if page == "Backlog":
             btn_col1, btn_col2, _ = st.columns([2, 2, 3])
             with btn_col1:
                 if st.button("✨ Suggest to-dos", disabled=not ni_title.strip(), help="Uses the local model to suggest next steps"):
-                    from ingestion.extractor import suggest_todos, build_client
+                    from ingestion.extractor import build_client, suggest_todos
                     with st.spinner("Generating suggestions..."):
                         try:
                             suggestions = suggest_todos(ni_title.strip(), ni_desc.strip(), build_client())
@@ -890,7 +802,7 @@ if page == "Backlog":
                 ]
                 visible = [s for s in kanban_statuses if any(i.status == s for i in filtered)]
                 cols = st.columns(len(visible)) if visible else []
-                for col, status in zip(cols, visible):
+                for col, status in zip(cols, visible, strict=True):
                     icon = STATUS_COLOR.get(status, _sdot("backlog"))
                     group = [i for i in filtered if i.status == status]
                     col.markdown(f"{icon} **{STATUS_LABEL.get(status, status.title())}** `{len(group)}`", unsafe_allow_html=True)
@@ -1029,7 +941,7 @@ if page == "Backlog":
                                              help="Translate title, description and to-dos between PT ↔ EN using Ollama"):
                                     _active_idx = [
                                         idx for idx, _ in enumerate(idea.todos)
-                                        if idx not in st.session_state.get(deleted_idx_key, set())
+                                        if idx not in st.session_state.get(f"deleted_todo_idx_{idea.id}", set())
                                     ]
                                     _todo_texts = [
                                         st.session_state.get(f"bl_txt_{idea.id}_{idx}", idea.todos[idx]["text"])
@@ -1071,7 +983,7 @@ if page == "Backlog":
                                             st.error(f"Translation failed: {_te}")
                             with re_col:
                                 if st.button("✨ Suggest to-dos", key=f"regen_{idea.id}", help="Suggests next steps based on title and description"):
-                                    from ingestion.extractor import suggest_todos, build_client
+                                    from ingestion.extractor import build_client, suggest_todos
                                     with st.spinner("Generating..."):
                                         try:
                                             sugs = suggest_todos(new_title or idea.title, new_desc or idea.description or "", build_client())
@@ -1085,7 +997,7 @@ if page == "Backlog":
                                 tips_label = "🤖 Regenerate tips" if current_tips else "🤖 Claude tips"
                                 if st.button(tips_label, key=f"tips_btn_{idea.id}",
                                              help="Generates tips on how to use Claude to develop this item"):
-                                    from ingestion.extractor import suggest_claude_tips, build_client
+                                    from ingestion.extractor import build_client, suggest_claude_tips
                                     with st.spinner("Generating tips..."):
                                         try:
                                             tips_list = suggest_claude_tips(
@@ -1709,8 +1621,8 @@ elif page == "To-Do List":
 # PAGE 3 — DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Dashboard":
-    from datetime import timedelta, date as _date
-    import re as _re
+    from datetime import date as _date
+    from datetime import timedelta
 
     st.markdown('<h1 style="margin-bottom:0.4rem">Dashboard</h1>', unsafe_allow_html=True)
 
@@ -1723,7 +1635,7 @@ elif page == "Dashboard":
 
     # ── All-time stats loader ─────────────────────────────────────────
     def _load_full_cc_stats():
-        import json, re as _re2
+        import json
         from collections import Counter
         from datetime import datetime as _dt
 
@@ -2439,6 +2351,7 @@ elif page == "Dashboard":
     @st.dialog("Generate period report", width="large")
     def _report_dialog():
         from pathlib import Path as _Path
+
         from config import VAULT_ROOT as _VAULT_ROOT
 
         today = _date.today()
@@ -2483,7 +2396,7 @@ elif page == "Dashboard":
             report_md = f"# Report — {period_str}\n\n"
             report_md += f"**Period:** {period_str}  \n"
             report_md += f"**Total events:** {total_events}\n\n"
-            report_md += f"| Type | Count |\n|---|---|\n"
+            report_md += "| Type | Count |\n|---|---|\n"
             for label, items in entries.items():
                 report_md += f"| {label} | {len(items)} |\n"
             for label, items in entries.items():
@@ -2633,8 +2546,8 @@ elif page == "Dashboard":
 # PAGE 5 — WEEKLY BRIEF
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Weekly Brief":
-    from datetime import timedelta
     import re as _wre
+    from datetime import timedelta
 
     _TEAM_DIR  = TEAM_DIR
     _LOG_DIR   = VAULT_ROOT / "Log"
@@ -3384,8 +3297,8 @@ Anotações livres.
 # PAGE — TEAM
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Team":
-    from datetime import timedelta
     import re as _tmre
+    from datetime import timedelta
 
     _TM_CADENCE_DAYS = 28   # structured 1:1 every 4 weeks
     _TM_MEMBERS = [
@@ -3645,6 +3558,7 @@ elif page == "Team":
 
 elif page == "Claude Pro":
     import json as _cpjson
+
     from config import CLAUDE_PRO_START_DATE
 
     _CP_TIMELINE_JSON = Path(__file__).parent / "reports" / "claude-pro-timeline.json"
@@ -4093,8 +4007,8 @@ elif page == "English Coach":
             st.divider()
 
             # ── Score trend chart ─────────────────────────────────────────────
-            import pandas as _ecpd
             import altair as _ecalt
+            import pandas as _ecpd
 
             _chart_src = _ecpd.DataFrame([{"date": r["date"], "score": r["overall"]} for r in _prog_rows])
             _overall_chart = (

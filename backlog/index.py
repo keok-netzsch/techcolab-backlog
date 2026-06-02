@@ -2,15 +2,15 @@
 backlog/index.py — Generates _index.md as a Kanban-style overview of all ideas.
 """
 
-from pathlib import Path
 from datetime import date
+from pathlib import Path
 
-from backlog.schema import Idea, VALID_STATUSES
+from backlog.schema import VALID_STATUSES, Idea
 
 
 def generate_index(ideas: list[Idea], output_path: Path) -> None:
     lines = [
-        f"# Backlog de Ideias — TechColab D&A",
+        "# Backlog de Ideias — TechColab D&A",
         f"_Atualizado em: {date.today()}_",
         f"_Total: {len(ideas)} ideias_",
         "",

@@ -13,14 +13,15 @@ Requires:
   - pip install requests
 """
 
-import os
-import sys
 import argparse
-import re
 import json
-import requests
+import os
+import re
+import sys
 from datetime import datetime
 from pathlib import Path
+
+import requests
 
 # Vault root — override with env var TECHCOLAB_VAULT_ROOT; fallback below.
 VAULT = os.environ.get(

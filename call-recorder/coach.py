@@ -8,13 +8,14 @@ Requires: Ollama running locally (ollama serve) with qwen2.5-coder pulled.
 Saves: per-session note + progress log in the Obsidian vault.
 """
 
+import argparse
+import json
 import os
 import sys
-import json
-import argparse
-import requests
 from datetime import datetime
 from pathlib import Path
+
+import requests
 
 # Vault root — override with env var TECHCOLAB_VAULT_ROOT; fallback below.
 VAULT = os.environ.get(
@@ -282,41 +283,41 @@ def _render_session(ev: dict, transcript: str, topic: str, session_dt: datetime,
     coverage_pct = round(excerpt_stats["words"] / max(stats["words"], 1) * 100)
 
     lines = [
-        f"---",
+        "---",
         f"date: {session_dt.strftime('%Y-%m-%d')}",
         f"time: {session_dt.strftime('%H:%M')}",
-        f"type: english-coach-session",
-        f"lang: en",
+        "type: english-coach-session",
+        "lang: en",
         f"overall: {ev['overall']}",
         f"level: {ev['level']}",
         f"duration_min: {stats['duration_min']}",
         f"words_total: {stats['words']}",
         f"words_evaluated: {excerpt_stats['words']}",
-        f"topic_type: {topic_type}" if topic_type else f"topic_type: ''",
-        f"tags: [english-coach]",
-        f"---",
-        f"",
+        f"topic_type: {topic_type}" if topic_type else "topic_type: ''",
+        "tags: [english-coach]",
+        "---",
+        "",
         f"# English Coach Session — {session_dt.strftime('%Y-%m-%d')}",
-        f"",
+        "",
         f"> {ev['summary']}",
-        f"",
+        "",
         f"**Recording:** {stats['duration_min']} min · {stats['words']} words total · "
         f"{excerpt_stats['words']} words evaluated ({coverage_pct}% of transcript)",
-        f"",
-        f"## Scores",
-        f"",
-        f"| Dimension | Score | Bar |",
-        f"|-----------|-------|-----|",
+        "",
+        "## Scores",
+        "",
+        "| Dimension | Score | Bar |",
+        "|-----------|-------|-----|",
     ]
     for dim in DIMENSIONS:
         s = ev["scores"].get(dim, 0)
         lines.append(f"| {DIM_PT[dim]} | {s}/10 | `{_score_bar(s)}` |")
     lines.append(f"| **Overall** | **{ev['overall']}/10** | `{_score_bar(int(round(ev['overall'])))}` |")
-    lines.append(f"")
+    lines.append("")
     _conf = ev.get("level_confidence", "")
     _conf_badge = {"low": " ⚠️ low confidence", "medium": " · medium confidence", "high": ""}.get(_conf, "")
     lines.append(f"**CEFR Level:** {ev['level']}{_conf_badge}")
-    lines.append(f"")
+    lines.append("")
 
     if ev.get("strengths"):
         lines += ["## Strengths", ""]
@@ -352,7 +353,7 @@ def _render_session(ev: dict, transcript: str, topic: str, session_dt: datetime,
         if topic_type:
             type_label = TOPIC_TYPE_LABELS.get(topic_type, topic_type.title())
             topic_display = f"**[{type_label}]** {topic_display}".strip()
-        lines += [f"## Topic", "", topic_display, ""]
+        lines += ["## Topic", "", topic_display, ""]
 
     # Evaluated excerpt — sampled beginning + middle
     lines += [
@@ -521,11 +522,11 @@ def main():
     print(f"{'='*60}")
     print(f"  Overall: {ev['overall']}/10  ({ev['level']})")
     print(f"  {_score_bar(int(round(ev['overall'])))} ")
-    print(f"")
+    print("")
     for dim in DIMENSIONS:
         s = ev["scores"].get(dim, 0)
         print(f"  {DIM_PT[dim]:<12} {s:>2}/10  {_score_bar(s)}")
-    print(f"")
+    print("")
     print(f"  {ev['summary']}")
     if ev.get("errors"):
         print(f"\n  Top issue: {ev['errors'][0]['type'].title()} — {ev['errors'][0]['original']}")

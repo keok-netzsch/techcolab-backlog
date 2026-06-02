@@ -12,12 +12,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config import VAULT_NOTES_DIR, BACKLOG_DIR, BACKLOG_INDEX
-from ingestion.parser import load_notes
-from ingestion.extractor import extract_ideas_from_note, build_client
-from ingestion.cleaner import mark_as_ingested, consolidate_claude_md
-from backlog.store import BacklogStore
 from backlog.index import generate_index
+from backlog.store import BacklogStore
+from config import BACKLOG_DIR, BACKLOG_INDEX, VAULT_NOTES_DIR
+from ingestion.cleaner import consolidate_claude_md, mark_as_ingested
+from ingestion.extractor import build_client, extract_ideas_from_note
+from ingestion.parser import load_notes
 
 
 def run_ingestion(dry_run: bool = False) -> dict:
@@ -59,7 +59,7 @@ def run_ingestion(dry_run: bool = False) -> dict:
             continue
 
         if not extracted:
-            print(f"  -> No ideas found. Skipping.")
+            print("  -> No ideas found. Skipping.")
             results["skipped"] += 1
             continue
 

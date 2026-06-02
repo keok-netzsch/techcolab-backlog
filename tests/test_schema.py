@@ -1,8 +1,8 @@
 """Tests for backlog/schema.py"""
 
-import pytest
 from datetime import date
-from backlog.schema import Idea, VALID_STATUSES, VALID_PRIORITIES, VALID_AREAS
+
+from backlog.schema import VALID_AREAS, VALID_PRIORITIES, VALID_STATUSES, Idea
 
 
 def test_default_status():

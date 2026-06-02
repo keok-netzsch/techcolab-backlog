@@ -21,9 +21,9 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import BACKLOG_DIR, VAULT_ROOT, EXTRACTION_MODEL, CLAUDE_PRO_START_DATE
-from backlog.store import BacklogStore
 from backlog.schema import VALID_STATUSES
+from backlog.store import BacklogStore
+from config import BACKLOG_DIR, EXTRACTION_MODEL, VAULT_ROOT
 
 TODAY = date.today()
 REPORTS_DIR = VAULT_ROOT / "agent-reports"
@@ -191,7 +191,7 @@ def build_report(tests: dict, data: dict) -> str:
     bug_ids = ", ".join(f"`{i.id}`" for i in a["open_bugs"])
     lines.append(
         f"- {'✅' if bugs_ok else '🐛'} **Open bugs** — "
-        + (f"none" if bugs_ok else f"{len(a['open_bugs'])} open: {bug_ids}")
+        + ("none" if bugs_ok else f"{len(a['open_bugs'])} open: {bug_ids}")
     )
 
     lines += [""]
@@ -625,7 +625,6 @@ def _auto_update_narratives(data: dict) -> bool:
     Returns True if anything changed.
     """
     from agent.scrape_sessions import get_recent_sessions
-    from config import EXTRACTION_MODEL
 
     model   = EXTRACTION_MODEL
     changed = False
@@ -736,7 +735,7 @@ def _update_claude_pro_data(ideas: list) -> None:
                     cwd=str(ROOT), check=True,
                 )
                 subprocess.run(["git", "push"], cwd=str(ROOT), check=True)
-                print(f"[agent] claude-pro-data.json pushed")
+                print("[agent] claude-pro-data.json pushed")
         else:
             print("[agent] claude-pro-data.json: nothing changed")
 

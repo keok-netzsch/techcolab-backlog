@@ -1,0 +1,81 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── Ocultar header padrão do Streamlit ─────────────────── */
+[data-testid="stHeader"] { display: none !important; }
+[data-testid="stToolbar"] { display: none !important; }
+
+/* ── Global font ─────────────────────────────────────────── */
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif !important;
+}
+
+/* ── Primary buttons ──────────────────────────────────────── */
+.stButton > button[kind="primary"] {
+    background: linear-gradient(90deg, #02B793, #0AD4A8) !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-family: 'Inter', sans-serif !important;
+}
+.stButton > button[kind="primary"]:hover {
+    background: linear-gradient(90deg, #007167, #02B793) !important;
+}
+
+/* ── Page title gradient ──────────────────────────────────── */
+h1 {
+    background: linear-gradient(135deg, #007167, #8AC6BD);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-family: 'Inter', sans-serif !important;
+}
+
+/* ── Prevent outer page scroll ───────────────────────────── */
+html, body { overflow: hidden !important; height: 100vh !important; }
+[data-testid="stAppViewContainer"] { height: 100vh !important; overflow: hidden !important; }
+[data-testid="stMain"] { height: 100vh !important; overflow: hidden !important; }
+[data-testid="stMainBlockContainer"] {
+    height: 100vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-bottom: 1rem !important;
+}
+
+/* ── Top navigation (pure HTML) ──────────────────────────── */
+div[data-testid="stSidebar"] { display: none !important; }
+[data-testid="stMainBlockContainer"] {
+    padding-top: 0 !important;
+    padding-bottom: 0.5rem !important;
+}
+
+/* ── Global: never wrap button text ──────────────────────── */
+button { white-space: nowrap !important; }
+
+/* ── Footer icon buttons ─────────────────────────────────── */
+.sidebar-footer button {
+    font-size: 1.2rem !important;
+    text-align: center !important;
+    justify-content: center !important;
+    padding: 0.4rem !important;
+    background: transparent !important;
+    border: 1px solid rgba(76,77,88,0.12) !important;
+    border-radius: 8px !important;
+    color: rgba(76,77,88,0.5) !important;
+}
+.sidebar-footer button:hover {
+    background: rgba(2,183,147,0.08) !important;
+    border-color: #02B793 !important;
+    color: #007167 !important;
+}
+
+/* ── Progress bars ────────────────────────────────────────── */
+[data-testid="stProgressBar"] > div > div {
+    background: linear-gradient(90deg, #02B793, #0AD4A8) !important;
+}
+
+/* ── Idea row buttons — left-aligned (Streamlit 1.49 selector) ── */
+button[data-testid="stBaseButton-secondary"] {
+    text-align: left !important;
+    justify-content: flex-start !important;
+}

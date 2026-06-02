@@ -2,8 +2,8 @@
 config.py — adjust paths to match your environment.
 """
 
-import os
 import json
+import os
 from pathlib import Path
 
 # ── Local settings overrides (written by the Settings page in app.py) ──────────

@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config import VAULT_ROOT, INGESTED_TAG, CLAUDE_MD
+from config import CLAUDE_MD, INGESTED_TAG, VAULT_ROOT
 
 
 def mark_as_ingested(note_path: Path) -> None:

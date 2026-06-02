@@ -26,9 +26,9 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import VAULT_ROOT, TEAM_DIR, EC_DIR
-
 import requests
+
+from config import EC_DIR, TEAM_DIR, VAULT_ROOT
 
 REPORTS_DIR = VAULT_ROOT / "agent-reports"
 
@@ -217,21 +217,21 @@ def _render_report(report: dict, sessions: list[dict], week_label: str,
     today_str = date.today().isoformat()
 
     lines = [
-        f"---",
+        "---",
         f"date: {today_str}",
         f"week: {iso_week}",
-        f"type: english-coach-weekly",
+        "type: english-coach-weekly",
         f"sessions: {len(sessions)}",
         f"level: {report.get('level_estimate', '?')}",
-        f"tags: [english-coach, weekly-report]",
-        f"---",
-        f"",
+        "tags: [english-coach, weekly-report]",
+        "---",
+        "",
         f"# Weekly English Coaching Report — {week_label}",
-        f"",
+        "",
         f"> {report.get('overall_impression', '')}",
-        f"",
+        "",
         f"**Estimated level:** {report.get('level_estimate', '?')}",
-        f"",
+        "",
     ]
 
     # Sessions analyzed
@@ -315,7 +315,7 @@ def main():
 
     if not sessions:
         print("[english-coach] No English sessions found. Nothing to report.")
-        print(f"               Tip: make sure recordings have 'lang: en' in their frontmatter.")
+        print("               Tip: make sure recordings have 'lang: en' in their frontmatter.")
         sys.exit(0)
 
     print(f"[english-coach] Found {len(sessions)} session(s):")
@@ -347,7 +347,7 @@ def main():
 
     print(f"\n[english-coach] Report saved: {out_path}")
     print(f"[english-coach] Level estimate: {report.get('level_estimate', '?')}")
-    print(f"[english-coach] Done.")
+    print("[english-coach] Done.")
 
 
 if __name__ == "__main__":

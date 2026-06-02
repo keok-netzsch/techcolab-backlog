@@ -30,12 +30,10 @@ from __future__ import annotations
 import re
 from datetime import date
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
-from backlog.schema import Idea, VALID_STATUSES, VALID_IMPACTS, VALID_EFFORTS
-
+from backlog.schema import Idea
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 # Markers: [ ] = open, [>] = in progress, [x] = done
@@ -84,7 +82,7 @@ def _render_todos(todos: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def _extract_section(body: str, heading: str) -> Optional[str]:
+def _extract_section(body: str, heading: str) -> str | None:
     """Extract content under a ## heading until the next ## or end of string."""
     pattern = re.compile(
         rf"^## {re.escape(heading)}\n(.*?)(?=^## |\Z)", re.MULTILINE | re.DOTALL
@@ -93,7 +91,7 @@ def _extract_section(body: str, heading: str) -> Optional[str]:
     return m.group(1).strip() if m else None
 
 
-def _parse_date(val) -> Optional[date]:
+def _parse_date(val) -> date | None:
     if isinstance(val, date):
         return val
     if isinstance(val, str) and val.strip():
@@ -135,7 +133,7 @@ class BacklogStore:
         path.write_text(body, encoding="utf-8")
         return path
 
-    def load(self, path: Path) -> Optional[Idea]:
+    def load(self, path: Path) -> Idea | None:
         text = path.read_text(encoding="utf-8")
         fm_match = _FRONTMATTER_RE.match(text)
         if not fm_match:
@@ -171,7 +169,7 @@ class BacklogStore:
             is_bug=bool(fm.get("is_bug", False)),
         )
 
-    def load_by_id(self, idea_id: str) -> Optional[Idea]:
+    def load_by_id(self, idea_id: str) -> Idea | None:
         path = self._path(idea_id)
         if not path.exists():
             return None

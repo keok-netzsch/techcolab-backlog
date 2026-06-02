@@ -11,10 +11,10 @@ Usage:
 import argparse
 import sys
 
-from ingestion.pipeline import run_ingestion
+from backlog.schema import VALID_PRIORITIES, VALID_STATUSES
 from backlog.store import BacklogStore
-from backlog.schema import VALID_STATUSES, VALID_PRIORITIES
-from config import VAULT_NOTES_DIR, BACKLOG_DIR
+from config import BACKLOG_DIR, VAULT_NOTES_DIR
+from ingestion.pipeline import run_ingestion
 
 
 def cmd_ingest(args):
@@ -70,7 +70,7 @@ def cmd_show(args):
     print(f"Atualizado: {idea.updated_at}")
     print(f"\nDescrição:\n{idea.description or '-'}")
     if idea.todos:
-        print(f"\nTo-dos:")
+        print("\nTo-dos:")
         for todo in idea.todos:
             mark = "x" if todo["done"] else " "
             print(f"  [{mark}] {todo['text']}")

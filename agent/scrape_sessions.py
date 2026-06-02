@@ -18,7 +18,6 @@ import sys
 from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Optional
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
@@ -41,12 +40,12 @@ _IGNORED_FOLDERS = {_GENERIC_FOLDER, "subagents"}
 
 def build_project_map(
     data_path: Path = _DATA_JSON,
-) -> dict[str, tuple[Optional[str], str]]:
+) -> dict[str, tuple[str | None, str]]:
     """
     Build {project_folder: (initiative_num, initiative_title)} from claude-pro-data.json.
     Falls back to minimal hardcoded map if the file is missing or unreadable.
     """
-    result: dict[str, tuple[Optional[str], str]] = {
+    result: dict[str, tuple[str | None, str]] = {
         folder: (None, "Ignored") for folder in _IGNORED_FOLDERS
     }
     if not data_path.exists():
@@ -65,7 +64,7 @@ def build_project_map(
 
 def get_unknown_project_folders(
     sessions: list[dict],
-    project_map: Optional[dict] = None,
+    project_map: dict | None = None,
 ) -> set[str]:
     """
     Return project_folder values from sessions that have no mapping in project_map
@@ -104,8 +103,8 @@ def _fmt_display_date(iso_date: str) -> str:
 
 def parse_session(
     jsonl_path: Path,
-    project_map: Optional[dict] = None,
-) -> Optional[dict]:
+    project_map: dict | None = None,
+) -> dict | None:
     """
     Read a single .jsonl and return:
       date (ISO str), ai_title, user_messages[:6],
@@ -174,7 +173,7 @@ def parse_session(
 
 def get_recent_sessions(
     days_back: int = DEFAULT_DAYS_BACK,
-    project_filter: Optional[str] = None,
+    project_filter: str | None = None,
 ) -> list[dict]:
     """Return parsed session dicts for the last N days, newest first."""
     if not PROJECTS_DIR.exists():
@@ -200,7 +199,7 @@ def _ollama_summarize(
     user_messages: list[str],
     ollama_url: str,
     model: str = "llama3",
-) -> Optional[tuple[str, str]]:
+) -> tuple[str, str] | None:
     """
     Ask Ollama to generate (title, detail) for a session.
     Returns None on any failure.
@@ -235,7 +234,7 @@ def _ollama_summarize(
 
 def _build_title_detail(
     meta: dict,
-    ollama_url: Optional[str] = None,
+    ollama_url: str | None = None,
     ollama_model: str = "llama3",
 ) -> tuple[str, str]:
     """
@@ -270,7 +269,7 @@ def _build_title_detail(
 def sessions_to_timeline_entries(
     sessions: list[dict],
     existing_dates: set[str],
-    ollama_url: Optional[str] = None,
+    ollama_url: str | None = None,
     ollama_model: str = "llama3",
 ) -> list[dict]:
     """

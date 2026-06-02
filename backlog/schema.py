@@ -4,8 +4,6 @@ backlog/schema.py — Idea dataclass and valid enum values.
 
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Optional
-
 
 VALID_IMPACTS = ["alta", "média", "baixa"]
 VALID_EFFORTS = ["alto", "médio", "baixo"]
@@ -41,17 +39,17 @@ class Idea:
     title: str
     status: str = "backlog"
     priority: str = "média"
-    area: Optional[str] = None
-    origin: Optional[str] = None         # relative path of source note
+    area: str | None = None
+    origin: str | None = None         # relative path of source note
     created_at: date = field(default_factory=date.today)
     updated_at: date = field(default_factory=date.today)
-    due_date: Optional[date] = None
-    impacto: Optional[str] = None
-    esforco: Optional[str] = None
-    description: Optional[str] = None
+    due_date: date | None = None
+    impacto: str | None = None
+    esforco: str | None = None
+    description: str | None = None
     todos: list[dict] = field(default_factory=list)  # [{"text": str, "done": bool, "due_date": Optional[str]}]
-    notes: Optional[str] = None          # free-form observations
-    claude_tips: Optional[str] = None    # markdown bullets generated via Ollama
+    notes: str | None = None          # free-form observations
+    claude_tips: str | None = None    # markdown bullets generated via Ollama
     agente_autorizado: bool = False      # pre-approves todos in the daily report
     is_bug: bool = False                 # marks this idea as a bug/issue
 

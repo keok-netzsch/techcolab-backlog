@@ -1,9 +1,8 @@
 """Tests for backlog/daily_log.py"""
 
+from datetime import date
+
 import pytest
-from datetime import date, datetime
-from pathlib import Path
-from unittest.mock import patch
 
 from backlog.schema import Idea
 

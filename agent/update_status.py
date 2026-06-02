@@ -17,9 +17,9 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import BACKLOG_DIR
-from backlog.store import BacklogStore
 from backlog.schema import VALID_STATUSES
+from backlog.store import BacklogStore
+from config import BACKLOG_DIR
 
 
 def update_status(idea_id: str, new_status: str) -> None:

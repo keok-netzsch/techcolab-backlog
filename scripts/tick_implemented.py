@@ -1,9 +1,11 @@
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from datetime import date
+
 from backlog.store import BacklogStore
 from config import BACKLOG_DIR
-from datetime import date
 
 store = BacklogStore(Path(BACKLOG_DIR))
 idea = store.load_by_id("idea-009")

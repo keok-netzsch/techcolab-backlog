@@ -1,9 +1,7 @@
 """Tests for agent/daily_report.py — analyze() and build_report()"""
 
-import pytest
-from datetime import date
-from backlog.schema import Idea
 from agent.daily_report import analyze, build_report
+from backlog.schema import Idea
 
 
 def _make_idea(**kwargs):

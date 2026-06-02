@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from config import VAULT_NOTES_DIR, INGESTED_TAG, MIN_NOTE_LENGTH
+from config import INGESTED_TAG, MIN_NOTE_LENGTH, VAULT_NOTES_DIR
 
 
 @dataclass

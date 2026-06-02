@@ -1,13 +1,10 @@
 """Tests for backlog/store.py"""
 
-import pytest
 from datetime import date
-from pathlib import Path
-import tempfile
+
+import pytest
 
 from backlog.store import BacklogStore, _parse_todos, _render_todos
-from backlog.schema import Idea
-
 
 # ── _parse_todos / _render_todos ─────────────────────────────────────────────
 
@@ -78,13 +75,13 @@ def test_create_sequential_ids(tmp_store):
 
 
 def test_save_creates_file(tmp_store):
-    idea = tmp_store.create(title="Arquivo criado")
+    tmp_store.create(title="Arquivo criado")
     path = tmp_store.dir / "idea-001.md"
     assert path.exists()
 
 
 def test_save_and_load_roundtrip(tmp_store):
-    idea = tmp_store.create(
+    tmp_store.create(
         title="Roundtrip test",
         status="em análise",
         priority="alta",
@@ -115,7 +112,7 @@ def test_due_date_none_roundtrip(tmp_store):
 
 
 def test_todo_done_flag_persists(tmp_store):
-    idea = tmp_store.create(
+    tmp_store.create(
         title="Checkbox test",
         todos=[
             {"text": "Pendente", "done": False, "due_date": None},
@@ -160,7 +157,7 @@ def test_todo_at_suffix_in_file(tmp_store):
 
 def test_todo_in_progress_roundtrip(tmp_store):
     """[>] marker persists through save/load."""
-    idea = tmp_store.create(
+    tmp_store.create(
         title="In progress test",
         todos=[{"text": "Em andamento", "done": False, "in_progress": True, "due_date": None}],
     )
@@ -173,7 +170,7 @@ def test_todo_in_progress_roundtrip(tmp_store):
 
 def test_todo_agente_autorizado_roundtrip(tmp_store):
     """{auto} suffix persists through save/load."""
-    idea = tmp_store.create(
+    tmp_store.create(
         title="Agente test",
         todos=[{"text": "Auto task", "done": False, "agente_autorizado": True, "due_date": None}],
     )
@@ -185,7 +182,7 @@ def test_todo_agente_autorizado_roundtrip(tmp_store):
 
 def test_todo_completed_at_roundtrip(tmp_store):
     """~YYYY-MM-DD completed_at suffix persists through save/load."""
-    idea = tmp_store.create(
+    tmp_store.create(
         title="Completed at test",
         todos=[{"text": "Feito", "done": True, "completed_at": "2026-05-19", "due_date": None}],
     )

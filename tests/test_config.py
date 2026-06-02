@@ -1,7 +1,8 @@
 """Tests for config.py — verify paths resolve correctly after folder renames."""
 
 from pathlib import Path
-from config import BACKLOG_DIR, VAULT_ROOT, OLLAMA_BASE_URL, EXTRACTION_MODEL
+
+from config import BACKLOG_DIR, EXTRACTION_MODEL, OLLAMA_BASE_URL, VAULT_ROOT
 
 
 def test_backlog_dir_contains_backlog_items():

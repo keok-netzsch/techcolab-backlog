@@ -4,13 +4,13 @@ Uso: python record.py [--output caminho/saida.txt]
 Encerra: Ctrl+C
 """
 import os
+
 os.environ["HF_HUB_DISABLE_SSL_VERIFY"] = "1"
 
-import sys
-import signal
-import tempfile
 import argparse
-from datetime import datetime
+import signal
+import sys
+import tempfile
 from datetime import datetime
 
 import numpy as np
@@ -69,7 +69,7 @@ def main():
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    print(f"[INFO] Gravando microfone (Ctrl+C para encerrar)...")
+    print("[INFO] Gravando microfone (Ctrl+C para encerrar)...")
     print(f"[INFO] Idioma: {LANGUAGE_EFFECTIVE} | Modelo: {MODEL_SIZE} | CPU int8\n")
 
     with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS,
