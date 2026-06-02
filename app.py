@@ -3151,7 +3151,7 @@ Open **Weekly Brief** before any meeting with Alberto Reuters or Stefan Lautensc
 ## Raycast shortcuts
 
 All daily interactions are available directly via keyboard — no terminal needed.
-Scripts live in `C:\\Users\\Kelvin.okuda\\Scripts\\call-recorder\\` and are registered in Raycast → Settings → Script Commands.
+Scripts live in `C:\\Users\\Kelvin.okuda\\techcolab-backlog\\call-recorder\\` and are registered in Raycast → Settings → Script Commands.
 
 | Shortcut | Command | What it does |
 |---|---|---|
@@ -3350,7 +3350,7 @@ Anotações livres.
     with col_ds2:
         st.markdown("""
 **CSS pronto para importar** em HTML/relatórios
-`C:\\Users\\Kelvin.okuda\\Scripts\\techcolab-brand.css`
+`C:\\Users\\Kelvin.okuda\\techcolab-backlog\\scripts\\techcolab-brand.css`
 """)
         st.code(
             '@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");\n'

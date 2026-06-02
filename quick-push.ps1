@@ -2,7 +2,6 @@
 # Uso: atalho "5. Push Rapido" no Desktop ou Raycast
 
 $TB  = "C:\Users\Kelvin.okuda\techcolab-backlog"
-$CR  = "C:\Users\Kelvin.okuda\Scripts\call-recorder"
 $MSG = "wip: auto-push $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
 function Push-Repo {
@@ -26,6 +25,5 @@ function Push-Repo {
 
 Write-Host ""
 Push-Repo -Dir $TB -Label "techcolab-backlog"
-Push-Repo -Dir $CR -Label "call-recorder"
 Write-Host ""
 Start-Sleep -Seconds 1

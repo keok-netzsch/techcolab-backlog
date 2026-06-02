@@ -46,7 +46,8 @@ def callback(indata, frames, time, status):
 
 def transcribe(audio_path: str, language: str = LANGUAGE) -> str:
     print("[INFO] Carregando modelo Whisper (primeira vez faz download ~460MB)...")
-    model = WhisperModel(r"C:\Users\Kelvin.okuda\Scripts\call-recorder\model", device="cpu", compute_type="int8")
+    model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model")
+    model = WhisperModel(model_dir, device="cpu", compute_type="int8")
     print("[INFO] Transcrevendo...")
     segments, info = model.transcribe(audio_path, language=language)
     lines = []

@@ -1,8 +1,7 @@
-# close-session.ps1 — commit e push nos dois repos com testes
+# close-session.ps1 — roda testes, commita e faz push do monorepo
 # Uso: Win+C via Raycast, ou powershell -File close-session.ps1
 
 $TB  = "C:\Users\Kelvin.okuda\techcolab-backlog"
-$CR  = "C:\Users\Kelvin.okuda\Scripts\call-recorder"
 # Tenta venv primeiro, cai no Python do sistema se nao existir
 $PY  = if (Test-Path "$TB\.venv\Scripts\python.exe") { "$TB\.venv\Scripts\python.exe" } else { "python" }
 $NOW = Get-Date -Format "yyyy-MM-dd HH:mm"
@@ -63,7 +62,6 @@ function Push-Repo {
 }
 
 Push-Repo -Dir $TB -Label "techcolab-backlog" -Message $msg
-Push-Repo -Dir $CR -Label "call-recorder"     -Message $msg
 
 Write-Host ""
 
@@ -86,8 +84,7 @@ try {
         return $null
     }
     $tb_log = Get-RepoLog -Dir $TB -Label "techcolab-backlog"
-    $cr_log = Get-RepoLog -Dir $CR -Label "call-recorder"
-    $repos_block = (@($tb_log, $cr_log) | Where-Object { $_ }) -join "`n`n"
+    $repos_block = (@($tb_log) | Where-Object { $_ }) -join "`n`n"
     if (-not $repos_block) { $repos_block = "_No commits recorded._" }
 
     $session_file = Join-Path $sessions_dir "$TAG.md"
@@ -137,7 +134,6 @@ function Show-TodayLog {
 }
 
 Show-TodayLog -Dir $TB -Label "techcolab-backlog"
-Show-TodayLog -Dir $CR -Label "call-recorder"
 
 Write-Host ""
 if ($ok) {

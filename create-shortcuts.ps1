@@ -5,7 +5,7 @@
 $desktop  = [System.Environment]::GetFolderPath("Desktop")
 $folder   = Join-Path $desktop "Techco.lab"
 $TB       = "C:\Users\Kelvin.okuda\techcolab-backlog"
-$CR       = "C:\Users\Kelvin.okuda\Scripts\call-recorder"
+$CR       = "$TB\call-recorder"
 $ps       = "powershell.exe"
 $psArgs   = "-ExecutionPolicy Bypass -NoExit -File"
 $ws       = New-Object -ComObject WScript.Shell
@@ -81,14 +81,14 @@ New-Shortcut `
     -Icon        "shell32.dll,76"
 
 # ── 5. Push Rápido ────────────────────────────────────────────────────────────
-# Commit e push imediato nos dois repos, sem testes nem prompts
+# Commit e push imediato do repo, sem testes nem prompts
 # Use no meio do desenvolvimento para salvar progresso no GitHub
 New-Shortcut `
     -Name        "5. Push Rapido" `
     -Target      $ps `
     -Arguments   "$psArgs `"$TB\quick-push.ps1`"" `
     -WorkDir     $TB `
-    -Description "Commit e push rápido em ambos os repos — sem testes, mensagem automática" `
+    -Description "Commit e push rápido — sem testes, mensagem automática" `
     -Icon        "shell32.dll,19"
 
 # ── 6. Encerrar Sessão ─────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ New-Shortcut `
     -Target      $ps `
     -Arguments   "$psArgs `"$TB\close-session.ps1`"" `
     -WorkDir     $TB `
-    -Description "Roda testes, commita e push em techcolab-backlog e call-recorder" `
+    -Description "Roda testes, commita e push do techcolab-backlog" `
     -Icon        "shell32.dll,27"
 
 # ── Launcher shortcut on Desktop root ─────────────────────────────────────────

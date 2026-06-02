@@ -27,7 +27,7 @@ $clrStatus = [System.Drawing.ColorTranslator]::FromHtml("#252535")
 $clrSep    = [System.Drawing.ColorTranslator]::FromHtml("#3A3B50")
 
 $TB = "C:\Users\Kelvin.okuda\techcolab-backlog"
-$CR = "C:\Users\Kelvin.okuda\Scripts\call-recorder"
+$CR = "$TB\call-recorder"
 
 $groups = @(
     @{
