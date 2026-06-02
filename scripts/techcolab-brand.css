@@ -1,0 +1,161 @@
+/*
+  Techco.lab — Brand CSS
+  Importar em qualquer projeto HTML ou relatório.
+  Uso: <link rel="stylesheet" href="C:\Users\Kelvin.okuda\Scripts\techcolab-brand.css">
+  Ou copiar as variáveis :root para dentro de um <style> inline.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ── Design Tokens ──────────────────────────────────────── */
+:root {
+  /* Cores principais */
+  --tc-accent:         #02B793;
+  --tc-accent-hover:   #007167;
+  --tc-accent-light:   #0AD4A8;
+
+  /* Gradientes */
+  --tc-gradient-btn:   linear-gradient(90deg, #02B793, #0AD4A8);
+  --tc-gradient-h1:    linear-gradient(135deg, #007167, #8AC6BD);
+
+  /* Texto */
+  --tc-text:           #111827;
+  --tc-text-secondary: #6B7280;
+  --tc-text-muted:     #9CA3AF;
+
+  /* Superfícies */
+  --tc-bg:             #FFFFFF;
+  --tc-bg-card:        #F9FAFB;
+  --tc-border:         #E5E7EB;
+
+  /* Estados / diagnósticos */
+  --tc-error:          #EF4444;
+  --tc-success:        #059669;
+  --tc-opportunity:    #6366F1;
+
+  /* Status do backlog */
+  --tc-status-backlog:      #9CA3AF;
+  --tc-status-dev:          #F59E0B;
+  --tc-status-validacao:    #3B82F6;
+  --tc-status-concluido:    #02B793;
+  --tc-status-descartado:   #6B7280;
+
+  /* Tipografia */
+  --tc-font:           'Inter', sans-serif;
+  --tc-radius:         8px;
+  --tc-radius-sm:      6px;
+}
+
+/* ── Base ───────────────────────────────────────────────── */
+body {
+  font-family: var(--tc-font);
+  color: var(--tc-text);
+  background: var(--tc-bg);
+}
+
+/* ── Títulos ────────────────────────────────────────────── */
+h1 {
+  background: var(--tc-gradient-h1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ── Botões ─────────────────────────────────────────────── */
+.tc-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  border-radius: var(--tc-radius-sm);
+  background: var(--tc-gradient-btn);
+  color: #fff;
+  font-family: var(--tc-font);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+.tc-btn:hover { background: var(--tc-accent-hover); }
+
+/* ── Cards de stat ──────────────────────────────────────── */
+.tc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: .5rem 0;
+}
+.tc-card {
+  background: var(--tc-bg-card);
+  border: 1px solid var(--tc-border);
+  border-radius: var(--tc-radius);
+  padding: 8px 12px;
+}
+.tc-card-label {
+  font-size: .7rem;
+  color: var(--tc-text-secondary);
+  font-weight: 500;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+.tc-card-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--tc-text);
+  line-height: 1.2;
+}
+
+/* ── Diagnostic cards (border-left) ─────────────────────── */
+.tc-issue {
+  margin: .4rem 0;
+  padding: .5rem .75rem;
+  border-radius: var(--tc-radius-sm);
+  border-left: 3px solid var(--tc-error);
+  background: rgba(239, 68, 68, .05);
+}
+.tc-fix {
+  margin: -.2rem 0 .5rem;
+  padding: .5rem .75rem;
+  border-radius: var(--tc-radius-sm);
+  border-left: 3px solid var(--tc-success);
+  background: rgba(5, 150, 105, .05);
+}
+.tc-opportunity {
+  margin: .4rem 0;
+  padding: .5rem .75rem;
+  border-radius: var(--tc-radius-sm);
+  border-left: 3px solid var(--tc-opportunity);
+  background: rgba(99, 102, 241, .05);
+}
+.tc-issue-label,
+.tc-fix-label,
+.tc-opportunity-label {
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  display: block;
+  margin-bottom: 2px;
+}
+.tc-issue-label      { color: var(--tc-error); }
+.tc-fix-label        { color: var(--tc-success); }
+.tc-opportunity-label{ color: var(--tc-opportunity); }
+
+/* ── Badge de prioridade ─────────────────────────────────── */
+.tc-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 0.65rem;
+  font-family: Georgia, serif;
+  vertical-align: middle;
+}
+.tc-badge-high   { background: #02B793; color: #fff; }
+.tc-badge-medium { background: #F59E0B; color: #fff; }
+.tc-badge-low    { background: #E5E7EB; color: #6B7280; }

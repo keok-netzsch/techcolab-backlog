@@ -1,0 +1,16 @@
+# Whisper model (large binary — download separately, see CLAUDE.md)
+model/
+
+# Temporary transcripts (generated at runtime)
+transcripts/
+transcript_*.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
