@@ -426,8 +426,22 @@ def _area_chip(area: str | None) -> str:
 def get_store() -> BacklogStore:
     return BacklogStore(Path(BACKLOG_DIR))
 
-def load_ideas():
+def _backlog_mtime() -> float:
+    """Latest modification time across backlog files — used as a cache key.
+    Changes whenever any idea-NNN.md is added, removed, or edited."""
+    try:
+        return max((f.stat().st_mtime for f in Path(BACKLOG_DIR).glob("*.md")), default=0.0)
+    except OSError:
+        return 0.0
+
+@st.cache_data(show_spinner=False)
+def _load_ideas_cached(cache_key: float):
+    # cache_key (the backlog dir mtime) is hashed by Streamlit; when it changes
+    # the list is recomputed, so edits/saves are reflected without stale reads.
     return get_store().load_all()
+
+def load_ideas():
+    return _load_ideas_cached(_backlog_mtime())
 
 def _rebuild_index(store: BacklogStore) -> None:
     from backlog.index import generate_index
@@ -2592,7 +2606,7 @@ elif page == "Weekly Brief":
     st.divider()
 
     _store = get_store()
-    _ideas = _store.load_all()
+    _ideas = load_ideas()
     _today = date.today()
     _export = [f"# Weekly Brief — {_today.strftime('%d/%m/%Y')}",
                f"Period: {_start.strftime('%d/%m/%Y')} → {_today.strftime('%d/%m/%Y')}", ""]

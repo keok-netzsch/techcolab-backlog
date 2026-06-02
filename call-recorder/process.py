@@ -120,8 +120,9 @@ def save_block(file_path: str, content: str, mode: str = "prepend"):
     """
     Save a content block into an existing Obsidian note.
 
-    mode='prepend' (1on1.md): insert right after the 3rd '---' (body separator),
-      keeping the AI-context callout and title at the top, newest entry below them.
+    mode='prepend' (1on1.md): insert right after the YAML frontmatter (and any
+      leading '>' callout), so the newest entry sits at the top of the body.
+      Robust to how many '---' separators the body already contains.
 
     mode='append' (OKR / PDI / Overview): append at the end with a '---' separator.
     """
@@ -140,27 +141,26 @@ def save_block(file_path: str, content: str, mode: str = "prepend"):
         p.write_text(existing.rstrip() + "\n\n---\n\n" + content, encoding="utf-8")
         return
 
-    # prepend: walk through '---' occurrences to find the 3rd one (body separator)
-    pos = 0
-    count = 0
-    body_sep_pos = -1
-    while True:
-        idx = existing.find("---", pos)
-        if idx < 0:
-            break
-        count += 1
-        pos = idx + 3
-        if count == 3:
-            body_sep_pos = idx
-            break
+    # prepend: line-based, deterministic
+    lines = existing.split("\n")
+    insert_at = 0
 
-    if body_sep_pos >= 0:
-        nl = existing.find("\n", body_sep_pos)
-        nl = nl if nl >= 0 else len(existing)
-        new = existing[: nl + 1] + "\n" + content + "\n\n---\n" + existing[nl + 1:]
-    else:
-        # No body separator yet — fall back to append-with-separator
-        new = existing.rstrip() + "\n\n---\n\n" + content
+    # 1) skip the YAML frontmatter block (--- ... ---)
+    if lines and lines[0].strip() == "---":
+        for i in range(1, len(lines)):
+            if lines[i].strip() == "---":
+                insert_at = i + 1
+                break
+
+    # 2) keep a leading callout (> ...) and blank lines pinned at the top
+    while insert_at < len(lines) and (
+        lines[insert_at].strip() == "" or lines[insert_at].lstrip().startswith(">")
+    ):
+        insert_at += 1
+
+    head = "\n".join(lines[:insert_at]).rstrip()
+    tail = "\n".join(lines[insert_at:]).lstrip("\n")
+    new = (head + "\n\n" + content.rstrip() + "\n\n---\n\n" + tail).rstrip() + "\n"
 
     p.write_text(new, encoding="utf-8")
 
