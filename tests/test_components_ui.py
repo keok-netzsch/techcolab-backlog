@@ -1,6 +1,5 @@
 """Tests for components/ui.py — pure HTML helpers and display constants."""
 
-import pytest
 
 from components.ui import (
     AREA_LABEL,

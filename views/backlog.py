@@ -693,7 +693,12 @@ def render() -> None:
                             archive = Path(BACKLOG_ARCHIVE_DIR)
                             archive.mkdir(parents=True, exist_ok=True)
                             src = store.dir / f"{idea.id}.md"
-                            src.rename(archive / f"{idea.id}.md")
+                            if src.exists():
+                                # .replace() overwrites; .rename() raises on Windows
+                                # if the destination already exists.
+                                src.replace(archive / f"{idea.id}.md")
+                            # if it's already gone, it was moved earlier — fall through
+                            # to clear state and rerun (idempotent, no FileNotFoundError)
                             rebuild_index(store)
                             st.session_state.pop(f"confirm_del_{idea.id}", None)
                             st.session_state["backlog_flash"] = ("success", f"{idea.id} moved to deleted.")
