@@ -17,14 +17,16 @@ public class ShellApp {
 # Desvincular processo do ícone do powershell.exe na barra de tarefas
 [ShellApp]::SetCurrentProcessExplicitAppUserModelID("Techcolab.Launcher.1")
 
-$clrBg     = [System.Drawing.ColorTranslator]::FromHtml("#1C1C28")
-$clrCard   = [System.Drawing.ColorTranslator]::FromHtml("#2D2E3E")
-$clrHover  = [System.Drawing.ColorTranslator]::FromHtml("#3A3B50")
-$clrAccent = [System.Drawing.ColorTranslator]::FromHtml("#02B793")
-$clrText   = [System.Drawing.Color]::White
-$clrSub    = [System.Drawing.ColorTranslator]::FromHtml("#9A9AB0")
-$clrStatus = [System.Drawing.ColorTranslator]::FromHtml("#252535")
-$clrSep    = [System.Drawing.ColorTranslator]::FromHtml("#3A3B50")
+# ── Palette — aligned with the Streamlit app dark theme (design system) ────────
+$clrBg     = [System.Drawing.ColorTranslator]::FromHtml("#0E1117")   # app background
+$clrCard   = [System.Drawing.ColorTranslator]::FromHtml("#1A1D2E")   # card surface
+$clrHover  = [System.Drawing.ColorTranslator]::FromHtml("#1E2640")   # card hover
+$clrAccent = [System.Drawing.ColorTranslator]::FromHtml("#02B793")   # brand accent
+$clrText   = [System.Drawing.ColorTranslator]::FromHtml("#E2E8F0")   # primary text
+$clrSub    = [System.Drawing.ColorTranslator]::FromHtml("#94A3B8")   # secondary text
+$clrMuted  = [System.Drawing.ColorTranslator]::FromHtml("#64748B")   # section labels
+$clrStatus = [System.Drawing.ColorTranslator]::FromHtml("#161B2E")   # status bar
+$clrSep    = [System.Drawing.ColorTranslator]::FromHtml("#2D3748")   # borders / dividers
 
 $TB = "$env:USERPROFILE\techcolab-backlog"
 $CR = "$TB\call-recorder"
@@ -33,42 +35,41 @@ $groups = @(
     @{
         Label   = "APP"
         Actions = @(
-            [pscustomobject]@{ Title="Open App"; Desc="Open http://localhost:8501 in the default browser"; Exe="http://localhost:8501"; PArgs="" },
-            [pscustomobject]@{ Title="Kill App"; Desc="Stop Streamlit on port 8501";                      Exe="wscript.exe";          PArgs="`"$TB\stop_app.vbs`"" }
+            [pscustomobject]@{ Title="Open App"; Desc="Open localhost:8501 in the browser";  Exe="http://localhost:8501"; PArgs="" },
+            [pscustomobject]@{ Title="Kill App"; Desc="Stop Streamlit on port 8501";          Exe="wscript.exe";          PArgs="`"$TB\stop_app.vbs`"" }
         )
     },
     @{
         Label   = "AGENT"
         Actions = @(
-            [pscustomobject]@{ Title="Run Agent";     Desc="Phase 1: analyze backlog and write daily report"; Exe="cmd.exe"; PArgs="/k `"$TB\run_agent.bat`"" },
-            [pscustomobject]@{ Title="Execute Agent"; Desc="Phase 2: copy command and open Claude Code";       Exe="cmd.exe"; PArgs="/k `"$TB\execute_agent.bat`"" }
+            [pscustomobject]@{ Title="Run Agent";     Desc="Phase 1 - analyze backlog, write report"; Exe="cmd.exe"; PArgs="/k `"$TB\run_agent.bat`"" },
+            [pscustomobject]@{ Title="Execute Agent"; Desc="Phase 2 - copy command, open Claude";      Exe="cmd.exe"; PArgs="/k `"$TB\execute_agent.bat`"" }
         )
     },
     @{
         Label   = "GIT"
         Actions = @(
-            [pscustomobject]@{ Title="Quick Push";    Desc="Instant commit + push, auto message, no tests"; Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$TB\quick-push.ps1`"" },
-            [pscustomobject]@{ Title="Close Session"; Desc="Run tests, commit and push all repos";           Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$TB\close-session.ps1`"" }
+            [pscustomobject]@{ Title="Quick Push";    Desc="Instant commit + push, no tests";  Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$TB\quick-push.ps1`"" },
+            [pscustomobject]@{ Title="Close Session"; Desc="Run tests, commit and push";        Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$TB\close-session.ps1`"" }
         )
     },
     @{
         Label   = "SKILLS"
         Actions = @(
-            [pscustomobject]@{ Title="SPM Bot";       Desc="Copy /spm-bot to clipboard and open Claude"; Exe="powershell.exe"; PArgs="-NoProfile -Command `"Set-Clipboard '/spm-bot'; Start-Process 'https://claude.ai'`"" },
-            [pscustomobject]@{ Title="Deck Designer"; Desc="Copy /techcolab-deck to clipboard and open Claude"; Exe="powershell.exe"; PArgs="-NoProfile -Command `"Set-Clipboard '/techcolab-deck'; Start-Process 'https://claude.ai'`"" }
+            [pscustomobject]@{ Title="SPM Bot";       Desc="Copy /spm-bot, open Claude";        Exe="powershell.exe"; PArgs="-NoProfile -Command `"Set-Clipboard '/spm-bot'; Start-Process 'https://claude.ai'`"" },
+            [pscustomobject]@{ Title="Deck Designer"; Desc="Copy /techcolab-deck, open Claude";  Exe="powershell.exe"; PArgs="-NoProfile -Command `"Set-Clipboard '/techcolab-deck'; Start-Process 'https://claude.ai'`"" }
         )
     },
     @{
         Label   = "FEATURES"
         Actions = @(
-            [pscustomobject]@{ Title="Call Recorder"; Desc="Record & transcribe 1on1 / English Coach sessions"; Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$CR\call-recorder.ps1`"" },
-            [pscustomobject]@{ Title="Toilet Paper";  Desc="Text-to-diagram app - starts Vite dev server (localhost:5173)"; Exe="cmd.exe"; PArgs="/k `"$TB\start_toilet_paper.bat`"" }
+            [pscustomobject]@{ Title="Call Recorder"; Desc="Record & transcribe 1on1 / English"; Exe="powershell.exe"; PArgs="-ExecutionPolicy Bypass -NoExit -File `"$CR\call-recorder.ps1`"" },
+            [pscustomobject]@{ Title="Toilet Paper";  Desc="Text-to-diagram (Vite, :5173)";       Exe="cmd.exe"; PArgs="/k `"$TB\start_toilet_paper.bat`"" }
         )
     }
 )
 
 # ── Custom icon (green circle + "T") ──────────────────────────────────────────
-# Bitmap kept at script scope so GC never collects it while the form lives
 $script:_iconBmp = New-Object System.Drawing.Bitmap(32, 32)
 function New-LauncherIcon {
     $g  = [System.Drawing.Graphics]::FromImage($script:_iconBmp)
@@ -83,11 +84,20 @@ function New-LauncherIcon {
     $g.DrawString("T", $font, [System.Drawing.Brushes]::White,
                   [System.Drawing.RectangleF]::new(0, 1, 32, 32), $sf)
     $g.Dispose(); $bg.Dispose(); $font.Dispose(); $sf.Dispose()
-    # Keep icon handle at script scope — prevents Windows from losing it
     $script:_iconHandle = $script:_iconBmp.GetHicon()
     $script:_icon = [System.Drawing.Icon]::FromHandle($script:_iconHandle)
     return $script:_icon
 }
+
+# ── Layout metrics (generous spacing — avoids the cramped feel) ────────────────
+$winW    = 600
+$pad     = 26
+$colGap  = 14
+$colW    = [int](($winW - $pad * 2 - $colGap) / 2)
+$cardH   = 58
+$rowGap  = 10
+$hdrH    = 26
+$grpGap  = 18   # vertical breathing room between groups
 
 # ── Form ───────────────────────────────────────────────────────────────────────
 $form = New-Object System.Windows.Forms.Form
@@ -97,33 +107,28 @@ $form.ForeColor       = $clrText
 $form.StartPosition   = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox     = $false
-$form.ClientSize      = New-Object System.Drawing.Size(640, 462)
+$form.ClientSize      = New-Object System.Drawing.Size($winW, 640)
 $form.Font            = New-Object System.Drawing.Font("Segoe UI", 10)
 $form.Icon            = New-LauncherIcon
 
-# Auto-start Streamlit + Ollama, and apply dark title bar
 $form.add_Shown({
     $darkMode = 1
     [DwmApi]::DwmSetWindowAttribute($form.Handle, 20, [ref]$darkMode, 4) | Out-Null
-
-    # Reapply icon after handle is created so the taskbar picks it up correctly
     $form.Icon = $script:_icon
 
     try { Start-Process "wscript.exe" -ArgumentList "`"$TB\start_silent.vbs`"" } catch {}
-
     if (-not (Get-Process "ollama" -ErrorAction SilentlyContinue)) {
         try { Start-Process "ollama" -ArgumentList "serve" -WindowStyle Hidden } catch {}
     }
-
-    $script:lblStatus.Text = "Starting Streamlit & Ollama...  $(Get-Date -Format 'HH:mm:ss')"
+    $script:lblStatus.Text = "  Starting Streamlit & Ollama...   $(Get-Date -Format 'HH:mm:ss')"
 })
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 $lblTitle = New-Object System.Windows.Forms.Label
 $lblTitle.Text      = "Techco.lab"
 $lblTitle.ForeColor = $clrAccent
-$lblTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 14, [System.Drawing.FontStyle]::Bold)
-$lblTitle.Location  = New-Object System.Drawing.Point(20, 14)
+$lblTitle.Font      = New-Object System.Drawing.Font("Segoe UI", 16, [System.Drawing.FontStyle]::Bold)
+$lblTitle.Location  = New-Object System.Drawing.Point($pad, 18)
 $lblTitle.AutoSize  = $true
 $form.Controls.Add($lblTitle)
 
@@ -131,22 +136,29 @@ $lblSub = New-Object System.Windows.Forms.Label
 $lblSub.Text      = "Personal Toolkit Launcher"
 $lblSub.ForeColor = $clrSub
 $lblSub.Font      = New-Object System.Drawing.Font("Segoe UI", 9)
-$lblSub.Location  = New-Object System.Drawing.Point(22, 43)
+$lblSub.Location  = New-Object System.Drawing.Point(($pad + 1), 49)
 $lblSub.AutoSize  = $true
 $form.Controls.Add($lblSub)
+
+# Thin accent divider under the header
+$hdrSep = New-Object System.Windows.Forms.Panel
+$hdrSep.BackColor = $clrSep
+$hdrSep.Size      = New-Object System.Drawing.Size(($winW - $pad * 2), 1)
+$hdrSep.Location  = New-Object System.Drawing.Point($pad, 76)
+$form.Controls.Add($hdrSep)
 
 # ── Status bar ─────────────────────────────────────────────────────────────────
 $pnlStatus = New-Object System.Windows.Forms.Panel
 $pnlStatus.BackColor = $clrStatus
-$pnlStatus.Height    = 26
+$pnlStatus.Height    = 28
 $pnlStatus.Dock      = "Bottom"
 $form.Controls.Add($pnlStatus)
 
 $lblStatus = New-Object System.Windows.Forms.Label
-$lblStatus.Text      = "Ready"
+$lblStatus.Text      = "  Ready"
 $lblStatus.ForeColor = $clrSub
-$lblStatus.Font      = New-Object System.Drawing.Font("Segoe UI", 9)
-$lblStatus.Location  = New-Object System.Drawing.Point(12, 7)
+$lblStatus.Font      = New-Object System.Drawing.Font("Segoe UI", 8.5)
+$lblStatus.Location  = New-Object System.Drawing.Point(12, 8)
 $lblStatus.AutoSize  = $true
 $pnlStatus.Controls.Add($lblStatus)
 
@@ -156,46 +168,29 @@ $onEnter = {
     $card = if ($sender.Tag -eq "card") { $sender } else { $sender.Parent }
     $card.BackColor = $script:clrHover
     foreach ($c in $card.Controls) {
-        if ($c.Tag -ne "accent") { $c.BackColor = $script:clrHover }
+        if ($c.Tag -eq "accent") { $c.Width = 4 } else { $c.BackColor = $script:clrHover }
     }
 }
-
 $onLeave = {
     param($sender, $e)
     $card = if ($sender.Tag -eq "card") { $sender } else { $sender.Parent }
     $card.BackColor = $script:clrCard
     foreach ($c in $card.Controls) {
-        if ($c.Tag -ne "accent") { $c.BackColor = $script:clrCard }
+        if ($c.Tag -eq "accent") { $c.Width = 0 } else { $c.BackColor = $script:clrCard }
     }
 }
 
-# ── Groups + Cards (2-column grid) ────────────────────────────────────────────
-$pad     = 20
-$colGap  = 8
-$colW    = [int](($form.ClientSize.Width - $pad * 2 - $colGap) / 2)
-$cardH   = 50
-$rowGap  = 4
-$hdrH    = 16
-
-$y          = 58
+# ── Groups + Cards (2-column grid, generous rhythm) ───────────────────────────
+$y          = 92
 $firstGroup = $true
 
 foreach ($group in $groups) {
-    if (-not $firstGroup) {
-        $y += 3
-
-        $sep = New-Object System.Windows.Forms.Panel
-        $sep.BackColor = $clrSep
-        $sep.Size      = New-Object System.Drawing.Size(($form.ClientSize.Width - $pad * 2), 1)
-        $sep.Location  = New-Object System.Drawing.Point($pad, $y)
-        $form.Controls.Add($sep)
-        $y += 1 + 5
-    }
+    if (-not $firstGroup) { $y += $grpGap }
     $firstGroup = $false
 
     $lbl = New-Object System.Windows.Forms.Label
-    $lbl.Text      = $group.Label
-    $lbl.ForeColor = $clrAccent
+    $lbl.Text      = ($group.Label.ToCharArray() -join " ")   # letter-spaced label
+    $lbl.ForeColor = $clrMuted
     $lbl.Font      = New-Object System.Drawing.Font("Segoe UI", 7.5, [System.Drawing.FontStyle]::Bold)
     $lbl.Location  = New-Object System.Drawing.Point($pad, $y)
     $lbl.AutoSize  = $true
@@ -224,9 +219,10 @@ foreach ($group in $groups) {
         $card.Tag       = "card"
         $form.Controls.Add($card)
 
+        # Accent bar — hidden until hover (cleaner resting state)
         $accent = New-Object System.Windows.Forms.Panel
         $accent.BackColor = $clrAccent
-        $accent.Size      = New-Object System.Drawing.Size(4, $cardH)
+        $accent.Size      = New-Object System.Drawing.Size(0, $cardH)
         $accent.Location  = New-Object System.Drawing.Point(0, 0)
         $accent.Tag       = "accent"
         $card.Controls.Add($accent)
@@ -235,8 +231,8 @@ foreach ($group in $groups) {
         $lblT.Text      = $a.Title
         $lblT.ForeColor = $clrText
         $lblT.BackColor = $clrCard
-        $lblT.Font      = New-Object System.Drawing.Font("Segoe UI", 9.5, [System.Drawing.FontStyle]::Bold)
-        $lblT.Location  = New-Object System.Drawing.Point(12, 6)
+        $lblT.Font      = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+        $lblT.Location  = New-Object System.Drawing.Point(14, 9)
         $lblT.AutoSize  = $true
         $card.Controls.Add($lblT)
 
@@ -244,10 +240,10 @@ foreach ($group in $groups) {
         $lblD.Text        = $a.Desc
         $lblD.ForeColor   = $clrSub
         $lblD.BackColor   = $clrCard
-        $lblD.Font        = New-Object System.Drawing.Font("Segoe UI", 7.5)
-        $lblD.Location    = New-Object System.Drawing.Point(12, 26)
+        $lblD.Font        = New-Object System.Drawing.Font("Segoe UI", 8)
+        $lblD.Location    = New-Object System.Drawing.Point(14, 32)
         $lblD.AutoSize    = $false
-        $lblD.Size        = New-Object System.Drawing.Size(($colW - 18), 18)
+        $lblD.Size        = New-Object System.Drawing.Size(($colW - 22), 18)
         $card.Controls.Add($lblD)
 
         $onClick = {
@@ -260,9 +256,9 @@ foreach ($group in $groups) {
                 } else {
                     Start-Process $exe
                 }
-                $script:lblStatus.Text = "Launched: $title  |  $(Get-Date -Format 'HH:mm:ss')"
+                $script:lblStatus.Text = "  Launched: $title   |   $(Get-Date -Format 'HH:mm:ss')"
             } catch {
-                $script:lblStatus.Text = "Error: $_"
+                $script:lblStatus.Text = "  Error: $_"
             }
         }.GetNewClosure()
 
@@ -279,5 +275,8 @@ foreach ($group in $groups) {
 
     $y += $numRows * $cardH + ($numRows - 1) * $rowGap
 }
+
+# Size the window to fit content + status bar, with a comfortable bottom margin
+$form.ClientSize = New-Object System.Drawing.Size($winW, ($y + 20 + $pnlStatus.Height))
 
 [System.Windows.Forms.Application]::Run($form)
