@@ -10,7 +10,6 @@ os.environ["HF_HUB_DISABLE_SSL_VERIFY"] = "1"
 import argparse
 import signal
 import sys
-import tempfile
 from datetime import datetime
 
 import numpy as np
@@ -85,27 +84,32 @@ def main():
     duration = len(audio) / SAMPLE_RATE
     print(f"[INFO] Áudio capturado: {duration:.1f}s")
 
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-        sf.write(f.name, audio, SAMPLE_RATE)
-        tmp_path = f.name
+    # Base name shared by the transcript (.txt) and the saved recording (.wav).
+    # Derived from --output when provided, otherwise the timestamp default.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if args.output:
+        out_path = args.output
+        base_name = os.path.splitext(os.path.basename(args.output))[0]
+    else:
+        ts = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        base_name = f"transcript_{ts}"
+        out_path = os.path.join(script_dir, f"{base_name}.txt")
 
-    try:
-        transcript = transcribe(tmp_path, language=LANGUAGE_EFFECTIVE)
-    finally:
-        os.unlink(tmp_path)
+    # Persist the raw audio permanently so it can be re-transcribed later with a
+    # different language/model (previously written to a temp file and deleted).
+    recordings_dir = os.path.join(script_dir, "recordings")
+    os.makedirs(recordings_dir, exist_ok=True)
+    wav_path = os.path.join(recordings_dir, f"{base_name}.wav")
+    sf.write(wav_path, audio, SAMPLE_RATE)
+    print(f"[INFO] Áudio salvo em: {wav_path}")
+
+    transcript = transcribe(wav_path, language=LANGUAGE_EFFECTIVE)
 
     print("\n" + "=" * 60)
     print("TRANSCRIÇÃO")
     print("=" * 60)
     print(transcript)
     print("=" * 60)
-
-    # Salvar em arquivo
-    if args.output:
-        out_path = args.output
-    else:
-        ts = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        out_path = os.path.join(os.path.dirname(__file__), f"transcript_{ts}.txt")
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(transcript)

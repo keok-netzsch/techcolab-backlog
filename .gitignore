@@ -27,6 +27,7 @@ logs/
 call-recorder/model/
 call-recorder/transcripts/
 call-recorder/transcript_*.txt
+call-recorder/recordings/
 
 # ── OS ──────────────────────────────────────────────────────
 .DS_Store

@@ -196,9 +196,13 @@ function Invoke-ManagerCall {
     Write-Host "  [REC] Feche a janela Python (Ctrl+C nela) para parar." -ForegroundColor Red
     Write-Host ""
 
+    # Detect call language BEFORE recording so Whisper uses the right model
+    $lang_ans  = Read-Host "  Was this call in English? (S/n)"
+    $lang_flag = if ($lang_ans -match '^[nN]$') { "pt" } else { "en" }
+
     $py_script = Join-Path $SCRIPT_DIR "record.py"
     $proc = Start-Process -FilePath $PYTHON `
-        -ArgumentList "`"$py_script`" --output `"$trans_file`"" `
+        -ArgumentList "`"$py_script`" --language $lang_flag --output `"$trans_file`"" `
         -PassThru `
         -WindowStyle Normal
 
@@ -224,15 +228,9 @@ function Invoke-ManagerCall {
     }
 
     $chars = (Get-Item $trans_file).Length
-    Write-Host "  [OK] Transcricao gerada ($chars bytes)" -ForegroundColor Green
+    Write-Host "  [OK] Transcricao gerada ($chars bytes) — idioma: $lang_flag" -ForegroundColor Green
 
     # 3. Processar com Ollama (process.py)
-    Write-Host ""
-    Write-Host "  [Ollama] Processando transcricao do gestor..." -ForegroundColor Yellow
-    Write-Host ""
-
-    $lang_ans = Read-Host "  Was this call in English? (s/N)"
-    $lang_flag = if ($lang_ans -match '^[sS]$') { "en" } else { "pt" }
 
     $process_py = Join-Path $SCRIPT_DIR "process.py"
     & $PYTHON $process_py manager --manager $manager["Folder"] --transcript $trans_file --date $date_str --lang $lang_flag
