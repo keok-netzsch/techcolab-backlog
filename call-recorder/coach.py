@@ -20,7 +20,7 @@ import requests
 # Vault root — override with env var TECHCOLAB_VAULT_ROOT; fallback below.
 VAULT = os.environ.get(
     "TECHCOLAB_VAULT_ROOT",
-    r"C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO",
+    os.path.join(os.path.expanduser("~"), "OneDrive - NETZSCH", "Documents", "TechColab_D&A_KO"),
 )
 COACH_DIR = Path(VAULT) / "Areas" / "English-Learning"
 SESSIONS_DIR = COACH_DIR / "sessions"

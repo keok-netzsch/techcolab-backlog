@@ -26,7 +26,7 @@ import requests
 # Vault root — override with env var TECHCOLAB_VAULT_ROOT; fallback below.
 VAULT = os.environ.get(
     "TECHCOLAB_VAULT_ROOT",
-    r"C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO",
+    os.path.join(os.path.expanduser("~"), "OneDrive - NETZSCH", "Documents", "TechColab_D&A_KO"),
 )
 OLLAMA_URL   = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "llama3.2:3b"
