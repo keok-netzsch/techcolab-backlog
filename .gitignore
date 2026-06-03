@@ -35,3 +35,20 @@ Thumbs.db
 # ── IDE ─────────────────────────────────────────────────────
 .vscode/
 .idea/
+
+# ── VAULT / SENSITIVE HR DATA — NEVER COMMIT (PUBLIC REPO) ───
+# The Obsidian vault (TechColab_D&A_KO) is a SEPARATE, local-only repo synced
+# via OneDrive. Its data (team profiles, stakeholders, PDIs, performance,
+# compensation) must NEVER enter this PUBLIC repo. Defensive patterns:
+*OneDrive*/
+**/TechColab_D&A_KO/**
+**/Stakeholders/**
+**/1on1/
+*_1on1_*.md
+**/PDI.md
+**/OKR.md
+**/Overview.md
+*Performance Assessment*
+*Assessment Observations*
+# NOTE: "backlog/" here is CODE. The vault's "backlog items/" is DATA → ignore it:
+backlog items/

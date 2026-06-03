@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# pre-commit guard — techcolab-backlog (PUBLIC repo)
+# Blocks committing Obsidian vault data / sensitive HR content into this public
+# project repo. The vault (TechColab_D&A_KO) is a SEPARATE local-only repo and
+# its data must never live here. See SECURITY.md.
+#
+# Enable once per clone:   git config core.hooksPath .githooks
+#
+fail=0
+staged=$(git diff --cached --name-only)
+
+# 1) Block by path / filename patterns
+blocked_paths=$(printf '%s\n' "$staged" | grep -Ei 'OneDrive|TechColab_D&A_KO|(^|/)Stakeholders/|(^|/)1on1/|_1on1_|(^|/)PDI\.md$|(^|/)OKR\.md$|(^|/)Overview\.md$|backlog items/|Performance Assessment|Assessment Observations')
+if [ -n "$blocked_paths" ]; then
+  echo "==============================================================="
+  echo " COMMIT BLOCKED — vault / sensitive paths staged:"
+  printf '%s\n' "$blocked_paths"
+  echo "==============================================================="
+  fail=1
+fi
+
+# 2) Block by sensitive content markers in the staged diff.
+#    Exclude this repo's own guard + security docs, which legitimately *name* the
+#    markers as examples (otherwise the hook blocks its own documentation).
+content_files=$(printf '%s\n' "$staged" | grep -Eiv '^(\.githooks/|SECURITY\.md$|CLAUDE\.md$|docs/)')
+if [ -n "$content_files" ] && printf '%s\n' "$content_files" | xargs git diff --cached -- 2>/dev/null | grep -Eiq 'compensation-band|promotion-status|flight.?risk|retention risk|relationship:[[:space:]]*direct-report|hard-skills-score'; then
+  echo "==============================================================="
+  echo " COMMIT BLOCKED — staged content has vault HR markers"
+  echo " (e.g. compensation-band, promotion-status, flight-risk)."
+  echo "==============================================================="
+  fail=1
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo " This is the PUBLIC project repo. Vault data lives separately (OneDrive),"
+  echo " accessed only via the TECHCOLAB_VAULT env var — never committed here."
+  echo " See SECURITY.md. Override (NOT recommended): git commit --no-verify"
+  exit 1
+fi
+exit 0

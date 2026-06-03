@@ -19,19 +19,29 @@ if _SETTINGS_LOCAL.exists():
     except Exception:
         pass
 
-# ── Vault root ─────────────────────────────────────────────────────────────────
+# ── Vault roots ────────────────────────────────────────────────────────────────
+# Two related paths, kept explicit to avoid confusion:
+#   VAULT_ROOT  = the app's working area  (…/TechColab_D&A_KO/App/Personal toolkit)
+#   VAULT_BASE  = the vault top level     (…/TechColab_D&A_KO)
+# VAULT_BASE is the SAME directory the call-recorder reads from its own
+# TECHCOLAB_VAULT_ROOT env var. Team/ and Areas/ live under VAULT_BASE.
 VAULT_ROOT = Path(
     os.environ.get(
         "TECHCOLAB_VAULT",
         r"C:\Users\YourUser\Documents\YourVault",
     )
 )
+VAULT_BASE = VAULT_ROOT.parent.parent
 
-# ── Team folder (one level above vault, under TechColab_D&A_KO) ───────────────
-TEAM_DIR = VAULT_ROOT.parent.parent / "Team"
+# Make the base discoverable to child processes (e.g. call-recorder) that look
+# for TECHCOLAB_VAULT_ROOT, without overriding an explicit value.
+os.environ.setdefault("TECHCOLAB_VAULT_ROOT", str(VAULT_BASE))
+
+# ── Team folder (under the vault base, TechColab_D&A_KO) ──────────────────────
+TEAM_DIR = VAULT_BASE / "Team"
 
 # ── English Coach folder (vault restructure 2026-05-28: English-Coach → Areas/English-Learning)
-EC_DIR = VAULT_ROOT.parent.parent / "Areas" / "English-Learning"
+EC_DIR = VAULT_BASE / "Areas" / "English-Learning"
 
 # ── Source: raw notes to be ingested ───────────────────────────────────────────
 VAULT_NOTES_DIR = VAULT_ROOT / "notes"

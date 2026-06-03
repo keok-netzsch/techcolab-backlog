@@ -166,6 +166,7 @@ This rule overrides any tendency to write Portuguese in the UI. No exceptions.
 
 ## What NOT to do
 
+- **NEVER commit vault data into this PUBLIC repo** — no `Team/`, `Stakeholders/`, `PDI.md`, `OKR.md`, `Overview.md`, `Performance/`, `1on1/`, `backlog items/`, `agent-reports/`, or any HR/compensation content. The vault is a separate local-only repo (OneDrive); this repo only runs *against* it via `TECHCOLAB_VAULT`. See `SECURITY.md`. A `.githooks/pre-commit` guard enforces this (`git config core.hooksPath .githooks`).
 - Do not use `ANTHROPIC_API_KEY` — this project uses Ollama (local LLM) only
 - Do not hardcode the vault path — always read from `TECHCOLAB_VAULT` env var or `config.py`
 - Do not use `%USERPROFILE%\Desktop` for shortcuts — use `GetFolderPath("Desktop")`
