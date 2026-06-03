@@ -96,3 +96,26 @@ def test_fallback_writes_dated_section(tmp_path, monkeypatch):
     one.write_text("---\n---\n", encoding="utf-8")
     process._fallback_1on1(one, "2026-06-03")
     assert "## 2026-06-03" in one.read_text(encoding="utf-8")
+
+
+# ── idempotent same-date replacement ──────────────────────────────────────────
+
+def test_strip_replaces_only_target_section(tmp_path):
+    p = tmp_path / "1on1.md"
+    p.write_text(
+        "---\nx\n---\n\n> callout\n\n## 2026-06-03\n\n- new\n\n---\n\n"
+        "# Log\n\n---\n\n## 2026-05-27\n\n- old\n\n---\n",
+        encoding="utf-8",
+    )
+    process._strip_dated_1on1(p, "2026-06-03")
+    t = p.read_text(encoding="utf-8")
+    assert "## 2026-06-03" not in t   # target removed
+    assert "# Log" in t               # log header preserved
+    assert "## 2026-05-27" in t       # other session preserved
+
+
+def test_strip_noop_when_section_absent(tmp_path):
+    p = tmp_path / "1on1.md"
+    p.write_text("## 2026-05-27\n\n- old\n\n---\n", encoding="utf-8")
+    process._strip_dated_1on1(p, "2026-06-03")
+    assert "## 2026-05-27" in p.read_text(encoding="utf-8")

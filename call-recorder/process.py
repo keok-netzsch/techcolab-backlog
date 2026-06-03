@@ -205,6 +205,19 @@ def _parse_and_save(response: str, base_path: Path,
     return saved
 
 
+def _strip_dated_1on1(oneonone_path: Path, date: str) -> None:
+    """Remove an existing `## {date}` 1:1 section (up to its trailing `---`) so a
+    reprocess replaces it instead of stacking a duplicate. No-op if absent.
+    Sections are `---`-separated by save_block, so we stop at the first `---`."""
+    if not oneonone_path.exists():
+        return
+    text = oneonone_path.read_text(encoding="utf-8", errors="replace")
+    pattern = re.compile(rf"(?ms)^## {re.escape(date)}\b.*?\n---\n", re.DOTALL)
+    new = pattern.sub("", text, count=1)
+    if new != text:
+        oneonone_path.write_text(re.sub(r"\n{3,}", "\n\n", new), encoding="utf-8")
+
+
 def _fallback_1on1(oneonone_path: Path, date: str) -> None:
     """If the model didn't emit a parseable BLOCO, still record a dated section so
     the session shows up in the Team tab (the visible "last 1:1" / Topics). The full
@@ -266,7 +279,6 @@ def cmd_transcript(person_folder: str, transcript_file: str, date: str,
     team_path   = Path(VAULT) / "Team" / person_folder
 
     overview   = read_file(str(team_path / "Overview.md"),  max_chars=1500)
-    oneonone   = read_file(str(team_path / "1on1.md"),      max_chars=2000)
     okr        = read_file(str(team_path / "OKR.md"),       max_chars=1000)
     pdi        = read_file(str(team_path / "PDI.md"),       max_chars=1000)
     transcript = read_file(transcript_file)
@@ -275,7 +287,9 @@ def cmd_transcript(person_folder: str, transcript_file: str, date: str,
         print(f"[ERROR] Transcricao vazia ou nao encontrada: {transcript_file}")
         sys.exit(1)
 
-    transcript = transcript[:4000]  # cap at ~4k chars to stay within 3B model context
+    # Keep enough of the real conversation (a 1:1 is usually >4k chars; the first
+    # 4k is often just the opening/audio-check). 12k chars is well within the model.
+    transcript = transcript[:12000]
 
     # ── Build BLOCO 1on1 template and optional structured-meeting context ─────
     if structured:
@@ -319,13 +333,16 @@ Mapeie as respostas do liderado a cada pergunta. No BLOCO 1on1, inclua a secao
 
 Pessoa: {person_name} | Data: {date}
 {structured_context}
-Contexto:
+Contexto (apenas referencia de quem e a pessoa — NAO copie nada daqui):
 Overview: {overview}
-Ultimo 1on1: {oneonone}
 OKR: {okr}
 PDI: {pdi}
 
-Transcricao (apenas Kelvin falou):
+REGRA CRITICA: Os Topics e Action items devem refletir EXCLUSIVAMENTE o que foi dito
+na transcricao abaixo. NUNCA reutilize topicos de sessoes anteriores nem do contexto.
+Se a transcricao for curta/inconclusiva, gere poucos topicos reais — nao invente.
+
+Transcricao da conversa:
 ---
 {transcript}
 ---
@@ -359,6 +376,7 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
     print(f"\n  [Ollama] Processando {label}...\n")
     response = _ollama_generate(prompt, stream=True)
 
+    _strip_dated_1on1(team_path / "1on1.md", date)  # idempotent: replace, don't duplicate
     saved = _parse_and_save(response, team_path, SECTION_MAP, SECTION_MODE)
     if saved == 0:
         _fallback_1on1(team_path / "1on1.md", date)
@@ -383,24 +401,25 @@ def cmd_manager(manager_folder: str, transcript_file: str, date: str, lang: str 
     stk_path     = Path(VAULT) / "Stakeholders" / manager_folder
 
     overview   = read_file(str(stk_path / "Overview.md"), max_chars=1500)
-    oneonone   = read_file(str(stk_path / "1on1.md"),    max_chars=2000)
     transcript = read_file(transcript_file)
 
     if not transcript.strip():
         print(f"[ERROR] Transcricao vazia ou nao encontrada: {transcript_file}")
         sys.exit(1)
 
-    transcript = transcript[:4000]  # cap at ~4k chars to stay within 3B model context
+    transcript = transcript[:12000]  # keep the real conversation, not just the opening
 
     prompt = f"""Voce e um assistente de gestao de pessoas. Analise a transcricao de uma reuniao com o gestor e estruture para o Obsidian.
 
 Pessoa: {manager_name} (gestor/superior hierarquico) | Data: {date}
 
-Contexto:
-Historico de reunioes: {oneonone}
+Contexto (apenas referencia — NAO copie nada daqui):
 Visao geral: {overview}
 
-Transcricao (apenas Kelvin falou):
+REGRA CRITICA: Os Topics e Action items devem refletir EXCLUSIVAMENTE o que foi dito
+na transcricao abaixo. NUNCA reutilize topicos de reunioes anteriores nem do contexto.
+
+Transcricao da conversa:
 ---
 {transcript}
 ---
@@ -431,6 +450,7 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
     print("\n  [Ollama] Processando transcricao do gestor...\n")
     response = _ollama_generate(prompt, stream=True)
 
+    _strip_dated_1on1(stk_path / "1on1.md", date)  # idempotent: replace, don't duplicate
     saved = _parse_and_save(response, stk_path, MANAGER_SECTION_MAP, MANAGER_SECTION_MODE)
     if saved == 0:
         _fallback_1on1(stk_path / "1on1.md", date)
