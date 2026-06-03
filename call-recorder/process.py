@@ -431,6 +431,52 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
     print(f"\n  Concluido. {saved + 1} arquivo(s) atualizados.")
 
 
+def cmd_note(transcript_path: str, date: str, lang: str = "pt", time_str: str = None):
+    """Save a standalone (loose) note to Inbox/ for later triage.
+
+    Used by the 'Outro' category in the recorder: the conversation does not map to
+    a team member or stakeholder, so it is captured + summarized and parked in the
+    vault Inbox to be classified later (turn into a backlog idea, attach to a
+    person, or discard)."""
+    transcript = read_file(transcript_path)
+    if not transcript.strip():
+        print("[ERROR] Transcript vazio.")
+        sys.exit(1)
+    if not time_str:
+        time_str = datetime.now().strftime("%H-%M")
+
+    lang_word = "ingles" if lang == "en" else "portugues"
+    prompt = (
+        "Voce e um assistente que organiza notas avulsas para triagem posterior.\n"
+        f"A transcricao abaixo (em {lang_word}) e uma nota solta sem dono definido.\n"
+        "Resuma em 3 a 5 bullets objetivos, em portugues, capturando o assunto "
+        "principal, qualquer decisao e qualquer acao mencionada. "
+        "Responda APENAS com os bullets, sem preambulo.\n\n"
+        f"=== TRANSCRICAO ===\n{transcript[:6000]}"
+    )
+    print("\n  [Ollama] Resumindo nota avulsa...\n")
+    summary = _ollama_generate(prompt, stream=True).strip()
+
+    inbox = Path(VAULT) / "Inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    fname = f"{date}_{time_str}_nota-avulsa.md"
+    fpath = inbox / fname
+    header = (
+        "---\n"
+        f"date: {date}\n"
+        f"time: {time_str.replace('-', ':')}\n"
+        "type: nota-avulsa\n"
+        "status: a-triar\n"
+        f"lang: {lang}\n"
+        "tags: [inbox, triage]\n"
+        "---\n\n"
+    )
+    body = "## Resumo\n\n" + summary + "\n\n## Transcricao\n\n" + transcript.strip() + "\n"
+    fpath.write_text(header + body, encoding="utf-8")
+    print(f"\n  [OK] Nota avulsa salva: Inbox/{fname}")
+    print("  Status: a-triar (classifique depois no vault).")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -458,6 +504,13 @@ def main():
     m.add_argument("--lang",       default="pt", choices=["pt", "en"],
                    help="Recording language — pt (default) or en")
 
+    n = sub.add_parser("note", help="Save a standalone (loose) note to Inbox for later triage")
+    n.add_argument("--transcript", required=True, help="Path to transcript .txt")
+    n.add_argument("--date",       required=True, help="YYYY-MM-DD")
+    n.add_argument("--time",       default=None, help="HH-MM (default: now)")
+    n.add_argument("--lang",       default="pt", choices=["pt", "en"],
+                   help="Recording language — pt (default) or en")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -472,6 +525,8 @@ def main():
                        structured=args.structured, lang=args.lang)
     elif args.command == "manager":
         cmd_manager(args.manager, args.transcript, args.date, lang=args.lang)
+    elif args.command == "note":
+        cmd_note(args.transcript, args.date, lang=args.lang, time_str=args.time)
 
 
 if __name__ == "__main__":
