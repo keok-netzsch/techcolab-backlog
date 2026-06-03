@@ -4,7 +4,7 @@
 
 $desktop  = [System.Environment]::GetFolderPath("Desktop")
 $folder   = Join-Path $desktop "Techco.lab"
-$TB       = "C:\Users\Kelvin.okuda\techcolab-backlog"
+$TB       = "$env:USERPROFILE\techcolab-backlog"
 $CR       = "$TB\call-recorder"
 $ps       = "powershell.exe"
 $psArgs   = "-ExecutionPolicy Bypass -NoExit -File"

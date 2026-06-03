@@ -1,7 +1,7 @@
 # quick-push.ps1 — commit e push rapido sem testes
 # Uso: atalho "5. Push Rapido" no Desktop ou Raycast
 
-$TB  = "C:\Users\Kelvin.okuda\techcolab-backlog"
+$TB  = "$env:USERPROFILE\techcolab-backlog"
 $MSG = "wip: auto-push $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 
 function Push-Repo {

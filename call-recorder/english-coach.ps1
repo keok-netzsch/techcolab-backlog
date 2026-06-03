@@ -9,7 +9,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$Venv       = "C:\Users\Kelvin.okuda\techcolab-backlog\call-recorder\.venv"
+$Venv       = "$env:USERPROFILE\techcolab-backlog\call-recorder\.venv"
 $Python     = if (Test-Path "$Venv\Scripts\python.exe") { "$Venv\Scripts\python.exe" } else { "python" }
 $RecordPy   = "$ScriptDir\record.py"
 $CoachPy    = "$ScriptDir\coach.py"

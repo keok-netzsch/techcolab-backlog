@@ -8,5 +8,5 @@
 
 Start-Process powershell.exe -ArgumentList @(
     "-ExecutionPolicy", "Bypass",
-    "-File", "C:\Users\Kelvin.okuda\techcolab-backlog\quick-push.ps1"
+    "-File", "$env:USERPROFILE\techcolab-backlog\quick-push.ps1"
 ) -WindowStyle Normal

@@ -6,7 +6,7 @@
 # @raycast.title English Coach Report (Techco.lab)
 # @raycast.mode silent
 
-$script = "C:\Users\Kelvin.okuda\techcolab-backlog\run_english_coach.bat"
+$script = "$env:USERPROFILE\techcolab-backlog\run_english_coach.bat"
 
 Start-Process cmd.exe -ArgumentList @(
     "/k", "`"$script`""

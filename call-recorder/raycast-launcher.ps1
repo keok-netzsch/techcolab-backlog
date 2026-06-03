@@ -6,7 +6,7 @@
 # @raycast.title Call Recorder
 # @raycast.mode silent
 
-$script = "C:\Users\Kelvin.okuda\techcolab-backlog\call-recorder\call-recorder.ps1"
+$script = "$env:USERPROFILE\techcolab-backlog\call-recorder\call-recorder.ps1"
 
 Start-Process powershell.exe -ArgumentList @(
     "-NoExit",

@@ -96,7 +96,7 @@ O fluxo correto é:
 2. Abre o Claude Code na pasta do projeto
 3. Você cola o comando: `Execute the approved items from today's agent report`
 
-Se o terminal fechar sem abrir o Claude Code, é o bug registrado em **idea-017** (to-do aberto). Por enquanto: abrir o Claude Code manualmente em `C:\Users\Kelvin.okuda\techcolab-backlog` e colar o comando.
+Se o terminal fechar sem abrir o Claude Code, é o bug registrado em **idea-017** (to-do aberto). Por enquanto: abrir o Claude Code manualmente em `%USERPROFILE%\techcolab-backlog` e colar o comando.
 
 ---
 

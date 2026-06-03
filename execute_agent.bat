@@ -14,7 +14,7 @@ set TODAY=%dt:~0,4%-%dt:~4,2%-%dt:~6,2%
 
 :: Vault path from env var or fallback
 if "%TECHCOLAB_VAULT%"=="" (
-    set "TECHCOLAB_VAULT=C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO"
+    set "TECHCOLAB_VAULT=%USERPROFILE%\OneDrive - NETZSCH\Documents\TechColab_D&A_KO"
 )
 set "REPORT=%TECHCOLAB_VAULT%\agent-reports\report-%TODAY%.md"
 
@@ -39,4 +39,4 @@ echo confirm with you, then implement and run the tests.
 echo.
 pause
 
-start "Claude Code - TechColab Phase 2" cmd /k "cd /d %~dp0 && C:\Users\Kelvin.okuda\.local\bin\claude.exe"
+start "Claude Code - TechColab Phase 2" cmd /k "cd /d %~dp0 && %USERPROFILE%\.local\bin\claude.exe"

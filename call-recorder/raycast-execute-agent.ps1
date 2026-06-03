@@ -11,7 +11,7 @@ $cmd = "Execute the approved items from today's agent report"
 Set-Clipboard -Value $cmd
 
 # Abre o execute_agent.bat (que abre o Claude Code no diretório correto)
-$script = "C:\Users\Kelvin.okuda\techcolab-backlog\execute_agent.bat"
+$script = "$env:USERPROFILE\techcolab-backlog\execute_agent.bat"
 Start-Process cmd.exe -ArgumentList @(
     "/k", "`"$script`""
 ) -WindowStyle Normal

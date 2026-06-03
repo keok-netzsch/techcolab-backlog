@@ -144,7 +144,7 @@ mcp__Windows-MCP__PowerShell(command="cd C:\\...\\techcolab-backlog; git add -A;
 ### Commit padrão para fim de sessão
 
 ```powershell
-cd C:\Users\Kelvin.okuda\techcolab-backlog
+cd %USERPROFILE%\techcolab-backlog
 git add -A
 git commit -m "tipo: descrição curta"
 git push

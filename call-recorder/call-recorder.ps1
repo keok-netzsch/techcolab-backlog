@@ -1,5 +1,5 @@
 # call-recorder.ps1
-# Location: C:\Users\Kelvin.okuda\techcolab-backlog\call-recorder\
+# Location: $env:USERPROFILE\techcolab-backlog\call-recorder\
 #
 # Modes:
 #   1. 1on1 com time     — grava e estrutura reuniao 1:1 com liderado (Team/)
@@ -7,8 +7,8 @@
 #   3. Call com Gestor   — grava e estrutura reuniao com gestor/stakeholder (Stakeholders/)
 
 # Vault root — override with env var TECHCOLAB_VAULT_ROOT; fallback below.
-$VAULT      = if ($env:TECHCOLAB_VAULT_ROOT) { $env:TECHCOLAB_VAULT_ROOT } else { "C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO" }
-$SCRIPT_DIR = "C:\Users\Kelvin.okuda\techcolab-backlog\call-recorder"
+$VAULT      = if ($env:TECHCOLAB_VAULT_ROOT) { $env:TECHCOLAB_VAULT_ROOT } else { "$env:USERPROFILE\OneDrive - NETZSCH\Documents\TechColab_D&A_KO" }
+$SCRIPT_DIR = "$env:USERPROFILE\techcolab-backlog\call-recorder"
 $PYTHON     = "python"
 
 $PEOPLE = @(

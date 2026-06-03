@@ -5,7 +5,7 @@ daily report and checked the actions they approved. Your job is to implement the
 
 ## Context
 
-- **Project:** `C:\Users\Kelvin.okuda\techcolab-backlog\`
+- **Project:** `%USERPROFILE%\techcolab-backlog\`
 - **Vault:** configured in `config.py` via `VAULT_ROOT`
 - **Reports folder:** `{VAULT_ROOT}/agent-reports/`
 - **Backlog items:** `{VAULT_ROOT}/backlog items/`

@@ -3,7 +3,7 @@
 ## Pré-requisitos
 
 - Ollama rodando em background
-- Terminal aberto em `C:\Users\Kelvin.okuda\techcolab-backlog`
+- Terminal aberto em `%USERPROFILE%\techcolab-backlog`
 
 ### Verificar e corrigir cada pré-requisito
 
@@ -36,14 +36,14 @@ pip show openai pyyaml    # ambos devem aparecer
 Se algum pacote estiver faltando:
 
 ```powershell
-cd C:\Users\Kelvin.okuda\techcolab-backlog
+cd %USERPROFILE%\techcolab-backlog
 pip install -r requirements.txt
 ```
 
 #### Vault e pasta Notes
 
 ```powershell
-Test-Path "C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\Notes"
+Test-Path "%USERPROFILE%\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\Notes"
 ```
 
 Deve retornar `True`. Se retornar `False`, crie a pasta manualmente no Obsidian ou pelo Explorer.
@@ -55,7 +55,7 @@ Deve retornar `True`. Se retornar `False`, crie a pasta manualmente no Obsidian 
 Crie (ou edite) qualquer arquivo `.md` na pasta do vault:
 
 ```
-C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\Notes\
+%USERPROFILE%\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\Notes\
 ```
 
 Escreva livremente — o modelo entende texto não estruturado. Exemplos do que funciona:
@@ -172,7 +172,7 @@ python main.py backlog update idea-001 --status "em análise" --priority alta --
 Os arquivos de ideia ficam em:
 
 ```
-C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\backlog\ideias\
+%USERPROFILE%\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\backlog\ideias\
 ```
 
 Cada arquivo `idea-NNN.md` tem este formato:

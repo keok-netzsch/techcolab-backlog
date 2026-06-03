@@ -9,5 +9,5 @@
 Start-Process powershell.exe -ArgumentList @(
     "-ExecutionPolicy", "Bypass",
     "-WindowStyle", "Hidden",
-    "-File", "`"C:\Users\Kelvin.okuda\techcolab-backlog\scripts\vault-bootstrap-clipboard.ps1`""
+    "-File", "`"$env:USERPROFILE\techcolab-backlog\scripts\vault-bootstrap-clipboard.ps1`""
 ) -WindowStyle Hidden

@@ -5,7 +5,7 @@
 # @raycast.title Encerrar Sessão (Techco.lab)
 # @raycast.mode silent
 
-$script = "C:\Users\Kelvin.okuda\techcolab-backlog\close-session.ps1"
+$script = "$env:USERPROFILE\techcolab-backlog\close-session.ps1"
 
 Start-Process powershell.exe -ArgumentList @(
     "-NoExit",

@@ -1,3 +1,3 @@
 @echo off
-cd /d "C:\Users\Kelvin.okuda\napkin-clone"
+cd /d "%USERPROFILE%\napkin-clone"
 npm run dev

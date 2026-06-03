@@ -4,7 +4,7 @@
 PowerShell + Python tool that records speech, transcribes with Whisper (local, CPU, medium model), and evaluates English with Ollama (`qwen2.5-coder:latest`). No API keys — Ollama only.
 
 **Part of:** https://github.com/keok-netzsch/techcolab-backlog (subfolder `call-recorder/`)
-**Vault output root:** `C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO`
+**Vault output root:** `%USERPROFILE%\OneDrive - NETZSCH\Documents\TechColab_D&A_KO`
 
 ---
 
@@ -58,7 +58,7 @@ english-coach.ps1 [-Topic "..."]
 
 ## Whisper model
 
-- Stored locally: `C:\Users\Kelvin.okuda\techcolab-backlog\call-recorder\model` (NOT committed — `.gitignore`d, ~1.4 GB)
+- Stored locally: `%USERPROFILE%\techcolab-backlog\call-recorder\model` (NOT committed — `.gitignore`d, ~1.4 GB)
 - Size: medium — download from HuggingFace (`Systran/faster-whisper-medium`) into `model/`
 - Runs on CPU with int8 quantization
 - Long recordings (30+ min) can take 10–20 min to transcribe on CPU
@@ -82,6 +82,6 @@ english-coach.ps1 [-Topic "..."]
 
 ## Venv
 
-Path: `C:\Users\Kelvin.okuda\techcolab-backlog\call-recorder\.venv`
+Path: `%USERPROFILE%\techcolab-backlog\call-recorder\.venv`
 Activate: `.\.venv\Scripts\Activate.ps1`
 Key packages: `faster-whisper`, `sounddevice`, `soundfile`, `numpy`, `requests`

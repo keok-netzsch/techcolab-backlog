@@ -2939,7 +2939,7 @@ elif page == "Tutorial":
 
 | Tool | Minimum version | Download |
 |---|---|---|
-| Python | 3.10 | python.org/downloads |
+| Python | 3.12 | python.org/downloads |
 | Ollama | Any recent | ollama.com/download |
 | Obsidian | Any recent | obsidian.md |
 | Git | Any recent | git-scm.com |
@@ -3083,7 +3083,7 @@ Scripts live in `C:\\Users\\Kelvin.okuda\\techcolab-backlog\\call-recorder\\` an
 | Shortcut | Command | What it does |
 |---|---|---|
 | ⊞ Win + Space | **Call Recorder** | Opens menu: 1on1 com time / English Coach / Call com Gestor |
-| ⊞ Win + C | **Encerrar Sessão** | Runs tests, commits and pushes both repos |
+| ⊞ Win + C | **Encerrar Sessão** | Runs tests, commits and pushes the repo |
 | *(assign)* | **Rodar Agente** | Runs Phase 1 — generates today's backlog report |
 | *(assign)* | **Executar Agente** | Copies Phase 2 command to clipboard + opens Claude Code |
 

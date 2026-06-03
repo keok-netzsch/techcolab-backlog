@@ -1,182 +1,90 @@
 # Personal Toolkit · Techco.lab
 
-Aplicativo local de gestao de backlog com inteligencia artificial, construido com **Streamlit**, integrado ao **Obsidian** e rodando um modelo de linguagem local via **Ollama**. Nenhuma chave de API externa e necessaria.
+Aplicativo local de gestão de backlog com inteligência artificial, construído com **Streamlit**, integrado ao **Obsidian** e rodando um modelo de linguagem local via **Ollama**. Roda 100% offline — **nenhuma chave de API externa é necessária**.
+
+> **Repositório PÚBLICO.** Contém apenas código. Os dados (vault Obsidian) vivem separados e nunca são versionados aqui — veja [SECURITY.md](SECURITY.md).
 
 ---
 
-## Indice
+## Índice
 
-1. [Pre-requisitos](#pre-requisitos)
-2. [Instalacao](#instalacao)
-3. [Configuracao](#configuracao)
-4. [Download do modelo Ollama](#download-do-modelo-ollama)
+1. [Pré-requisitos](#pré-requisitos)
+2. [Instalação](#instalação)
+3. [Configuração](#configuração)
+4. [Modelo Ollama](#modelo-ollama)
 5. [Iniciando o aplicativo](#iniciando-o-aplicativo)
-6. [Solucao de problemas](#solucao-de-problemas)
-7. [Estrutura do projeto](#estrutura-do-projeto)
+6. [Estrutura do projeto](#estrutura-do-projeto)
+7. [Desenvolvimento](#desenvolvimento)
+8. [Solução de problemas](#solução-de-problemas)
 
 ---
 
-## Pre-requisitos
+## Pré-requisitos
 
-Instale os itens abaixo antes de prosseguir:
-
-| Ferramenta | Versao minima | Download |
+| Ferramenta | Versão mínima | Download |
 |---|---|---|
-| Python | 3.10 | https://www.python.org/downloads/ |
+| Python | 3.12 | https://www.python.org/downloads/ |
 | Ollama | Qualquer recente | https://ollama.com/download |
 | Obsidian | Qualquer recente | https://obsidian.md/ |
-| Git (opcional) | Qualquer recente | https://git-scm.com/download/win |
+| Git | Qualquer recente | https://git-scm.com/download/win |
 
-> **Dica:** Ao instalar o Python no Windows, marque a opcao **"Add Python to PATH"** antes de clicar em Install Now.
+> **Dica:** ao instalar o Python no Windows, marque **"Add Python to PATH"**.
 
 ---
 
-## Instalacao
-
-### Opcao 1 — Usando o script automatico (recomendado)
-
-1. Abra a pasta do projeto no Explorer.
-2. De duplo clique em **`install.bat`**.
-3. Aguarde a instalacao das dependencias. Ao final, uma mensagem de confirmacao sera exibida.
-
-### Opcao 2 — Instalacao manual
-
-Abra o Prompt de Comando (cmd) ou PowerShell na pasta do projeto e execute os comandos abaixo em sequencia:
+## Instalação
 
 ```bat
+git clone https://github.com/keok-netzsch/techcolab-backlog.git
+cd techcolab-backlog
+git config core.hooksPath .githooks   REM ativa o guard de segurança (ver SECURITY.md)
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
----
+Para o subprojeto **call-recorder** (gravação + transcrição de reuniões), instale também:
 
-## Configuracao
-
-Abra o arquivo **`config.py`** em qualquer editor de texto (Notepad, VS Code, etc.) e ajuste a variavel `VAULT_ROOT` para apontar para a pasta raiz do seu cofre (vault) do Obsidian:
-
-```python
-# Caminho para a raiz do seu cofre (vault) do Obsidian
-VAULT_ROOT = r"C:\Users\SeuUsuario\Documents\MeuVault"
+```bat
+pip install -r call-recorder\requirements.txt
 ```
 
-**Como encontrar o caminho do vault:**
-
-1. Abra o Obsidian.
-2. Va em **Configuracoes** (icone de engrenagem) > **Sobre** > **Vault path**.
-3. Copie o caminho exibido e cole no campo `VAULT_ROOT` entre aspas, precedido de `r` (raw string), conforme o exemplo acima.
-
-> **Atencao:** Use `r"..."` antes das aspas (raw string) para evitar problemas com barras invertidas no Windows. Exemplo correto: `r"C:\Users\Kelvin\Documents\Vault"`.
+> Atalho: `install.bat` automatiza a criação do venv e a instalação das dependências.
 
 ---
 
-## Download do modelo Ollama
+## Configuração
 
-O aplicativo utiliza o modelo **llama3.2:3b** por padrao. Para baixa-lo, abra o Prompt de Comando e execute:
+O caminho do vault Obsidian é lido da variável de ambiente **`TECHCOLAB_VAULT`** (com fallback em `config.py`). Defina-a apontando para a sua área de trabalho do vault:
 
-```bat
-ollama pull llama3.2:3b
+```powershell
+[Environment]::SetEnvironmentVariable("TECHCOLAB_VAULT", "C:\Caminho\Para\Seu\Vault\App\Personal toolkit", "User")
 ```
 
-O download pode levar alguns minutos dependendo da sua conexao. O modelo ocupa aproximadamente **2 GB** em disco.
+`config.py` deriva os demais caminhos a partir dela (`VAULT_BASE`, `TEAM_DIR`, `BACKLOG_DIR`, etc.) e expõe `TECHCOLAB_VAULT_ROOT` para o call-recorder. **Nunca aponte o vault para dentro deste repositório** e não hardcode caminhos pessoais.
 
-Para verificar se o modelo foi instalado corretamente:
+---
+
+## Modelo Ollama
 
 ```bat
+ollama pull llama3.2:3b           REM extração/agente
+ollama pull qwen2.5-coder:latest  REM English Coach (saída estruturada)
 ollama list
 ```
-
-O modelo `llama3.2:3b` deve aparecer na lista.
 
 ---
 
 ## Iniciando o aplicativo
 
-### Opcao 1 — Duplo clique (mais facil)
-
-De duplo clique no arquivo **`start_app.bat`** na pasta do projeto. O navegador sera aberto automaticamente com o aplicativo em execucao.
-
-### Opcao 2 — Linha de comando
-
-Abra o Prompt de Comando na pasta do projeto e execute:
+- **Duplo clique** em `start_silent.vbs` (ou `start_app.bat`), ou:
 
 ```bat
 .venv\Scripts\activate
 streamlit run app.py
 ```
 
-O aplicativo ficara disponivel em: **http://localhost:8501**
-
----
-
-## Solucao de problemas
-
-### Ollama nao esta rodando
-
-**Sintoma:** O aplicativo exibe erro de conexao com o modelo ou mensagem como `Connection refused`.
-
-**Solucao:**
-1. Abra o menu Iniciar e procure por **Ollama**.
-2. Inicie o aplicativo Ollama — ele ficara na bandeja do sistema (proximo ao relogio).
-3. Aguarde alguns segundos e recarregue a pagina do aplicativo.
-
-Voce pode confirmar que o Ollama esta ativo abrindo o navegador em: `http://localhost:11434`
-
----
-
-### O aplicativo exibe dados antigos ou desatualizados
-
-**Sintoma:** Itens do backlog nao refletem as alteracoes feitas no Obsidian.
-
-**Solucao:**
-1. Clique no botao **Recarregar** ou **Atualizar** dentro do proprio aplicativo (se disponivel).
-2. Caso nao haja botao, pressione **F5** no navegador para forcar o recarregamento.
-3. Verifique se o caminho `VAULT_ROOT` em `config.py` aponta para a pasta correta do vault.
-
----
-
-### Porta 8501 ja esta em uso
-
-**Sintoma:** Ao iniciar o app, aparece o erro `Port 8501 is already in use`.
-
-**Solucao A — Encerrar o processo que ocupa a porta:**
-
-```bat
-netstat -ano | findstr :8501
-taskkill /PID <numero_do_pid> /F
-```
-
-Substitua `<numero_do_pid>` pelo numero exibido na coluna final do resultado do `netstat`.
-
-**Solucao B — Iniciar em outra porta:**
-
-```bat
-streamlit run app.py --server.port 8502
-```
-
----
-
-### Erro "python nao e reconhecido como comando"
-
-O Python nao esta no PATH do sistema. Reinstale o Python marcando a opcao **"Add Python to PATH"** durante a instalacao, ou adicione manualmente o caminho do Python nas variaveis de ambiente do Windows.
-
----
-
-### Erro ao instalar dependencias (pip)
-
-Verifique se o ambiente virtual foi ativado antes de rodar o `pip install`:
-
-```bat
-.venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-Se o erro persistir, tente atualizar o pip primeiro:
-
-```bat
-python -m pip install --upgrade pip
-pip install -r requirements.txt
-```
+Disponível em **http://localhost:8501**.
 
 ---
 
@@ -184,16 +92,43 @@ pip install -r requirements.txt
 
 ```
 techcolab-backlog/
-├── app.py               # Aplicativo principal (Streamlit)
-├── config.py            # Configuracoes (VAULT_ROOT, etc.)
-├── requirements.txt     # Dependencias Python
-├── install.bat          # Script de instalacao automatica
-├── start_app.bat        # Script para iniciar o aplicativo
-└── README.md            # Este arquivo
+├── app.py                # Aplicativo principal (Streamlit) — nav custom via ?page=
+├── config.py             # Caminhos do vault (TECHCOLAB_VAULT) e settings
+├── agent/                # Agente diário (Fase 1 análise → relatório; status)
+├── backlog/              # Camada de dados (store/schema/daily_log) — markdown + YAML
+├── ingestion/            # Pipeline de ingestão de notas via Ollama
+├── call-recorder/        # Subprojeto: gravação + Whisper STT + Ollama (1on1/English Coach)
+├── assets/               # logo.svg + brand.css (carregados pelo app)
+├── scripts/              # vault-bootstrap*.ps1, techcolab-brand.css
+├── tests/                # pytest (python -m pytest tests/ -v)
+├── docs/                 # Documentação (FAQ, propostas de arquitetura)
+├── requirements.txt      # Dependências do app
+├── pyproject.toml        # Config ruff + pytest (Python >=3.12)
+├── SECURITY.md           # Regras de isolamento de dados (repo público)
+└── .githooks/pre-commit  # Guard contra commit de dados do vault
 ```
 
 ---
 
-## Suporte
+## Desenvolvimento
 
-Em caso de duvidas, verifique se todos os pre-requisitos estao instalados corretamente e se o Ollama esta em execucao antes de iniciar o aplicativo.
+```bat
+ruff check .                          REM lint (E/F/I/UP/B)
+python -m pytest tests/ -q            REM testes (requer TECHCOLAB_VAULT setado)
+```
+
+Antes de criar qualquer página/seção nova, leia **`DESIGN_SYSTEM.md`** (paleta, tipografia, cards `.cc-*`, regras de minimalismo). Toda UI deve ser em **inglês**.
+
+---
+
+## Solução de problemas
+
+| Sintoma | Solução |
+|---|---|
+| `Connection refused` / erro de modelo | Inicie o Ollama (bandeja do sistema); confirme em `http://localhost:11434` |
+| App exibe dados antigos | F5 no navegador; confirme `TECHCOLAB_VAULT` correto |
+| `Port 8501 is already in use` | `netstat -ano \| findstr :8501` + `taskkill /PID <pid> /F`, ou `streamlit run app.py --server.port 8502` |
+| `python não é reconhecido` | Reinstale o Python com "Add Python to PATH" |
+| Erro no `pip install` | Ative o venv primeiro; `python -m pip install --upgrade pip` |
+
+Erros recorrentes de Streamlit/CSS estão catalogados em `CLAUDE_FAQ.md`.

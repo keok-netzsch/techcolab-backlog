@@ -7,7 +7,7 @@
 # @raycast.title Rodar Agente (Techco.lab)
 # @raycast.mode silent
 
-$script = "C:\Users\Kelvin.okuda\techcolab-backlog\run_agent.bat"
+$script = "$env:USERPROFILE\techcolab-backlog\run_agent.bat"
 
 Start-Process cmd.exe -ArgumentList @(
     "/k", "`"$script`""

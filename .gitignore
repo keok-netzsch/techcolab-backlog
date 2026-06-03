@@ -52,3 +52,6 @@ Thumbs.db
 *Assessment Observations*
 # NOTE: "backlog/" here is CODE. The vault's "backlog items/" is DATA → ignore it:
 backlog items/
+
+# Preview/dev server logs
+preview-*.log

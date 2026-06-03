@@ -1,7 +1,7 @@
 # close-session.ps1 — roda testes, commita e faz push do monorepo
 # Uso: Win+C via Raycast, ou powershell -File close-session.ps1
 
-$TB  = "C:\Users\Kelvin.okuda\techcolab-backlog"
+$TB  = "$env:USERPROFILE\techcolab-backlog"
 # Tenta venv primeiro, cai no Python do sistema se nao existir
 $PY  = if (Test-Path "$TB\.venv\Scripts\python.exe") { "$TB\.venv\Scripts\python.exe" } else { "python" }
 $NOW = Get-Date -Format "yyyy-MM-dd HH:mm"
@@ -18,7 +18,7 @@ Write-Host ""
 
 # ── 1. Testes ─────────────────────────────────────────────────────────────────
 Write-Host "  [1/3] Rodando testes..." -ForegroundColor Cyan
-$env:TECHCOLAB_VAULT = "C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\App\Personal toolkit"
+$env:TECHCOLAB_VAULT = "$env:USERPROFILE\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\App\Personal toolkit"
 $result = & $PY -m pytest "$TB\tests" -q --tb=short 2>&1
 if ($LASTEXITCODE -eq 0) {
     $summary = ($result | Select-Object -Last 1)
@@ -68,7 +68,7 @@ Write-Host ""
 # ── 4. Registrar sessao no vault (AI/sessions/) ───────────────────────────────
 $vault_path = $env:TECHCOLAB_VAULT
 if (-not $vault_path) {
-    $vault_path = "C:\Users\Kelvin.okuda\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\App\Personal toolkit"
+    $vault_path = "$env:USERPROFILE\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\App\Personal toolkit"
 }
 $sessions_dir = Join-Path $vault_path "AI\sessions"
 
