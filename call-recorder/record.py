@@ -24,6 +24,7 @@ DTYPE = "float32"
 MODEL_SIZE = "medium"      # small | medium | large-v3
 LANGUAGE = "pt"            # default; overridden by --language CLI arg
 CHUNK_SECONDS = 30         # tamanho do buffer de gravação em memória
+RECORDINGS_RETENTION_DAYS = 7   # áudios em recordings/ mais antigos que isto são apagados
 
 # --------------------
 
@@ -41,6 +42,27 @@ def callback(indata, frames, time, status):
     if status:
         print(f"[WARN] {status}", file=sys.stderr)
     chunks.append(indata.copy())
+
+
+def prune_old_recordings(directory: str, days: int = RECORDINGS_RETENTION_DAYS) -> int:
+    """Delete .wav files in `directory` older than `days`. Returns count removed.
+    Keeps recent audio for re-transcription while preventing unbounded growth."""
+    cutoff = datetime.now().timestamp() - days * 86400
+    removed = 0
+    try:
+        for name in os.listdir(directory):
+            if not name.lower().endswith(".wav"):
+                continue
+            path = os.path.join(directory, name)
+            try:
+                if os.path.getmtime(path) < cutoff:
+                    os.remove(path)
+                    removed += 1
+            except OSError:
+                pass
+    except OSError:
+        pass
+    return removed
 
 
 def transcribe(audio_path: str, language: str = LANGUAGE) -> str:
@@ -99,6 +121,9 @@ def main():
     # different language/model (previously written to a temp file and deleted).
     recordings_dir = os.path.join(script_dir, "recordings")
     os.makedirs(recordings_dir, exist_ok=True)
+    _pruned = prune_old_recordings(recordings_dir, RECORDINGS_RETENTION_DAYS)
+    if _pruned:
+        print(f"[CLEAN] {_pruned} gravação(ões) com mais de {RECORDINGS_RETENTION_DAYS} dias removida(s).")
     wav_path = os.path.join(recordings_dir, f"{base_name}.wav")
     sf.write(wav_path, audio, SAMPLE_RATE)
     print(f"[INFO] Áudio salvo em: {wav_path}")

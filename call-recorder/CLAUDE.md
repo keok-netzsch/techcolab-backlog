@@ -18,6 +18,7 @@ PowerShell + Python tool that records speech, transcribes with Whisper (local, C
 | `coach.py` | Ollama evaluation — reads transcript, writes to vault |
 | `process.py` | Processes 1on1/manager transcripts → vault notes |
 | `transcripts/` | Persisted transcript archive (named `YYYY-MM-DD_HH-MM_Person.txt`) |
+| `recordings/` | Saved raw audio `.wav` (same base name as transcript). **Auto-purged after 7 days** (`RECORDINGS_RETENTION_DAYS` in `record.py`). `.gitignore`d. |
 
 ---
 
