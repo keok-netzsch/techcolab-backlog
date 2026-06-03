@@ -12,8 +12,10 @@ venv/
 .streamlit/secrets.toml
 streamlit.log
 
-# ── Claude Code (local, per-machine) ────────────────────────
+# ── Local settings & secrets (per-machine, may hold credentials) ────
 .claude/settings.local.json
+settings.local.json
+*.local.json
 
 # ── Personal / generated data (not needed to run the app) ───
 # LinkedIn drafts & strategy — personal content, no code depends on it
