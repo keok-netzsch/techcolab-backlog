@@ -78,6 +78,7 @@ english-coach.ps1 [-Topic "..."]
 | `process.py` docstrings still reference `English-Coach/` | Not critical — not used at runtime |
 | Save-Block in PS1 inserts in wrong place in 1on1.md | Fixed — rewritten with line-based frontmatter parsing (deterministic) |
 | Transcription of long English calls takes time | Normal — Whisper medium on CPU: ~1/3x realtime |
+| `.ps1` fails to parse (`Unexpected token`, `Missing closing`) when run from the launcher | The `.ps1` files run under **Windows PowerShell 5.1** which reads no-BOM files as ANSI. **Keep all `.ps1` code lines ASCII-only** — a stray `—` (em-dash) or smart-quote breaks quote balance and cascades parse errors. Use `-`, `...`, `"`. (Comments tolerate non-ASCII.) |
 
 ---
 

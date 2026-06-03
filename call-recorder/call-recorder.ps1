@@ -228,7 +228,7 @@ function Invoke-ManagerCall {
     }
 
     $chars = (Get-Item $trans_file).Length
-    Write-Host "  [OK] Transcricao gerada ($chars bytes) — idioma: $lang_flag" -ForegroundColor Green
+    Write-Host "  [OK] Transcricao gerada ($chars bytes) - idioma: $lang_flag" -ForegroundColor Green
 
     # 3. Processar com Ollama (process.py)
 
