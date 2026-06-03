@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 
+from components.ui import stat_grid
 from config import TEAM_DIR
 
 _CADENCE_DAYS = 28
@@ -114,16 +115,6 @@ def render() -> None:
     st.markdown('<h1 style="margin-bottom:0.4rem">Team</h1>', unsafe_allow_html=True)
     st.caption("Direct reports — 1:1 tracker, OKR / PDI status, and agenda prep.")
 
-    st.markdown(
-        '<style>'
-        '.cc-sg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:.5rem 0}'
-        '.cc-sc{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px}'
-        '.cc-sl{font-size:.7rem;color:#6B7280;font-weight:500;margin-bottom:2px;white-space:nowrap}'
-        '.cc-sv{font-size:1.2rem;font-weight:700;color:#111827;line-height:1.2}'
-        '</style>',
-        unsafe_allow_html=True,
-    )
-
     if not TEAM_DIR.exists():
         st.info("Team folder not found. Check TEAM_DIR in config.py.")
         return
@@ -152,16 +143,12 @@ def render() -> None:
             _pdi_s = f"{len(_pdi)} active" if _pdi else "—"
 
             st.markdown(
-                '<div class="cc-sg">'
-                f'<div class="cc-sc"><div class="cc-sl">Last 1:1</div>'
-                f'<div class="cc-sv">{_last_str}</div></div>'
-                f'<div class="cc-sc"><div class="cc-sl">Total sessions</div>'
-                f'<div class="cc-sv">{_count}</div></div>'
-                f'<div class="cc-sc"><div class="cc-sl">Next 1:1 (4-week)</div>'
-                f'<div class="cc-sv" style="color:{_next_c}">{_next_str}</div></div>'
-                f'<div class="cc-sc"><div class="cc-sl">PDI</div>'
-                f'<div class="cc-sv">{_pdi_s}</div></div>'
-                '</div>',
+                stat_grid([
+                    {"label": "Last 1:1", "value": _last_str},
+                    {"label": "Total sessions", "value": _count},
+                    {"label": "Next 1:1 (4-week)", "value": _next_str, "color": _next_c},
+                    {"label": "PDI", "value": _pdi_s},
+                ], columns=4),
                 unsafe_allow_html=True,
             )
 

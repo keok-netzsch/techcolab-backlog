@@ -19,6 +19,7 @@ from components.ui import (
     STATUS_COLOR,
     STATUS_LABEL,
     sdot,
+    stat_grid,
 )
 from config import EXTRACTION_MODEL, OLLAMA_BASE_URL, VAULT_ROOT
 
@@ -317,29 +318,20 @@ def render() -> None:
         _cache_pct     = round(_cr_total / (_cr_total + _cc_total) * 100) if (_cr_total + _cc_total) > 0 else 0
         _num_projects  = len(_cc_projects)
 
-        _sg_html = (
-            '<style>'
-            '.cc-sg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:.5rem 0}'
-            '.cc-sc{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px}'
-            '.cc-sl{font-size:.7rem;color:#6B7280;font-weight:500;margin-bottom:2px;white-space:nowrap}'
-            '.cc-sv{font-size:1.2rem;font-weight:700;color:#111827;line-height:1.2}'
-            '</style>'
-            '<div class="cc-sg">'
-            f'<div class="cc-sc"><div class="cc-sl">Sessions</div><div class="cc-sv">{_all_stats["sessions"]}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Messages</div><div class="cc-sv">{_total_msgs:,}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Active days</div><div class="cc-sv">{len(_active_days)}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Peak hour</div><div class="cc-sv">{_peak_h:02d}h</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Total de tokens</div><div class="cc-sv">{_fmt_tok(_total_tk_val)}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Output gerado</div><div class="cc-sv">{_fmt_tok(_total_out)}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Cache hits</div><div class="cc-sv">{_fmt_tok(_cr_total)}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Cache efficiency</div><div class="cc-sv">{_cache_pct}%</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Current streak</div><div class="cc-sv">{_streak_cur}d</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Longest streak</div><div class="cc-sv">{_streak_max}d</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Modelo favorito</div><div class="cc-sv" style="font-size:.9rem">{_fav_mod_str}</div></div>'
-            f'<div class="cc-sc"><div class="cc-sl">Projects</div><div class="cc-sv">{_num_projects}</div></div>'
-            '</div>'
-        )
-        st.markdown(_sg_html, unsafe_allow_html=True)
+        st.markdown(stat_grid([
+            ("Sessions",         _all_stats["sessions"]),
+            ("Messages",         f"{_total_msgs:,}"),
+            ("Active days",      len(_active_days)),
+            ("Peak hour",        f"{_peak_h:02d}h"),
+            ("Total de tokens",  _fmt_tok(_total_tk_val)),
+            ("Output gerado",    _fmt_tok(_total_out)),
+            ("Cache hits",       _fmt_tok(_cr_total)),
+            ("Cache efficiency", f"{_cache_pct}%"),
+            ("Current streak",   f"{_streak_cur}d"),
+            ("Longest streak",   f"{_streak_max}d"),
+            {"label": "Modelo favorito", "value": _fav_mod_str, "vstyle": "font-size:.9rem"},
+            ("Projects",         _num_projects),
+        ], columns=4), unsafe_allow_html=True)
 
         # ── Contribution heatmap ──────────────────────────────────────────────
         _today_d  = date.today()
@@ -528,23 +520,14 @@ def render() -> None:
     todos_pending = sum(1 for t in todos_all if not t["done"])
     bugs_open   = sum(1 for t in todos_all if t.get("is_bug") and not t["done"])
 
-    st.markdown(
-        '<style>'
-        '.cc-sg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:.5rem 0}'
-        '.cc-sc{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px}'
-        '.cc-sl{font-size:.7rem;color:#6B7280;font-weight:500;margin-bottom:2px;white-space:nowrap}'
-        '.cc-sv{font-size:1.2rem;font-weight:700;color:#111827;line-height:1.2}'
-        '</style>'
-        '<div class="cc-sg" style="grid-template-columns:repeat(6,1fr)">'
-        f'<div class="cc-sc"><div class="cc-sl">Total ideas</div><div class="cc-sv">{total}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">Active</div><div class="cc-sv">{active}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">Done</div><div class="cc-sv">{concluidas}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">Open to-dos</div><div class="cc-sv">{todos_pending}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">Completed to-dos</div><div class="cc-sv">{todos_done}</div></div>'
-        f'<div class="cc-sc"><div class="cc-sl">Open bugs</div><div class="cc-sv" style="color:{"#EF4444" if bugs_open else "#111827"}">{bugs_open}</div></div>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown(stat_grid([
+        ("Total ideas",      total),
+        ("Active",           active),
+        ("Done",             concluidas),
+        ("Open to-dos",      todos_pending),
+        ("Completed to-dos", todos_done),
+        {"label": "Open bugs", "value": bugs_open, "color": "#EF4444" if bugs_open else "#111827"},
+    ], columns=6), unsafe_allow_html=True)
 
     st.divider()
 

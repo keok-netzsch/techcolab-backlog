@@ -13,6 +13,7 @@ from components.ui import (
     area_chip,
     pbadge,
     sdot,
+    stat_grid,
 )
 
 
@@ -108,3 +109,33 @@ class TestConstants:
         for d in (STATUS_LABEL, PRIORITY_LABEL, IMPACT_LABEL, EFFORT_LABEL, AREA_LABEL):
             for k, v in d.items():
                 assert v, f"Empty label for key: {k}"
+
+
+class TestStatGrid:
+    def test_tuples_render_label_and_value(self):
+        html = stat_grid([("Sessions", 40), ("Messages", "1,234")])
+        assert 'class="cc-sg"' in html
+        assert html.count('class="cc-sc"') == 2
+        assert ">Sessions<" in html and ">40<" in html
+        assert ">1,234<" in html
+
+    def test_columns_in_template(self):
+        assert "repeat(6,1fr)" in stat_grid([("a", 1)], columns=6)
+        assert "repeat(4,1fr)" in stat_grid([("a", 1)])  # default
+
+    def test_color_applies_value_style(self):
+        html = stat_grid([{"label": "Bugs", "value": 3, "color": "#EF4444"}])
+        assert 'style="color:#EF4444"' in html
+
+    def test_vstyle_overrides_color(self):
+        html = stat_grid([{"label": "Model", "value": "Sonnet", "vstyle": "font-size:.9rem"}])
+        assert 'style="font-size:.9rem"' in html
+
+    def test_extra_html_appended_inside_card(self):
+        html = stat_grid([{"label": "Done", "value": 2, "extra": "<div class='bar'></div>"}])
+        assert "<div class='bar'></div>" in html
+
+    def test_empty_cards(self):
+        html = stat_grid([])
+        assert 'class="cc-sg"' in html
+        assert 'class="cc-sc"' not in html

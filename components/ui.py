@@ -95,3 +95,58 @@ PRIORITY_NUM: dict[str, str] = {
 }
 
 STATUS_COLOR: dict[str, str] = {k: sdot(k) for k in STATUS_HEX}
+
+
+# ── Stat-card grid (.cc-sg / .cc-sc / .cc-sl / .cc-sv) ────────────────────────
+# Dark-mode overrides for these classes live in app.py's global _DARK_CSS, so the
+# component only emits the light base styles + structure.
+
+# Column count is set INLINE on each grid div (not in the .cc-sg class) so that
+# multiple grids with different column counts on the same page do not clobber each
+# other via the CSS cascade.
+_STAT_GRID_CSS = (
+    "<style>"
+    ".cc-sg{display:grid;gap:6px;margin:.5rem 0}"
+    ".cc-sc{background:#F9FAFB;border:1px solid #E5E7EB;border-radius:8px;padding:8px 12px}"
+    ".cc-sl{font-size:.7rem;color:#6B7280;font-weight:500;margin-bottom:2px;white-space:nowrap}"
+    ".cc-sv{font-size:1.2rem;font-weight:700;color:#111827;line-height:1.2}"
+    "</style>"
+)
+
+
+def stat_grid(cards, columns: int = 4) -> str:
+    """Build the HTML for a grid of stat cards (the repeated .cc-sg/.cc-sc pattern).
+
+    `cards` is a list of either:
+      - (label, value) tuples, or
+      - dicts: {"label", "value", "color"?, "vstyle"?, "extra"?} where `color`
+        sets the value text colour, `vstyle` is a raw style string for the value
+        (overrides `color`), and `extra` is extra HTML appended inside the card
+        (e.g. a progress bar).
+
+    Returns a self-contained string (style + grid) for st.markdown(..., unsafe_allow_html=True).
+    """
+    cells = []
+    for c in cards:
+        if isinstance(c, dict):
+            label = c.get("label", "")
+            value = c.get("value", "")
+            color = c.get("color")
+            vstyle = c.get("vstyle")
+            extra = c.get("extra", "")
+        else:
+            label, value = c
+            color, vstyle, extra = None, None, ""
+        if not vstyle and color:
+            vstyle = f"color:{color}"
+        attr = f' style="{vstyle}"' if vstyle else ""
+        cells.append(
+            f'<div class="cc-sc"><div class="cc-sl">{label}</div>'
+            f'<div class="cc-sv"{attr}>{value}</div>{extra}</div>'
+        )
+    return (
+        _STAT_GRID_CSS
+        + f'<div class="cc-sg" style="grid-template-columns:repeat({columns},1fr)">'
+        + "".join(cells)
+        + "</div>"
+    )
