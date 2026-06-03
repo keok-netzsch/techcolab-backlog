@@ -779,6 +779,20 @@ def main():
     print("[agent] Updating Claude Pro data (backlog stats)...")
     _update_claude_pro_data(ideas)
 
+    # Reprocess any call transcripts whose vault note is missing (failed/partial)
+    print("[agent] Sweeping failed call processings...")
+    try:
+        import sys as _sys
+        _cr = str(Path(__file__).parent.parent / "call-recorder")
+        if _cr not in _sys.path:
+            _sys.path.insert(0, _cr)
+        import process as _proc
+        _sw = _proc.cmd_sweep()
+        if _sw["reprocessed"]:
+            print(f"[agent] Reprocessed {len(_sw['reprocessed'])} call(s): {_sw['reprocessed']}")
+    except Exception as _e:
+        print(f"[agent] Call sweep skipped: {_e}")
+
     # Pre-generate 1:1 agendas for the Team tab (graceful if Ollama is down)
     print("[agent] Generating 1:1 agendas...")
     try:

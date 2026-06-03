@@ -205,6 +205,19 @@ def _parse_and_save(response: str, base_path: Path,
     return saved
 
 
+def _fallback_1on1(oneonone_path: Path, date: str) -> None:
+    """If the model didn't emit a parseable BLOCO, still record a dated section so
+    the session shows up in the Team tab (the visible "last 1:1" / Topics). The full
+    unstructured output remains in the standalone note."""
+    block = (
+        f"## {date}\n\n**Topics:**\n"
+        f"- (auto) Modelo nao estruturou em blocos; ver nota completa em "
+        f"1on1/{date}_1on1_*.md\n"
+    )
+    save_block(str(oneonone_path), block, mode="prepend")
+    print("  [OK] 1on1.md atualizado (fallback — modelo sem BLOCO)")
+
+
 # ── Commands ──────────────────────────────────────────────────────────────────
 
 def cmd_agenda(person_folder: str):
@@ -347,6 +360,8 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
     response = _ollama_generate(prompt, stream=True)
 
     saved = _parse_and_save(response, team_path, SECTION_MAP, SECTION_MODE)
+    if saved == 0:
+        _fallback_1on1(team_path / "1on1.md", date)
 
     # Standalone session note
     standalone_dir  = team_path / "1on1"
@@ -417,6 +432,8 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
     response = _ollama_generate(prompt, stream=True)
 
     saved = _parse_and_save(response, stk_path, MANAGER_SECTION_MAP, MANAGER_SECTION_MODE)
+    if saved == 0:
+        _fallback_1on1(stk_path / "1on1.md", date)
 
     # Standalone session note
     standalone_dir  = stk_path / "1on1"
@@ -477,6 +494,93 @@ def cmd_note(transcript_path: str, date: str, lang: str = "pt", time_str: str = 
     print("  Status: a-triar (classifique depois no vault).")
 
 
+# ── Sweep: reprocess failed/partial call processings ─────────────────────────
+
+def _classify_transcript(name: str):
+    """Map a transcript filename to (date, time, target, kind).
+    kind ∈ {'person','manager','note','unknown'}. Returns None if not a transcript."""
+    m = re.match(r"^(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})_(.+)\.txt$", name)
+    if not m:
+        return None
+    d, t, rest = m.group(1), m.group(2), m.group(3)
+    if rest == "nota-avulsa":
+        return (d, t, None, "note")
+    if (Path(VAULT) / "Team" / rest).is_dir():
+        return (d, t, rest, "person")
+    if (Path(VAULT) / "Stakeholders" / rest).is_dir():
+        return (d, t, rest, "manager")
+    return (d, t, rest, "unknown")
+
+
+def _is_processed(d: str, t: str, target, kind: str) -> bool:
+    """A call is 'successfully processed' when its result is visible in the vault:
+    for person/manager, a `## {date}` section exists in 1on1.md; for a loose note,
+    the Inbox file exists."""
+    if kind == "note":
+        return (Path(VAULT) / "Inbox" / f"{d}_{t}_nota-avulsa.md").exists()
+    base = "Team" if kind == "person" else "Stakeholders"
+    oneonone = Path(VAULT) / base / target / "1on1.md"
+    if not oneonone.exists():
+        return False
+    return f"## {d}" in oneonone.read_text(encoding="utf-8", errors="replace")
+
+
+def cmd_sweep(transcripts_dir: str = None, min_age_min: int = 5,
+              dry_run: bool = False, lang: str = "pt", max_age_days: int = 7) -> dict:
+    """Scan transcripts/ and reprocess any whose vault note is missing (failed or
+    partial processing). Only considers transcripts from the last `max_age_days`
+    (older failures are left alone — likely abandoned, and a back-dated section
+    would land out of order). Safe to run daily: already-processed calls are
+    skipped, and the BLOCO fallback guarantees reprocessing lands a section.
+    Returns {'reprocessed', 'ok', 'failed', 'skipped'} lists of filenames."""
+    tdir = Path(transcripts_dir) if transcripts_dir else (Path(__file__).parent / "transcripts")
+    result = {"reprocessed": [], "ok": [], "failed": [], "skipped": []}
+    if not tdir.exists():
+        print(f"[sweep] No transcripts dir: {tdir}")
+        return result
+
+    if not dry_run:
+        try:
+            requests.get("http://localhost:11434/", timeout=3)
+        except Exception:
+            print("[sweep] Ollama unreachable — skipping reprocessing.")
+            return result
+
+    now = datetime.now().timestamp()
+    for f in sorted(tdir.glob("*.txt")):
+        info = _classify_transcript(f.name)
+        if not info:
+            continue
+        d, t, target, kind = info
+        if kind == "unknown":
+            result["skipped"].append(f.name); continue
+        if _is_processed(d, t, target, kind):
+            result["ok"].append(f.name); continue
+        _age = now - f.stat().st_mtime
+        if _age < min_age_min * 60:
+            result["skipped"].append(f.name); continue  # may still be in-flight
+        if _age > max_age_days * 86400:
+            result["skipped"].append(f.name); continue  # too old — leave alone
+        if dry_run:
+            result["reprocessed"].append(f.name); continue
+        try:
+            if kind == "person":
+                cmd_transcript(target, str(f), d, structured=False, lang=lang)
+            elif kind == "manager":
+                cmd_manager(target, str(f), d, lang=lang)
+            elif kind == "note":
+                cmd_note(str(f), d, lang=lang, time_str=t)
+            result["reprocessed"].append(f.name)
+        except SystemExit:
+            result["failed"].append(f.name)
+        except Exception as e:
+            result["failed"].append(f"{f.name}: {e}")
+
+    print(f"[sweep] reprocessed={len(result['reprocessed'])} ok={len(result['ok'])} "
+          f"failed={len(result['failed'])} skipped={len(result['skipped'])}")
+    return result
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -511,12 +615,21 @@ def main():
     n.add_argument("--lang",       default="pt", choices=["pt", "en"],
                    help="Recording language — pt (default) or en")
 
+    sw = sub.add_parser("sweep", help="Reprocess transcripts whose vault note is missing (failed/partial)")
+    sw.add_argument("--dir",         default=None, help="Transcripts dir (default: ./transcripts)")
+    sw.add_argument("--min-age-min", type=int, default=5, help="Skip files newer than this (in-flight)")
+    sw.add_argument("--max-age-days", type=int, default=7, help="Skip files older than this (abandoned)")
+    sw.add_argument("--dry-run",     action="store_true", help="List what would be reprocessed, don't run")
+    sw.add_argument("--lang",        default="pt", choices=["pt", "en"], help="Language for reprocessing")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         sys.exit(1)
 
-    _check_ollama()
+    # sweep does its own (non-fatal) Ollama check; everything else needs Ollama up.
+    if args.command != "sweep":
+        _check_ollama()
 
     if args.command == "agenda":
         cmd_agenda(args.person)
@@ -527,6 +640,8 @@ def main():
         cmd_manager(args.manager, args.transcript, args.date, lang=args.lang)
     elif args.command == "note":
         cmd_note(args.transcript, args.date, lang=args.lang, time_str=args.time)
+    elif args.command == "sweep":
+        cmd_sweep(args.dir, args.min_age_min, args.dry_run, args.lang, args.max_age_days)
 
 
 if __name__ == "__main__":
