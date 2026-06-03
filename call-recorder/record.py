@@ -12,10 +12,10 @@ import signal
 import sys
 from datetime import datetime
 
-import numpy as np
-import sounddevice as sd
-import soundfile as sf
-from faster_whisper import WhisperModel
+# Heavy audio/ML deps (numpy, sounddevice, soundfile, faster_whisper) are imported
+# lazily inside the functions that need them, so this module can be imported for its
+# pure helpers (e.g. prune_old_recordings) without PortAudio / Whisper installed —
+# important for CI and for tooling that only needs the retention logic.
 
 # --- Configuração ---
 SAMPLE_RATE = 16000
@@ -66,6 +66,7 @@ def prune_old_recordings(directory: str, days: int = RECORDINGS_RETENTION_DAYS) 
 
 
 def transcribe(audio_path: str, language: str = LANGUAGE) -> str:
+    from faster_whisper import WhisperModel
     print("[INFO] Carregando modelo Whisper (primeira vez faz download ~460MB)...")
     model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model")
     model = WhisperModel(model_dir, device="cpu", compute_type="int8")
@@ -79,6 +80,10 @@ def transcribe(audio_path: str, language: str = LANGUAGE) -> str:
 
 
 def main():
+    import numpy as np
+    import sounddevice as sd
+    import soundfile as sf
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default=None,
                         help="Caminho para salvar a transcrição (.txt)")

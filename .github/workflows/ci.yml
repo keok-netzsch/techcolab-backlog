@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  lint-and-test:
+    name: ruff + pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+          pip install -r requirements.txt
+
+      - name: Ruff (lint)
+        run: ruff check .
+
+      - name: Pytest
+        # No real Obsidian vault in CI: config.py falls back to a placeholder path
+        # and the 4 vault-existence checks in test_config.py skip themselves.
+        # Heavy audio/ML deps (sounddevice, faster_whisper) are imported lazily in
+        # record.py, so the call-recorder tests run without PortAudio/Whisper.
+        run: python -m pytest tests/ -q
