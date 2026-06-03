@@ -16,6 +16,7 @@ streamlit.log
 .claude/settings.local.json
 settings.local.json
 *.local.json
+.ui_prefs.json
 
 # ── Personal / generated data (not needed to run the app) ───
 # LinkedIn drafts & strategy — personal content, no code depends on it

@@ -17,6 +17,7 @@ from backlog.schema import (
     VALID_PRIORITIES,
     VALID_STATUSES,
 )
+from components.prefs import get_pref, set_pref
 from components.ui import (
     AREA_LABEL,
     EFFORT_LABEL,
@@ -295,8 +296,14 @@ def render() -> None:
 
     # ── View toggle ────────────────────────────────────────────────────────────
     col_v1, col_v2 = st.columns([1.4, 6.6], vertical_alignment="bottom")
+    # Remember the last view across nav reloads (which reset session_state) by
+    # seeding from / saving to an on-disk preference.
+    if "view_mode" not in st.session_state:
+        st.session_state["view_mode"] = get_pref("backlog_view", "List")
     with col_v1:
         view_mode = st.radio("View", ["List", "Kanban"], horizontal=True, key="view_mode", label_visibility="collapsed")
+    if get_pref("backlog_view", "List") != view_mode:
+        set_pref("backlog_view", view_mode)
     with col_v2:
         show_closed = st.checkbox("Show closed (Done · Discarded)", value=False)
 
