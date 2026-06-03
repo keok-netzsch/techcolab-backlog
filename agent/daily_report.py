@@ -779,6 +779,15 @@ def main():
     print("[agent] Updating Claude Pro data (backlog stats)...")
     _update_claude_pro_data(ideas)
 
+    # Pre-generate 1:1 agendas for the Team tab (graceful if Ollama is down)
+    print("[agent] Generating 1:1 agendas...")
+    try:
+        from team_agenda import generate_all
+        _ag = generate_all()
+        print(f"[agent] Agendas: {len(_ag['ok'])} ok, {len(_ag['failed'])} skipped")
+    except Exception as _e:
+        print(f"[agent] Agenda generation skipped: {_e}")
+
     # Notify
     all_good = tests["ok"] and not data["overdue"]
     status_label = "All good" if all_good else "Action needed"
