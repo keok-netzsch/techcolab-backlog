@@ -36,6 +36,7 @@ def _load_full_cc_stats() -> dict:
     model_counts: Counter = Counter()
     sessions: set = set()
     projects: Counter = Counter()
+    events_by_day: Counter = Counter()   # all conversational turns (user + assistant)
 
     _hist = Path.home() / ".claude" / "history.jsonl"
     if _hist.exists():
@@ -55,12 +56,16 @@ def _load_full_cc_stats() -> dict:
     _pdir = Path.home() / ".claude" / "projects"
     if _pdir.exists():
         for _jf in _pdir.glob("**/*.jsonl"):
-            sessions.add(_jf.stem)
             try:
                 with open(_jf, encoding="utf-8") as _sf:
                     for _line in _sf:
                         try:
                             _e    = json.loads(_line)
+                            # Session identity matches Claude Code's own count:
+                            # unique sessionId, not the number of .jsonl files.
+                            _sid = _e.get("sessionId") or _e.get("session_id")
+                            if _sid:
+                                sessions.add(_sid)
                             _ts   = _e.get("timestamp", "")
                             if not _ts:
                                 continue
@@ -68,15 +73,20 @@ def _load_full_cc_stats() -> dict:
                             _d    = _dobj.date()
                             _etype = _e.get("type", "")
                             if _etype == "user":
+                                # Total messages (matches CC widget): every user turn,
+                                # including tool-result turns whose content is a list.
+                                events_by_day[_d] += 1
                                 _msg = _e.get("message", _e)
                                 _cnt = _msg.get("content", "")
                                 if isinstance(_cnt, str) and _cnt.strip():
+                                    # Typed prompts only — drives heatmap / streaks / peak hour.
                                     msgs_by_day[_d] += 1
                                     msgs_by_hour[_dobj.hour] += 1
                                     if _d not in msgs_by_day_hour:
                                         msgs_by_day_hour[_d] = Counter()
                                     msgs_by_day_hour[_d][_dobj.hour] += 1
                             elif _etype == "assistant":
+                                events_by_day[_d] += 1
                                 _mod = _e.get("message", {}).get("model", "")
                                 if _mod and _mod != "<synthetic>":
                                     model_counts[_mod] += 1
@@ -86,7 +96,10 @@ def _load_full_cc_stats() -> dict:
                                     _out = _usage.get("output_tokens", 0)
                                     _cr  = _usage.get("cache_read_input_tokens", 0)
                                     _cc2 = _usage.get("cache_creation_input_tokens", 0)
-                                    tokens_by_day[_d]          += _inp + _out + _cr + _cc2
+                                    # Total tokens (matches CC widget): fresh input + output,
+                                    # excluding cache reads/writes which re-count the same
+                                    # cached prefix every turn and inflate the number ~100x.
+                                    tokens_by_day[_d]          += _inp + _out
                                     output_by_day[_d]          += _out
                                     cache_read                 += _cr
                                     cache_create               += _cc2
@@ -100,6 +113,7 @@ def _load_full_cc_stats() -> dict:
     return dict(
         sessions=len(sessions),
         msgs_by_day=msgs_by_day,
+        events_by_day=events_by_day,
         msgs_by_hour=msgs_by_hour,
         msgs_by_day_hour=msgs_by_day_hour,
         tokens_by_day=tokens_by_day,
@@ -270,6 +284,7 @@ def render() -> None:
     if _w > 0:
         _cutoff_disp = date.today() - timedelta(days=_w - 1)
         _msgs_by_day = {d: c for d, c in _all_stats["msgs_by_day"].items()   if d >= _cutoff_disp}
+        _events_msgs = sum(c for d, c in _all_stats["events_by_day"].items() if d >= _cutoff_disp)
         _tk_total    = {d: c for d, c in _all_stats["tokens_by_day"].items() if d >= _cutoff_disp}
         _tk_out      = {d: c for d, c in _all_stats["output_by_day"].items() if d >= _cutoff_disp}
         _cr_total    = sum(v for d, v in _all_stats["cache_read_by_day"].items()   if d >= _cutoff_disp)
@@ -280,6 +295,7 @@ def render() -> None:
                 _peak_hours += _hc
     else:
         _msgs_by_day = dict(_all_stats["msgs_by_day"])
+        _events_msgs = sum(_all_stats["events_by_day"].values())
         _tk_total    = dict(_all_stats["tokens_by_day"])
         _tk_out      = dict(_all_stats["output_by_day"])
         _cr_total    = _all_stats["cache_read"]
@@ -290,7 +306,7 @@ def render() -> None:
     if not _all_stats["msgs_by_day"] and not _all_stats["tokens_by_day"]:
         st.info("No data found in `~/.claude/`.")
     else:
-        _total_msgs    = sum(_msgs_by_day.values())
+        _total_msgs    = _events_msgs
         _total_tk_val  = sum(_tk_total.values())
         _active_days   = set(_msgs_by_day.keys())
         _streak_cur, _streak_max = _compute_streaks(_active_days)
