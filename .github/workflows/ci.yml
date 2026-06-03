@@ -31,8 +31,11 @@ jobs:
         run: ruff check .
 
       - name: Pytest
-        # No real Obsidian vault in CI: config.py falls back to a placeholder path
-        # and the 4 vault-existence checks in test_config.py skip themselves.
-        # Heavy audio/ML deps (sounddevice, faster_whisper) are imported lazily in
-        # record.py, so the call-recorder tests run without PortAudio/Whisper.
+        # Point at an absolute (Linux) path that does NOT exist: config paths resolve
+        # as absolute (test_backlog_dir_is_absolute passes), while the 4 vault-existence
+        # checks in test_config.py skip themselves. Heavy audio/ML deps (sounddevice,
+        # faster_whisper) are imported lazily in record.py, so the call-recorder tests
+        # run without PortAudio/Whisper.
+        env:
+          TECHCOLAB_VAULT: ${{ runner.temp }}/vault
         run: python -m pytest tests/ -q
