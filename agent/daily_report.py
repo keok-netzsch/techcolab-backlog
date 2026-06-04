@@ -779,19 +779,32 @@ def main():
     print("[agent] Updating Claude Pro data (backlog stats)...")
     _update_claude_pro_data(ideas)
 
-    # Reprocess any call transcripts whose vault note is missing (failed/partial)
-    print("[agent] Sweeping failed call processings...")
+    # Process queued recordings (decoupled recorder) + reprocess failed ones.
+    # Heavy Whisper+LLM work runs here, off the user's working hours.
+    print("[agent] Processing queued recordings + sweeping failed ones...")
     try:
         import sys as _sys
         _cr = str(Path(__file__).parent.parent / "call-recorder")
         if _cr not in _sys.path:
             _sys.path.insert(0, _cr)
         import process as _proc
+        _q = _proc.cmd_queue()
+        if _q["processed"]:
+            print(f"[agent] Queue: processed {len(_q['processed'])} recording(s)")
         _sw = _proc.cmd_sweep()
         if _sw["reprocessed"]:
             print(f"[agent] Reprocessed {len(_sw['reprocessed'])} call(s): {_sw['reprocessed']}")
     except Exception as _e:
-        print(f"[agent] Call sweep skipped: {_e}")
+        print(f"[agent] Call queue/sweep skipped: {_e}")
+
+    # Log hygiene: truncate streamlit.log if it grew large (it is not rotated).
+    try:
+        _log = Path(__file__).parent.parent / "streamlit.log"
+        if _log.exists() and _log.stat().st_size > 20 * 1024 * 1024:  # > 20 MB
+            _log.write_text("", encoding="utf-8")
+            print("[agent] Truncated streamlit.log (>20MB)")
+    except Exception:
+        pass
 
     # Pre-generate 1:1 agendas for the Team tab (graceful if Ollama is down)
     print("[agent] Generating 1:1 agendas...")

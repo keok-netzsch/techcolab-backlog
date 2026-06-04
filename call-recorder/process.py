@@ -17,6 +17,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -610,6 +611,71 @@ def cmd_sweep(transcripts_dir: str = None, min_age_min: int = 5,
     return result
 
 
+def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
+    """Process queued recordings produced by the decoupled recorder: a `<base>.wav`
+    plus a `<base>.job.json` sidecar. Transcribes with Whisper, then routes to the
+    right command (transcript/manager/note) and runs the English coach when flagged.
+    Meant to run in the idle-time daily agent so Whisper+LLM stay off working hours."""
+    rdir = Path(recordings_dir) if recordings_dir else (Path(__file__).parent / "recordings")
+    result = {"processed": [], "failed": [], "skipped": []}
+    jobs = sorted(rdir.glob("*.job.json")) if rdir.exists() else []
+    if not jobs:
+        return result
+
+    if not dry_run:
+        try:
+            requests.get("http://localhost:11434/", timeout=3)
+        except Exception:
+            print("[queue] Ollama unreachable — skipping.")
+            return result
+
+    for jf in jobs:
+        try:
+            job = json.loads(jf.read_text(encoding="utf-8"))
+        except Exception:
+            result["failed"].append(jf.name)
+            continue
+        wav = Path(job.get("wav", ""))
+        if not wav.is_absolute():
+            wav = rdir / wav.name
+        if not wav.exists():
+            jf.unlink()  # orphan job (wav pruned/missing) — drop it
+            result["skipped"].append(jf.name)
+            continue
+        if dry_run:
+            result["processed"].append(jf.name)
+            continue
+        try:
+            import record  # lazy: loads Whisper only when transcribing
+            lang = job.get("lang", "pt")
+            transcript_text = record.transcribe(str(wav), language=lang)
+            tpath = Path(job["transcript"])
+            tpath.parent.mkdir(parents=True, exist_ok=True)
+            tpath.write_text(transcript_text, encoding="utf-8")
+
+            kind, date = job["kind"], job["date"]
+            if kind == "person":
+                cmd_transcript(job["target"], str(tpath), date,
+                               structured=job.get("structured", False), lang=lang)
+            elif kind == "manager":
+                cmd_manager(job["target"], str(tpath), date, lang=lang)
+            elif kind == "note":
+                cmd_note(str(tpath), date, lang=lang, time_str=job.get("time"))
+
+            if job.get("coach"):  # English session → also run the coach
+                coach_py = str(Path(__file__).parent / "coach.py")
+                subprocess.run([sys.executable, coach_py, "--transcript", str(tpath)], check=False)
+
+            jf.unlink()
+            result["processed"].append(jf.name)
+        except Exception as e:
+            result["failed"].append(f"{jf.name}: {e}")
+
+    print(f"[queue] processed={len(result['processed'])} "
+          f"failed={len(result['failed'])} skipped={len(result['skipped'])}")
+    return result
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
@@ -651,13 +717,17 @@ def main():
     sw.add_argument("--dry-run",     action="store_true", help="List what would be reprocessed, don't run")
     sw.add_argument("--lang",        default="pt", choices=["pt", "en"], help="Language for reprocessing")
 
+    q = sub.add_parser("queue", help="Process queued recordings (record-only .wav + .job.json)")
+    q.add_argument("--dir",     default=None, help="recordings dir (default: ./recordings)")
+    q.add_argument("--dry-run", action="store_true", help="List pending jobs without processing")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         sys.exit(1)
 
-    # sweep does its own (non-fatal) Ollama check; everything else needs Ollama up.
-    if args.command != "sweep":
+    # sweep/queue do their own (non-fatal) Ollama check; the rest need Ollama up.
+    if args.command not in ("sweep", "queue"):
         _check_ollama()
 
     if args.command == "agenda":
@@ -671,6 +741,8 @@ def main():
         cmd_note(args.transcript, args.date, lang=args.lang, time_str=args.time)
     elif args.command == "sweep":
         cmd_sweep(args.dir, args.min_age_min, args.dry_run, args.lang, args.max_age_days)
+    elif args.command == "queue":
+        cmd_queue(args.dir, args.dry_run)
 
 
 if __name__ == "__main__":

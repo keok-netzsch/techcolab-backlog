@@ -25,7 +25,32 @@ from config import EXTRACTION_MODEL, OLLAMA_BASE_URL, VAULT_ROOT
 
 # ── Claude Code stats loader ──────────────────────────────────────────────────
 
+def _cc_cache_key():
+    """Cheap signature of ~/.claude state so the (expensive) full scan is only
+    recomputed when sessions actually change — not on every Dashboard render."""
+    pdir = Path.home() / ".claude" / "projects"
+    hist = Path.home() / ".claude" / "history.jsonl"
+    try:
+        files = list(pdir.glob("**/*.jsonl"))
+        mtime = max((f.stat().st_mtime for f in files), default=0.0)
+        hist_mtime = hist.stat().st_mtime if hist.exists() else 0.0
+        return (len(files), mtime, hist_mtime)
+    except OSError:
+        return (0, 0.0, 0.0)
+
+
+@st.cache_data(show_spinner=False)
+def _load_full_cc_stats_cached(cache_key):
+    # cache_key (files count + max mtime) is hashed by Streamlit; the heavy scan of
+    # every ~/.claude/projects/*.jsonl runs only when that signature changes.
+    return _compute_cc_stats()
+
+
 def _load_full_cc_stats() -> dict:
+    return _load_full_cc_stats_cached(_cc_cache_key())
+
+
+def _compute_cc_stats() -> dict:
     msgs_by_day:         Counter = Counter()
     msgs_by_hour:        Counter = Counter()
     msgs_by_day_hour:    dict    = {}

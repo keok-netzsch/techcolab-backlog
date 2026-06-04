@@ -21,7 +21,7 @@ from datetime import datetime
 SAMPLE_RATE = 16000
 CHANNELS = 1
 DTYPE = "float32"
-MODEL_SIZE = "medium"      # small | medium | large-v3
+MODEL_SIZE = os.environ.get("WHISPER_MODEL", "medium")   # small | medium | large-v3
 LANGUAGE = "pt"            # default; overridden by --language CLI arg
 CHUNK_SECONDS = 30         # tamanho do buffer de gravação em memória
 RECORDINGS_RETENTION_DAYS = 7   # áudios em recordings/ mais antigos que isto são apagados
@@ -67,9 +67,14 @@ def prune_old_recordings(directory: str, days: int = RECORDINGS_RETENTION_DAYS) 
 
 def transcribe(audio_path: str, language: str = LANGUAGE) -> str:
     from faster_whisper import WhisperModel
-    print("[INFO] Carregando modelo Whisper (primeira vez faz download ~460MB)...")
-    model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model")
-    model = WhisperModel(model_dir, device="cpu", compute_type="int8")
+    print(f"[INFO] Carregando modelo Whisper ({MODEL_SIZE})...")
+    # 'medium' is bundled locally (model/); other sizes (e.g. 'small') download by
+    # name to the HF cache — lighter/faster for short calls (WHISPER_MODEL=small).
+    if MODEL_SIZE == "medium":
+        model_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model")
+    else:
+        model_src = MODEL_SIZE
+    model = WhisperModel(model_src, device="cpu", compute_type="int8")
     print("[INFO] Transcrevendo...")
     segments, info = model.transcribe(audio_path, language=language)
     lines = []
@@ -89,6 +94,8 @@ def main():
                         help="Caminho para salvar a transcrição (.txt)")
     parser.add_argument("--language", default=LANGUAGE,
                         help="Idioma para Whisper (ex: pt, en). Padrão: pt")
+    parser.add_argument("--record-only", action="store_true",
+                        help="Apenas grava e salva o .wav (sem transcrever) — para fila/processamento posterior")
     args = parser.parse_args()
 
     LANGUAGE_EFFECTIVE = args.language
@@ -132,6 +139,12 @@ def main():
     wav_path = os.path.join(recordings_dir, f"{base_name}.wav")
     sf.write(wav_path, audio, SAMPLE_RATE)
     print(f"[INFO] Áudio salvo em: {wav_path}")
+
+    if args.record_only:
+        # Decoupled flow: stop here (fast, no Whisper). The queue runner transcribes
+        # and processes this .wav later, off the user's working hours.
+        print(f"WAV_PATH:{wav_path}")
+        return
 
     transcript = transcribe(wav_path, language=LANGUAGE_EFFECTIVE)
 
