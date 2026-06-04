@@ -119,3 +119,25 @@ def test_strip_noop_when_section_absent(tmp_path):
     p.write_text("## 2026-05-27\n\n- old\n\n---\n", encoding="utf-8")
     process._strip_dated_1on1(p, "2026-06-03")
     assert "## 2026-05-27" in p.read_text(encoding="utf-8")
+
+
+def test_strip_removes_section_at_eof_without_trailing_sep(tmp_path):
+    # A section can be the last one in the file with no trailing `---`.
+    p = tmp_path / "1on1.md"
+    p.write_text("## 2026-05-27\n\n- keep\n\n---\n\n## 2026-06-03\n\n- last, no sep\n", encoding="utf-8")
+    process._strip_dated_1on1(p, "2026-06-03")
+    t = p.read_text(encoding="utf-8")
+    assert "## 2026-06-03" not in t
+    assert "## 2026-05-27" in t
+
+
+def test_strip_removes_all_duplicate_sections(tmp_path):
+    p = tmp_path / "1on1.md"
+    p.write_text(
+        "## 2026-06-03\n\n- A\n\n---\n\n## 2026-06-03\n\n- B (dup)\n\n---\n\n## 2026-05-27\n\n- old\n\n---\n",
+        encoding="utf-8",
+    )
+    process._strip_dated_1on1(p, "2026-06-03")
+    t = p.read_text(encoding="utf-8")
+    assert t.count("## 2026-06-03") == 0   # both duplicates gone
+    assert "## 2026-05-27" in t

@@ -217,8 +217,12 @@ def _strip_dated_1on1(oneonone_path: Path, date: str) -> None:
     if not oneonone_path.exists():
         return
     text = oneonone_path.read_text(encoding="utf-8", errors="replace")
-    pattern = re.compile(rf"(?ms)^## {re.escape(date)}\b.*?\n---\n", re.DOTALL)
-    new = pattern.sub("", text, count=1)
+    # Remove EVERY section for this date (not just the first) so reprocessing is
+    # fully idempotent even if a prior buggy run left duplicates. A section ends at
+    # its trailing `---` separator OR at end-of-file (a section can be the last one,
+    # with no trailing `---`).
+    pattern = re.compile(rf"(?ms)^## {re.escape(date)}\b.*?(?:\n---\n|\Z)")
+    new = pattern.sub("", text)
     if new != text:
         oneonone_path.write_text(re.sub(r"\n{3,}", "\n\n", new), encoding="utf-8")
 
