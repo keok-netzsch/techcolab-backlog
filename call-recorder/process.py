@@ -29,7 +29,12 @@ VAULT = os.environ.get(
     os.path.join(os.path.expanduser("~"), "OneDrive - NETZSCH", "Documents", "TechColab_D&A_KO"),
 )
 OLLAMA_URL   = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3.2:3b"
+# qwen2.5-coder (7B) summarizes 1:1 transcripts far better than llama3.2:3b (3B),
+# which produced thin/generic topics. Override with CALLREC_MODEL if needed.
+OLLAMA_MODEL = os.environ.get("CALLREC_MODEL", "qwen2.5-coder:latest")
+# On CPU, prompt-eval of a full transcript with a 7B+ model can take several
+# minutes before the first token — 300s was too short and timed out. Configurable.
+OLLAMA_TIMEOUT = int(os.environ.get("CALLREC_TIMEOUT", "1200"))
 
 PEOPLE = {
     "Ana-Leite":     "Ana Leite",
@@ -84,7 +89,7 @@ def _ollama_generate(prompt: str, stream: bool = True, model: str = OLLAMA_MODEL
 
     if stream:
         full = []
-        with requests.post(OLLAMA_URL, json=payload, stream=True, timeout=300) as r:
+        with requests.post(OLLAMA_URL, json=payload, stream=True, timeout=OLLAMA_TIMEOUT) as r:
             r.raise_for_status()
             for line in r.iter_lines():
                 if not line:
@@ -98,7 +103,7 @@ def _ollama_generate(prompt: str, stream: bool = True, model: str = OLLAMA_MODEL
         print()  # newline after stream ends
         return "".join(full)
     else:
-        r = requests.post(OLLAMA_URL, json=payload, timeout=300)
+        r = requests.post(OLLAMA_URL, json=payload, timeout=OLLAMA_TIMEOUT)
         r.raise_for_status()
         return r.json()["response"]
 
