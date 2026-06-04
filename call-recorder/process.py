@@ -86,7 +86,13 @@ def _ollama_generate(prompt: str, stream: bool = True, model: str = OLLAMA_MODEL
     With stream=True  → prints tokens as they arrive, returns full text.
     With stream=False → waits for full response, returns it (silent).
     """
-    payload = {"model": model, "prompt": prompt, "stream": stream}
+    # keep_alive=0 unloads the model from RAM right after the response, so a 5GB (7B)
+    # model never lingers — important on a 16GB laptop shared with other work.
+    # Override with CALLREC_KEEPALIVE (e.g. "5m") to keep it warm across a batch.
+    payload = {
+        "model": model, "prompt": prompt, "stream": stream,
+        "keep_alive": os.environ.get("CALLREC_KEEPALIVE", "0"),
+    }
 
     if stream:
         full = []
