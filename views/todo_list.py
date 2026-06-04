@@ -163,6 +163,7 @@ def render() -> None:
 
     store = get_store()
     today = date.today()
+    _idea_by_id = {i.id: i for i in ideas}  # lookup table — avoids per-row disk reads in the loop
 
     # In "Pending" filter, always include this-week done items (show as strikethrough)
     if show_filter == "Pending":
@@ -242,7 +243,7 @@ def render() -> None:
             )
 
             for item in items:
-                idea = store.load_by_id(item["idea_id"])
+                idea = _idea_by_id.get(item["idea_id"])  # reuse cached ideas, no per-row disk read
                 if not idea:
                     continue
 
