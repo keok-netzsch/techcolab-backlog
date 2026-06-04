@@ -1,5 +1,5 @@
 @echo off
-:: TechColab Backlog — Phase 1: Daily analysis + report
+:: TechColab Backlog ? Phase 1: Daily analysis + report
 :: Triggered by Windows Task Scheduler every morning.
 
 cd /d "%~dp0"
@@ -12,4 +12,4 @@ if exist ".venv\Scripts\activate.bat" (
 )
 
 if not exist logs mkdir logs
-python agent\daily_report.py > "%~dp0logs\agent-last.log" 2>&1
+python -u agent\daily_report.py > "%~dp0logs\agent-last.log" 2>&1
