@@ -11,4 +11,5 @@ if exist ".venv\Scripts\activate.bat" (
     echo [agent] .venv not found, using system Python
 )
 
-python agent\daily_report.py
+if not exist logs mkdir logs
+python agent\daily_report.py > "%~dp0logs\agent-last.log" 2>&1

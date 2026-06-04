@@ -207,12 +207,59 @@ if ($catIdx -eq 0) {
     $process_args = @("note", "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", $langFlag)
 }
 
-# 3) Gravacao
+# Metadata for the queue job
+$kind     = @("person", "manager", "note")[$catIdx]
+$target   = if ($catIdx -eq 2) { "" } else { $folder }
+$base     = [System.IO.Path]::GetFileNameWithoutExtension($trans_file)
+$rec_dir  = Join-Path $SCRIPT_DIR "recordings"
+$wav_path = Join-Path $rec_dir "$base.wav"
+$coach    = $langFlag -eq "en"
+
+# 3) Quando processar? (enfileirar = nao trava; processa as 17h no agente diario)
+$pmode = Show-Menu -Title "Quando processar?" -Options @("Enfileirar (processa as 17h, nao trava agora)", "Processar agora (lento)")
+
+if ($pmode -eq 0) {
+    # ----- FILA: grava so o .wav (sem Whisper) e enfileira -----
+    New-Item -ItemType Directory -Force -Path $rec_dir | Out-Null
+    Write-Host ""
+    Write-Host "  [REC] Gravando (idioma: $langFlag) - so audio, sem transcrever agora..." -ForegroundColor Red
+    Write-Host "  [REC] Feche a janela Python (Ctrl+C nela) para parar." -ForegroundColor Red
+    Write-Host ""
+    $py_script = Join-Path $SCRIPT_DIR "record.py"
+    $proc = Start-Process -FilePath $PYTHON `
+        -ArgumentList "`"$py_script`" --language $langFlag --record-only --output `"$trans_file`"" `
+        -PassThru -WindowStyle Normal
+    $proc.WaitForExit()
+    if ($proc.ExitCode -ne 0 -or -not (Test-Path $wav_path)) {
+        Write-Host "  [ERROR] Gravacao falhou (audio nao salvo)." -ForegroundColor Red
+        Read-Host "  ENTER para sair"; exit 1
+    }
+    $job = [ordered]@{
+        wav        = "$base.wav"
+        transcript = $trans_file
+        kind       = $kind
+        target     = $target
+        lang       = $langFlag
+        date       = $date_str
+        time       = $time_str
+        structured = [bool]$structured
+        coach      = [bool]$coach
+    }
+    $job_path = Join-Path $rec_dir "$base.job.json"
+    $enc = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($job_path, ($job | ConvertTo-Json -Compress), $enc)
+    Write-Host ""
+    Write-Host "  [OK] Enfileirado. Transcricao + processamento as 17h (agente diario)." -ForegroundColor DarkCyan
+    Write-Host "  Audio: recordings\$base.wav" -ForegroundColor DarkGray
+    Write-Host ""
+    Read-Host "  ENTER para sair"; exit 0
+}
+
+# ----- PROCESSAR AGORA (fluxo sincrono) -----
 if (-not (Invoke-Recording -TransFile $trans_file -LangFlag $langFlag)) {
     Read-Host "  ENTER para sair"; exit 1
 }
 
-# 4) Processamento (Ollama via process.py)
 Write-Host ""
 Write-Host "  [Ollama] Processando transcricao..." -ForegroundColor Yellow
 $process_py = Join-Path $SCRIPT_DIR "process.py"
@@ -224,7 +271,6 @@ if ($procExit -ne 0) {
     Read-Host "  ENTER para sair"; exit 1
 }
 
-# 5) Se ingles, alimenta o English Coach automaticamente
 if ($langFlag -eq "en") {
     Invoke-Coach -TransFile $trans_file
 }
