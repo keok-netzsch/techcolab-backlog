@@ -79,3 +79,22 @@ button[data-testid="stBaseButton-secondary"] {
     text-align: left !important;
     justify-content: flex-start !important;
 }
+
+/* ── Expander hover stability (light + dark) ─────────────────────
+   Streamlit CSS persists in the browser <head> across SPA navigation.
+   A broad stVerticalBlockBorderWrapper override in any page can bleed
+   here and clip expander content. React hover re-renders also briefly
+   unmount stExpanderDetails. These rules lock visibility permanently.
+   NEVER override stVerticalBlockBorderWrapper globally from a view —
+   use st.container(height=N) only (Streamlit sets it inline). ───── */
+details[data-testid="stExpander"][open] > div[data-testid="stExpanderDetails"] {
+    opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
+    will-change: transform;
+}
+/* Block any height constraint from leaking into expander wrappers */
+[data-testid="stExpander"] [data-testid="stVerticalBlockBorderWrapper"] {
+    height: auto !important;
+    overflow: visible !important;
+}

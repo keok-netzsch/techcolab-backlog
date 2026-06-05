@@ -133,6 +133,11 @@ hr { border-color: #2D3748 !important; }
 [data-testid="stExpander"] summary { color: #E2E8F0 !important; background: #1A1D2E !important; }
 [data-testid="stExpander"] summary:hover { background: #1E2640 !important; }
 [data-testid="stExpanderDetails"] { background: #1A1D2E !important; padding-bottom: 0.75rem !important; }
+/* Prevent expander content from flashing/disappearing on hover.
+   Streamlit CSS is injected into the browser <head> and persists across SPA navigation.
+   React re-renders on hover state change can briefly unmount content — this locks it. */
+details[data-testid="stExpander"][open] > div[data-testid="stExpanderDetails"] {
+    opacity: 1 !important; visibility: visible !important; display: block !important; will-change: transform; }
 /* stVerticalBlock inside expanders must be transparent so parent bg (#1A1D2E) shows */
 [data-testid="stExpanderDetails"] [data-testid="stVerticalBlock"],
 [data-testid="stExpanderDetails"] [data-testid="stVerticalBlock"] > div { background: transparent !important; }

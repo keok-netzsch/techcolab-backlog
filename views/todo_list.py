@@ -213,11 +213,6 @@ def render() -> None:
 
     _STATE_OPTS = ["⬜", "🔄", "✅"]
     _STATE_IDX  = {"open": 0, "in_progress": 1, "done": 2}
-    st.markdown(
-        "<style>div[data-testid='stVerticalBlockBorderWrapper']"
-        "{ height:calc(100vh - 360px)!important; }</style>",
-        unsafe_allow_html=True,
-    )
     with st.container(height=600):
         for group_label, group_items in groupby(filtered_todos, key=get_group_key):
             items = list(group_items)
