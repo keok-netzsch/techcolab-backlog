@@ -278,6 +278,9 @@ def build_report(tests: dict, data: dict) -> str:
             "",
         ]
 
+    # Phase 2 analysis section is injected by main() after Ollama runs — placeholder marker
+    lines += ["<!-- ANALYSIS_SECTION -->", ""]
+
     # ── Opportunities ──
     opps = []
     if a["stale"]:
@@ -764,6 +767,22 @@ def main():
 
     # Build report
     report_md = build_report(tests, data)
+
+    # Phase 2: analyze ideas under review via Ollama
+    under_review = [i for i in ideas if i.status == "em análise"]
+    if under_review:
+        print(f"[agent] Phase 2: analyzing {len(under_review)} idea(s) under review...")
+        try:
+            from agent.analysis_agent import analyze_all, build_report_section
+            analyses = analyze_all(ideas)
+            analysis_section = build_report_section(analyses)
+            if analysis_section:
+                report_md = report_md.replace("<!-- ANALYSIS_SECTION -->", analysis_section)
+        except Exception as _ae:
+            print(f"[agent] Phase 2 analysis failed: {_ae}")
+            report_md = report_md.replace("<!-- ANALYSIS_SECTION -->", "")
+    else:
+        report_md = report_md.replace("<!-- ANALYSIS_SECTION -->", "")
 
     # Write report
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
