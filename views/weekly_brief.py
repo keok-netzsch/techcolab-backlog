@@ -283,11 +283,20 @@ def render() -> None:
             _export.append("_No calls recorded in this period._")
         else:
             for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
-                with st.expander(f"📞 {_c['member']} — {_c['date'].strftime('%d/%m/%Y')}"):
-                    _body = re.sub(r"^---.*?---\n", "",
-                                   _c["path"].read_text(encoding="utf-8", errors="replace"),
-                                   flags=re.DOTALL).strip()
-                    st.markdown(_body[:2500] + ("…" if len(_body) > 2500 else ""))
+                _ck = f"wb_call_{_c['member']}_{_c['date'].isoformat()}"
+                if _ck not in st.session_state:
+                    st.session_state[_ck] = False
+                _hcol, _tcol = st.columns([9, 1], vertical_alignment="center")
+                _hcol.markdown(f"📞 **{_c['member']}** — {_c['date'].strftime('%d/%m/%Y')}")
+                if _tcol.button("▲" if st.session_state[_ck] else "▼", key=f"wb_ct_{_c['member']}_{_c['date'].isoformat()}"):
+                    st.session_state[_ck] = not st.session_state[_ck]
+                    st.rerun()
+                if st.session_state[_ck]:
+                    with st.container(border=True):
+                        _body = re.sub(r"^---.*?---\n", "",
+                                       _c["path"].read_text(encoding="utf-8", errors="replace"),
+                                       flags=re.DOTALL).strip()
+                        st.markdown(_body[:2500] + ("…" if len(_body) > 2500 else ""))
                 _export.append(f"- Call com {_c['member']} em {_c['date'].strftime('%d/%m/%Y')}")
         _export.append(""); st.divider()
 

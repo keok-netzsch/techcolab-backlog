@@ -32,7 +32,7 @@ def render() -> None:
     # ── Ollama ────────────────────────────────────────────────────────────────
     st.divider()
     st.subheader("🦙 Ollama (local LLM)")
-    st.caption("Used by the daily agent and the Claude Pro timeline updater.")
+    st.caption("Used by the daily agent, idea extraction, agenda generation, and call note processing.")
 
     _st_ollama_url = st.text_input(
         "OLLAMA_BASE_URL",
@@ -49,12 +49,13 @@ def render() -> None:
 
     # ── Claude Pro ────────────────────────────────────────────────────────────
     st.divider()
-    st.subheader("📊 Claude Pro Report")
+    st.subheader("📊 Claude Pro Dashboard")
+    st.caption("The Claude Pro page reads live from the backlog. Only the start date is configurable here.")
 
     _st_cp_start = st.text_input(
         "CLAUDE_PRO_START_DATE",
         value=_st_overrides.get("CLAUDE_PRO_START_DATE", CLAUDE_PRO_START_DATE),
-        help="ISO date when Claude Pro adoption started (YYYY-MM-DD). Used to compute 'Days since adoption'.",
+        help="ISO date when Claude Pro adoption started (YYYY-MM-DD). Used to compute 'Days since start'.",
         key="st_cp_start",
     )
 

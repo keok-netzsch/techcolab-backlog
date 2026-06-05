@@ -11,9 +11,9 @@ def render() -> None:
 
     st.markdown("## Overview")
     st.markdown("""
-**Personal Toolkit · Techco.lab** is a personal productivity toolkit integrated with Obsidian.
-The goal is to capture and structure ideas using a local language model (Ollama) —
-no API key, no per-use cost, no data leaving your machine.
+**Personal Toolkit · Techco.lab** is a personal productivity toolkit integrated with an Obsidian vault.
+Ideas are captured, structured and tracked locally — no external API, no cloud dependency.
+Transcription (Whisper) and LLM inference (Ollama + llama3.2:3b) run entirely on-machine.
 """)
 
     st.divider()
@@ -22,13 +22,22 @@ no API key, no per-use cost, no data leaving your machine.
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("""
-**Extraction pipeline**
+**Data flow**
 
 ```
-Manual form (app)
-    ↓ store.py — saves idea-NNN.md
-    ↓ daily_log.py — records to log
-Backlog - to do - app/backlog items/
+Manual form (Backlog page)
+    ↓ backlog/store.py → idea-NNN.md
+    ↓ backlog/daily_log.py → diario-YYYY-MM-DD.md
+    ↓ backlog/cache.py → load_ideas() (cached)
+
+Call Recorder (call-recorder.ps1)
+    ↓ record.py → WAV → Whisper transcription
+    ↓ process.py → Ollama → structured notes
+    ↓ vault/Team/{Person}/1on1/{date}_1on1.md
+
+Daily agent (run_agent.bat @ 08:00)
+    ↓ agent/daily_report.py → report-YYYY-MM-DD.md
+    ↓ agent/scrape_sessions.py → claude-pro-timeline.json
 ```
 """)
     with col2:
@@ -37,15 +46,45 @@ Backlog - to do - app/backlog items/
 
 ```
 TechColab_D&A_KO/
-└── Backlog - to do - app/
-    ├── backlog items/
-    │   ├── idea-001.md
-    │   └── idea-002.md
-    ├── Log/
-    │   └── diario-YYYY-MM-DD.md
-    ├── _index.md
-    └── Documentacao.md
+├── App/
+│   └── Personal toolkit/
+│       ├── backlog items/    ← idea-NNN.md
+│       ├── Log/              ← diario-YYYY-MM-DD.md
+│       ├── agent-reports/    ← report-YYYY-MM-DD.md
+│       └── techcolab-backlog-faq.md
+├── Team/
+│   └── {Person}/
+│       ├── 1on1.md           ← structured 1:1 history
+│       ├── 1on1/             ← call notes (standalone)
+│       ├── OKR.md
+│       ├── PDI.md
+│       └── Overview.md
+├── Stakeholders/
+│   └── {Person}/
+│       ├── 1on1.md
+│       └── 1on1/
+└── Resources/
+    └── techcolab-brand.md
 ```
+""")
+
+    st.divider()
+    st.markdown("## Pages & views")
+
+    st.markdown("""
+| View file | Page | Data source |
+|---|---|---|
+| `views/dashboard.py` | Dashboard | `load_ideas()` — live backlog |
+| `views/backlog.py` | Backlog | `load_ideas()`, `BacklogStore` |
+| `views/todo_list.py` | To-Do List | `load_ideas()` |
+| `views/team.py` | Team | Vault `Team/{Person}/` files |
+| `views/claude_pro.py` | Claude Pro | `load_ideas()` + `reports/claude-pro-data.json` (exec summary + tools only) |
+| `views/weekly_brief.py` | Weekly Brief | `load_ideas()` + vault `Log/` + vault `Team/{Person}/1on1/` |
+| `views/english_coach.py` | English Coach | Vault `English-Coach/` |
+| `views/settings.py` | Settings | `settings.local.json` + `config.py` |
+| `views/tutorial.py` | Tutorial | Static content |
+| `views/documentation.py` | Documentation | Static content + live `config.py` values |
+| `views/faq.py` | FAQ | Vault `techcolab-backlog-faq.md` |
 """)
 
     st.divider()
@@ -55,11 +94,15 @@ id: idea-001
 titulo: "Nome da ideia"
 status: backlog
 prioridade: alta
-area: dados
+area: dados & IA
 origem: entrada direta
 criado_em: 2026-05-15
 atualizado_em: 2026-05-15
 due_date: 2026-06-30
+impacto: alta
+esforco: médio
+is_bug: false
+agente_autorizado: false
 ---
 
 ## Descricao
@@ -67,44 +110,66 @@ Descrição da ideia.
 
 ## To-dos
 - [ ] Next pending step
-- [x] Step already done @2026-05-20
+- [x] Step already done @2026-05-20 ~2026-05-22
 
 ## Notas
 Anotações livres.
 """, language="markdown")
 
+    st.markdown("""
+**To-do annotation format:**
+- `@YYYY-MM-DD` — due date
+- `~YYYY-MM-DD` — completed date (set automatically when marked done)
+- `{bug}` — marks the to-do as a bug (shows BUG badge in To-Do List)
+- `{auto}` — marks as pre-approved for the daily agent
+
+**Valid values:**
+
+| Field | Values |
+|---|---|
+| `status` | `backlog`, `em análise`, `análise - aprovado`, `análise - rejeitado`, `aguardando desenvolvimento`, `em desenvolvimento`, `em validação`, `concluído`, `descartado` |
+| `prioridade` | `alta`, `média`, `baixa` |
+| `impacto` | `alta`, `média`, `baixa` |
+| `esforco` | `alto`, `médio`, `baixo` |
+| `area` | `produto`, `dados & IA`, `automação`, `gestão`, `governança`, `infraestrutura`, `comunicação`, `business` |
+""")
+
     st.divider()
-    st.markdown("## Design System")
-    st.markdown(
-        "The visual identity of this app is defined in two files — reusable in any project:"
-    )
-    col_ds1, col_ds2 = st.columns(2)
-    with col_ds1:
-        st.markdown("""
-**Full spec** (colors, typography, components, rules)
-`%USERPROFILE%\\techcolab-backlog\\DESIGN_SYSTEM.md`
+    st.markdown("## Key files")
+
+    st.markdown("""
+| File | Purpose |
+|---|---|
+| `app.py` | Entry point — nav routing, dark mode, CSS injection |
+| `config.py` | All configurable paths and constants |
+| `assets/brand.css` | Global CSS (always loaded) — fonts, primary buttons, expander stability rules |
+| `backlog/store.py` | CRUD for idea files — `create()`, `save()`, `delete()`, auto-status-advance |
+| `backlog/cache.py` | `load_ideas()` (cached), `get_store()`, `rebuild_index()` |
+| `backlog/schema.py` | `Idea` dataclass, `VALID_STATUSES`, `VALID_AREAS` |
+| `components/ui.py` | Shared HTML helpers — `sdot()`, `pbadge()`, `stat_grid()`, `STATUS_LABEL`, `STATUS_HEX` |
+| `agent/daily_report.py` | Morning agent — backlog analysis + Claude Pro timeline update |
+| `agent/scrape_sessions.py` | Reads Claude Code JSONL session files → timeline entries |
+| `reports/claude-pro-data.json` | Static config for Claude Pro page (exec summary bullets + tools list only) |
+| `call-recorder/call-recorder.ps1` | Unified recorder — team + stakeholder menu, auto-language detection |
+| `call-recorder/record.py` | Whisper transcription — returns `(text, detected_lang)` |
+| `call-recorder/process.py` | Ollama note structuring — saves BLOCO content to vault |
+| `tests/` | 150 tests — run with `python -m pytest tests/ -v` |
 """)
-        st.markdown("""
-**Quick reference** (hex values, Canva/PPT/Figma, snippets)
-`Resources/techcolab-brand.md` no vault
+
+    st.divider()
+    st.markdown("## CSS architecture")
+
+    st.markdown("""
+CSS is split into three layers, injected in `app.py` on every page load:
+
+| Layer | Source | When |
+|---|---|---|
+| Brand CSS | `assets/brand.css` | Always — fonts, buttons, expander stability, nav |
+| Dark mode CSS | `_DARK_CSS` string in `app.py` | Only when `?dark=1` query param |
+| Page-scoped CSS | `st.markdown("<style>...")` inside each view | Only on that page |
+
+**Critical rule:** never use `div[data-testid="stVerticalBlockBorderWrapper"]` as a global CSS selector in any view — it bleeds across Streamlit SPA navigation and clips expander content. Use `st.container(height=N)` instead.
 """)
-    with col_ds2:
-        st.markdown("""
-**CSS pronto para importar** em HTML/relatórios
-`%USERPROFILE%\\techcolab-backlog\\scripts\\techcolab-brand.css`
-""")
-        st.code(
-            '@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");\n'
-            ":root {\n"
-            "  --tc-accent:       #02B793;\n"
-            "  --tc-accent-hover: #007167;\n"
-            "  --tc-accent-light: #0AD4A8;\n"
-            "  --tc-text:         #111827;\n"
-            "  --tc-font:         'Inter', sans-serif;\n"
-            "  --tc-radius:       8px;\n"
-            "}",
-            language="css",
-        )
 
     st.divider()
     st.markdown("## Current configuration")
@@ -118,4 +183,4 @@ Anotações livres.
     for k, v in config_data.items():
         st.markdown(f"**{k}:** `{v}`")
 
-    st.caption("To change settings, edit the `config.py` file in the project root.")
+    st.caption("To change Ollama settings, use the **Settings** page. To change vault path, set the `TECHCOLAB_VAULT` environment variable.")
