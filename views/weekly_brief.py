@@ -283,14 +283,117 @@ def render() -> None:
             _export.append("_No calls recorded in this period._")
         else:
             import html as _html
-        import streamlit.components.v1 as _components
-        _call_bg  = "#1A1D2E" if dark_mode else "#F8FAFC"
-        _call_clr = "#CBD5E0" if dark_mode else "#374151"
-        for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
+            import streamlit.components.v1 as _components
+
+            def _call_to_html(raw: str, bg: str, is_dark: bool) -> tuple[str, int]:
+                """Parse BLOCO-structured call note and return (html, height_px)."""
+                accent  = "#02B793"
+                fg_main = "#E2E8F0" if is_dark else "#1F2937"
+                fg_sub  = "#94A3B8" if is_dark else "#6B7280"
+                fg_done = "#059669"
+                bdr     = "#2D3748" if is_dark else "#E5E7EB"
+                sec_bg  = "rgba(2,183,147,0.07)" if is_dark else "rgba(2,183,147,0.04)"
+
+                # Strip YAML frontmatter
+                body = re.sub(r"^---.*?---\n?", "", raw, flags=re.DOTALL).strip()
+                # Split on ### BLOCO markers
+                sections = re.split(r"###\s+BLOCO\s+(\w+)[^\n]*\n?", body)
+
+                def _md_lines(text: str) -> str:
+                    """Convert minimal markdown to HTML lines."""
+                    out, in_ul = [], False
+                    for ln in text.splitlines():
+                        ln = ln.rstrip()
+                        # Strip code-fence markers
+                        if re.match(r"^~~~", ln):
+                            continue
+                        # Headings
+                        if ln.startswith("## "):
+                            if in_ul: out.append("</ul>"); in_ul = False
+                            out.append(f'<h3 style="margin:10px 0 4px;font-size:13px;color:{fg_main}">'
+                                       f'{_html.escape(ln[3:])}</h3>')
+                            continue
+                        if ln.startswith("### "):
+                            if in_ul: out.append("</ul>"); in_ul = False
+                            out.append(f'<h4 style="margin:8px 0 3px;font-size:12px;color:{fg_sub};'
+                                       f'text-transform:uppercase;letter-spacing:.06em">'
+                                       f'{_html.escape(ln[4:])}</h4>')
+                            continue
+                        # Action items
+                        m_ai = re.match(r"- \[( |x)\] (.+)", ln)
+                        if m_ai:
+                            if not in_ul: out.append('<ul style="margin:2px 0;padding-left:18px">'); in_ul = True
+                            done = m_ai.group(1) == "x"
+                            icon = f'<span style="color:{fg_done}">✅</span>' if done else '⬜'
+                            txt  = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>",
+                                          _html.escape(m_ai.group(2)))
+                            style = f'color:{fg_sub};text-decoration:line-through' if done else f'color:{fg_main}'
+                            out.append(f'<li style="list-style:none;margin:2px 0;{style}">'
+                                       f'{icon} {txt}</li>')
+                            continue
+                        # Bullets
+                        m_ul = re.match(r"- (.+)", ln)
+                        if m_ul:
+                            if not in_ul: out.append('<ul style="margin:2px 0;padding-left:18px">'); in_ul = True
+                            txt = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>",
+                                         _html.escape(m_ul.group(1)))
+                            out.append(f'<li style="color:{fg_main};margin:2px 0">{txt}</li>')
+                            continue
+                        # Blank line
+                        if not ln.strip():
+                            if in_ul: out.append("</ul>"); in_ul = False
+                            out.append('<div style="height:6px"></div>')
+                            continue
+                        # Regular paragraph
+                        if in_ul: out.append("</ul>"); in_ul = False
+                        txt = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>",
+                                     _html.escape(ln))
+                        out.append(f'<p style="margin:3px 0;color:{fg_main}">{txt}</p>')
+                    if in_ul:
+                        out.append("</ul>")
+                    return "\n".join(out)
+
+                html_parts = []
+                # No BLOCO structure — render as plain markdown
+                if len(sections) <= 1:
+                    html_parts.append(_md_lines(body))
+                else:
+                    # sections = ["pre-text", "SectionName", "content", ...]
+                    for i in range(1, len(sections) - 1, 2):
+                        sec_name = sections[i].strip()
+                        sec_body = sections[i + 1].strip() if i + 1 < len(sections) else ""
+                        html_parts.append(
+                            f'<div style="margin-bottom:14px;padding:10px 14px;'
+                            f'background:{sec_bg};border-left:3px solid {accent};border-radius:0 6px 6px 0">'
+                            f'<div style="font-family:\'DM Mono\',monospace;font-size:10px;font-weight:600;'
+                            f'letter-spacing:.14em;text-transform:uppercase;color:{accent};margin-bottom:8px">'
+                            f'{_html.escape(sec_name)}</div>'
+                            f'{_md_lines(sec_body)}'
+                            f'</div>'
+                        )
+
+                content_html = "\n".join(html_parts)
+                char_count   = len(re.sub(r"<[^>]+>", "", content_html))
+                est_lines    = max(content_html.count("<li") + content_html.count("<p") +
+                                   content_html.count("<h3") + content_html.count("<h4") +
+                                   content_html.count("height:6px") + 4, 6)
+                h_px = min(est_lines * 22 + 40, 520)
+
+                full_html = (
+                    f'<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
+                    f'*{{box-sizing:border-box}}html,body{{margin:0;padding:14px 16px;'
+                    f'background:{bg};font-family:"Inter",sans-serif;font-size:13px;'
+                    f'line-height:1.55;overflow-x:hidden}}'
+                    f'strong{{color:{fg_main}}}'
+                    f'</style></head><body>{content_html}</body></html>'
+                )
+                return full_html, h_px
+
+            _call_bg = "#1A1D2E" if dark_mode else "#F9FAFB"
+            for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
                 _ck = f"wb_call_{_c['member']}_{_c['date'].isoformat()}"
                 if _ck not in st.session_state:
                     st.session_state[_ck] = False
-                # Arrow LEFT of name
                 _tcol, _hcol = st.columns([0.5, 11], vertical_alignment="center")
                 if _tcol.button("▲" if st.session_state[_ck] else "▼",
                                 key=f"wb_ct_{_c['member']}_{_c['date'].isoformat()}"):
@@ -298,22 +401,9 @@ def render() -> None:
                     st.rerun()
                 _hcol.markdown(f"📞 **{_c['member']}** — {_c['date'].strftime('%d/%m/%Y')}")
                 if st.session_state[_ck]:
-                    _body = re.sub(r"^---.*?---\n", "",
-                                   _c["path"].read_text(encoding="utf-8", errors="replace"),
-                                   flags=re.DOTALL).strip()
-                    _body_safe = _html.escape(_body[:3000])
-                    _n_lines   = min(_body[:3000].count("\n") + 4, 60)
-                    _h_px      = _n_lines * 19 + 28
-                    # iframe fully isolated from Streamlit React tree — hover cannot affect it
-                    _components.html(
-                        f'<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
-                        f'html,body{{margin:0;padding:12px 16px;background:{_call_bg};color:{_call_clr};'
-                        f'font-family:"DM Mono",monospace;font-size:12px;line-height:1.6;'
-                        f'white-space:pre-wrap;word-wrap:break-word;overflow-x:hidden}}'
-                        f'</style></head><body>{_body_safe}</body></html>',
-                        height=_h_px,
-                        scrolling=False,
-                    )
+                    _raw  = _c["path"].read_text(encoding="utf-8", errors="replace")
+                    _fhtml, _fh = _call_to_html(_raw[:4000], _call_bg, dark_mode)
+                    _components.html(_fhtml, height=_fh, scrolling=False)
                 _export.append(f"- Call com {_c['member']} em {_c['date'].strftime('%d/%m/%Y')}")
         _export.append(""); st.divider()
 
