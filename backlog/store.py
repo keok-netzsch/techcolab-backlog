@@ -174,6 +174,7 @@ class BacklogStore:
             agente_autorizado=bool(fm.get("agente_autorizado", False)),
             is_bug=bool(fm.get("is_bug", False)),
             blocked_by=list(fm.get("blocked_by") or []),
+            sprint=fm.get("sprint") or None,
         )
 
     def load_by_id(self, idea_id: str) -> Idea | None:

@@ -819,6 +819,56 @@ def render() -> None:
                     _c1.markdown(f"`{idea.id}` {_clean_title[:38]}")
                     _c2.caption(f"{IMPACT_LABEL.get(idea.impacto, idea.impacto)} · {EFFORT_LABEL.get(idea.esforco, idea.esforco)}")
 
+        # ── Sprint burn ──────────────────────────────────────────────────────────
+        _sprint_ideas = [i for i in ideas_all if i.sprint]
+        if _sprint_ideas:
+            st.divider()
+            st.subheader("Sprint burn")
+            _sprint_map: dict[str, list] = {}
+            for _si in _sprint_ideas:
+                _sprint_map.setdefault(_si.sprint, []).append(_si)
+
+            _DONE_STATUSES  = {"concluído", "descartado"}
+            _ACTIVE_STATUSES = {"em desenvolvimento", "em validação", "aguardando desenvolvimento"}
+
+            for _sname in sorted(_sprint_map):
+                _slist  = _sprint_map[_sname]
+                _total  = len(_slist)
+                _done   = sum(1 for i in _slist if i.status in _DONE_STATUSES)
+                _active = sum(1 for i in _slist if i.status in _ACTIVE_STATUSES)
+                _remaining = _total - _done
+                _pct = _done / _total if _total else 0
+                _bugs = sum(1 for i in _slist for t in i.todos if t.get("is_bug") and not t.get("done"))
+
+                _bar_fill  = "#02B793" if _pct >= 1.0 else ("#F59E0B" if _pct >= 0.5 else "#64748B")
+                _done_clr  = "#02B793" if _pct >= 1.0 else _txt_clr
+                _bug_badge = (f' <span style="background:#FEE2E2;color:#B91C1C;font-size:8px;'
+                              f'font-weight:700;padding:1px 5px;border-radius:3px">'
+                              f'🐛{_bugs}</span>') if _bugs else ""
+
+                st.markdown(
+                    f'<div style="margin:8px 0 2px">'
+                    f'<span style="font-weight:700;font-size:0.9rem;color:{_txt_clr}">🏃 {_sname}</span>'
+                    f'&nbsp;&nbsp;<span style="color:#64748B;font-size:0.78rem">'
+                    f'{_done}/{_total} done &nbsp;·&nbsp; {_active} in progress &nbsp;·&nbsp; {_remaining} remaining'
+                    f'</span>{_bug_badge}</div>'
+                    f'<div style="background:{"#2D3748" if dark_mode else "#E2E8F0"};'
+                    f'border-radius:999px;height:6px;overflow:hidden;margin-bottom:6px">'
+                    f'<div style="width:{max(2, int(_pct*100))}%;height:100%;'
+                    f'background:{_bar_fill};border-radius:999px"></div></div>',
+                    unsafe_allow_html=True,
+                )
+                with st.expander(f"Ideas in {_sname}"):
+                    _shdr0, _shdr1, _shdr2 = st.columns([2, 5, 2])
+                    _shdr0.caption("ID"); _shdr1.caption("Title"); _shdr2.caption("Status")
+                    for _sii in sorted(_slist, key=lambda i: i.status):
+                        _c0, _c1, _c2 = st.columns([2, 5, 2])
+                        _c0.markdown(f"`{_sii.id}`")
+                        _clean = _sii.title.replace("**", "").strip()
+                        _c1.markdown(_clean[:55])
+                        _sicon = STATUS_COLOR.get(_sii.status, sdot("backlog"))
+                        _c2.markdown(_sicon + " " + STATUS_LABEL.get(_sii.status, _sii.status), unsafe_allow_html=True)
+
         st.divider()
         st.subheader("Period report")
         if st.button("📋 Generate period report"):

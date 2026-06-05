@@ -277,11 +277,13 @@ def render() -> None:
 
     # ── Filters ────────────────────────────────────────────────────────────────
     if st.session_state.pop("_clear_backlog_filters", False):
-        for _fk in ("flt_priority", "flt_status", "flt_area", "flt_text"):
+        for _fk in ("flt_priority", "flt_status", "flt_area", "flt_text", "flt_sprint"):
             st.session_state.pop(_fk, None)
 
-    _area_options = sorted({i.area for i in ideas if i.area})
-    col_f1, col_f2, col_f3, col_f4, col_f5 = st.columns([1.2, 1.6, 1.6, 2.8, 0.8], vertical_alignment="bottom")
+    _area_options   = sorted({i.area for i in ideas if i.area})
+    _sprint_options = sorted({i.sprint for i in ideas if i.sprint})
+
+    col_f1, col_f2, col_f3, col_f4, col_f5, col_f6 = st.columns([1.1, 1.4, 1.4, 1.2, 2.6, 0.7], vertical_alignment="bottom")
     with col_f1:
         filter_priority = st.multiselect("Priority", VALID_PRIORITIES, placeholder="All", format_func=lambda x: PRIORITY_LABEL.get(x, x), key="flt_priority")
     with col_f2:
@@ -289,9 +291,11 @@ def render() -> None:
     with col_f3:
         filter_area = st.multiselect("Area", _area_options, placeholder="All areas", format_func=lambda x: AREA_LABEL.get(x, x.title()), key="flt_area")
     with col_f4:
-        filter_text = st.text_input("Search", placeholder="Title, description, notes, to-dos or area...", key="flt_text")
+        filter_sprint = st.multiselect("Sprint", _sprint_options, placeholder="All sprints", key="flt_sprint")
     with col_f5:
-        _filters_active = bool(filter_priority or filter_status or filter_area or filter_text)
+        filter_text = st.text_input("Search", placeholder="Title, description, notes, to-dos or area...", key="flt_text")
+    with col_f6:
+        _filters_active = bool(filter_priority or filter_status or filter_area or filter_text or filter_sprint)
         if st.button("Clear", help="Reset all filters", use_container_width=True, disabled=not _filters_active):
             st.session_state["_clear_backlog_filters"] = True; st.rerun()
 
@@ -312,6 +316,7 @@ def render() -> None:
     if filter_status:   filtered = [i for i in filtered if i.status in filter_status]
     if filter_priority: filtered = [i for i in filtered if i.priority in filter_priority]
     if filter_area:     filtered = [i for i in filtered if i.area in filter_area]
+    if filter_sprint:   filtered = [i for i in filtered if i.sprint in filter_sprint]
     if filter_text:
         q = filter_text.lower()
         def _idea_matches(i):
@@ -428,6 +433,18 @@ def render() -> None:
                     new_esforco = st.selectbox("Effort", eff_opts,
                                                index=eff_opts.index(idea.esforco) if idea.esforco in eff_opts else 0,
                                                key=f"esforco_{idea.id}", format_func=lambda x: EFFORT_LABEL.get(x, x) if x else "")
+                    _sprint_opts = sorted({i.sprint for i in ideas if i.sprint})
+                    _sprint_cur = idea.sprint or ""
+                    _sprint_input = st.text_input(
+                        "Sprint",
+                        value=_sprint_cur,
+                        placeholder="e.g. S1, Jun/26 (leave empty for no sprint)",
+                        key=f"sprint_{idea.id}",
+                        help="Sprint or cycle name — used to group ideas and track burn",
+                    )
+                    if _sprint_opts and _sprint_cur not in _sprint_opts:
+                        st.caption("Existing sprints: " + ", ".join(f"`{s}`" for s in _sprint_opts))
+
                     _blocker_opts = [i.id for i in ideas if i.id != idea.id]
                     new_blocked_by = st.multiselect(
                         "Blocked by",
@@ -680,6 +697,7 @@ def render() -> None:
                         idea.impacto = new_impacto or None; idea.esforco = new_esforco or None
                         idea.description = new_desc; idea.notes = new_notes
                         idea.blocked_by = new_blocked_by
+                        idea.sprint = _sprint_input.strip() or None
                         idea.todos = updated_todos
                         idea.claude_tips = st.session_state.get(tips_key) or idea.claude_tips
                         store.save(idea)
