@@ -104,6 +104,53 @@ def test_analyze_all_empty_when_no_review_ideas():
     assert results == []
 
 
+def test_analyze_all_parallel_preserves_order():
+    """Results must be in the same order as input ideas regardless of completion order."""
+    ideas = [
+        _make_idea(id=f"idea-{i:03d}", status="em análise", title=f"Idea {i}")
+        for i in range(1, 6)
+    ]
+    mock_response = '{"decision": "approve", "reasoning": "OK.", "suggested_todos": []}'
+    with patch("agent.analysis_agent._call_ollama", return_value=mock_response):
+        results = analyze_all(ideas, max_workers=3)
+    assert [r["idea_id"] for r in results] == [f"idea-{i:03d}" for i in range(1, 6)]
+
+
+def test_analyze_all_worker_error_returns_unknown_for_that_idea():
+    """A worker crash should not drop the result — it should return 'unknown'."""
+    ideas = [
+        _make_idea(id="idea-ok",  status="em análise"),
+        _make_idea(id="idea-bad", status="em análise"),
+    ]
+    good = '{"decision": "approve", "reasoning": "OK.", "suggested_todos": []}'
+
+    call_count = {"n": 0}
+
+    def _mock_ollama(prompt, model, timeout=90):
+        call_count["n"] += 1
+        if call_count["n"] == 2:
+            raise RuntimeError("Simulated Ollama crash")
+        return good
+
+    with patch("agent.analysis_agent._call_ollama", side_effect=_mock_ollama):
+        results = analyze_all(ideas, max_workers=1)
+
+    assert len(results) == 2
+    decisions = {r["idea_id"]: r["decision"] for r in results}
+    assert decisions["idea-ok"] == "approve"
+    assert decisions["idea-bad"] == "unknown"
+
+
+def test_analyze_all_single_worker_matches_sequential():
+    """max_workers=1 should produce identical results to sequential execution."""
+    ideas = [_make_idea(id=f"idea-{i}", status="em análise") for i in range(3)]
+    mock_response = '{"decision": "adjust", "reasoning": "Needs work.", "suggested_todos": ["Fix X"]}'
+    with patch("agent.analysis_agent._call_ollama", return_value=mock_response):
+        results = analyze_all(ideas, max_workers=1)
+    assert all(r["decision"] == "adjust" for r in results)
+    assert len(results) == 3
+
+
 # ── build_report_section ──────────────────────────────────────────────────────
 
 def test_build_report_section_empty_on_no_analyses():

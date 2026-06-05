@@ -63,6 +63,12 @@ EXTRACTION_MODEL = os.environ.get("EXTRACTION_MODEL", "llama3.2:3b")
 # Date when Claude Pro adoption started — used to compute "Days since adoption"
 CLAUDE_PRO_START_DATE = os.environ.get("CLAUDE_PRO_START_DATE", "2026-05-11")
 
+# ── Analysis agent parallelism ────────────────────────────────────────────────
+# Number of concurrent Ollama calls for Phase 2/3 analysis.
+# Default 1 = sequential (safe for single-GPU/CPU Ollama). Bump to 2-4 when
+# running a faster backend or multiple Ollama instances.
+ANALYSIS_WORKERS = int(os.environ.get("ANALYSIS_WORKERS", "1"))
+
 # ── Optional password gate ────────────────────────────────────────────────────
 # Format: "pbkdf2$<hex-salt>$<hex-hash>" — set via Settings page or env var.
 # Empty string means gate is disabled (default).

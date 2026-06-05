@@ -17,12 +17,13 @@ import json
 import re
 import sys
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import EXTRACTION_MODEL, OLLAMA_BASE_URL
+from config import ANALYSIS_WORKERS, EXTRACTION_MODEL, OLLAMA_BASE_URL
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -125,23 +126,56 @@ def analyze_idea(idea, model: str | None = None) -> dict:
     }
 
 
-def analyze_all(ideas: list, model: str | None = None) -> list[dict]:
+def analyze_all(ideas: list, model: str | None = None, max_workers: int | None = None) -> list[dict]:
     """
     Analyze all ideas with status 'em análise'.
-    Returns list of analysis dicts, one per idea.
+
+    Phase 3 parallel orchestrator: uses ThreadPoolExecutor so multiple ideas
+    can be submitted to Ollama concurrently. With max_workers=1 (default for
+    local single-GPU Ollama) this is equivalent to sequential execution.
+    Increase ANALYSIS_WORKERS in config.py / env when a faster backend is
+    available. Results are always returned in the original idea order.
     """
     under_review = [i for i in ideas if i.status == "em análise"]
     if not under_review:
         return []
 
-    results = []
-    for idea in under_review:
-        print(f"[analysis_agent] Analyzing {idea.id}: {idea.title[:50]}...")
+    workers = max_workers if max_workers is not None else ANALYSIS_WORKERS
+    workers = max(1, workers)
+
+    print(f"[analysis_agent] Orchestrating {len(under_review)} analysis task(s) "
+          f"with {workers} worker(s)...")
+
+    # Map future → original index so we can restore order
+    results: list[dict | None] = [None] * len(under_review)
+
+    def _task(idx: int, idea):
+        print(f"[analysis_agent] [{idx+1}/{len(under_review)}] {idea.id}: {idea.title[:50]}...")
         r = analyze_idea(idea, model)
-        results.append(r)
         icon = {"approve": "✅", "reject": "❌", "adjust": "🔄"}.get(r["decision"], "❓")
-        print(f"[analysis_agent]   → {icon} {r['decision']}")
-    return results
+        print(f"[analysis_agent]   → {icon} {r['decision']} ({idea.id})")
+        return idx, r
+
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(_task, i, idea): i for i, idea in enumerate(under_review)}
+        for future in as_completed(futures):
+            try:
+                idx, r = future.result()
+                results[idx] = r
+            except Exception as exc:
+                idx = futures[future]
+                idea = under_review[idx]
+                print(f"[analysis_agent] Worker error for {idea.id}: {exc}")
+                results[idx] = {
+                    "idea_id":        idea.id,
+                    "title":          idea.title,
+                    "decision":       "unknown",
+                    "reasoning":      f"Worker error: {exc}",
+                    "suggested_todos": [],
+                    "raw_ok":         False,
+                }
+
+    return [r for r in results if r is not None]
 
 
 # ── Report section builder ────────────────────────────────────────────────────
