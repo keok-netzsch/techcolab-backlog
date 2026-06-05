@@ -63,6 +63,11 @@ EXTRACTION_MODEL = os.environ.get("EXTRACTION_MODEL", "llama3.2:3b")
 # Date when Claude Pro adoption started — used to compute "Days since adoption"
 CLAUDE_PRO_START_DATE = os.environ.get("CLAUDE_PRO_START_DATE", "2026-05-11")
 
+# ── Optional password gate ────────────────────────────────────────────────────
+# Format: "pbkdf2$<hex-salt>$<hex-hash>" — set via Settings page or env var.
+# Empty string means gate is disabled (default).
+APP_PASSPHRASE_HASH = os.environ.get("APP_PASSPHRASE_HASH", "")
+
 # ── Ingestion behaviour ────────────────────────────────────────────────────────
 # Tag appended to notes that have been fully ingested — do NOT remove manually.
 INGESTED_TAG = "<!-- techcolab:ingested -->"

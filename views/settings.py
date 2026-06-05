@@ -1,11 +1,15 @@
 """views/settings.py — Settings page."""
 
+import hashlib
 import json
+import os
+import secrets
 from pathlib import Path
 
 import streamlit as st
 
 from config import (
+    APP_PASSPHRASE_HASH,
     CLAUDE_PRO_START_DATE,
     EXTRACTION_MODEL,
     OLLAMA_BASE_URL,
@@ -47,6 +51,62 @@ def render() -> None:
         key="st_model",
     )
 
+    # ── Password gate ─────────────────────────────────────────────────────────
+    st.divider()
+    st.subheader("🔒 Password Gate (optional)")
+    st.caption(
+        "When set, the app requires a passphrase before showing any content. "
+        "Recommended when accessing remotely via Tailscale. Off by default."
+    )
+
+    _gate_active = bool(_st_overrides.get("APP_PASSPHRASE_HASH", APP_PASSPHRASE_HASH))
+    if _gate_active:
+        st.success("Gate is **active**. Enter a new passphrase below to change it, or clear to disable.")
+    else:
+        st.info("Gate is **disabled**. Set a passphrase below to enable it.")
+
+    _new_pass = st.text_input(
+        "New passphrase",
+        type="password",
+        placeholder="Leave empty to disable",
+        key="st_gate_pass",
+    )
+    _confirm_pass = st.text_input(
+        "Confirm passphrase",
+        type="password",
+        placeholder="Repeat passphrase",
+        key="st_gate_pass2",
+    )
+
+    if st.button("Set passphrase", key="st_gate_set"):
+        if _new_pass != _confirm_pass:
+            st.error("Passphrases do not match.")
+        elif not _new_pass:
+            _st_overrides.pop("APP_PASSPHRASE_HASH", None)
+            _ST_JSON.write_text(
+                json.dumps({
+                    "OLLAMA_BASE_URL": _st_overrides.get("OLLAMA_BASE_URL", OLLAMA_BASE_URL),
+                    "EXTRACTION_MODEL": _st_overrides.get("EXTRACTION_MODEL", EXTRACTION_MODEL),
+                    "CLAUDE_PRO_START_DATE": _st_overrides.get("CLAUDE_PRO_START_DATE", CLAUDE_PRO_START_DATE),
+                }, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            st.success("Gate disabled. Restart the app to apply.")
+        else:
+            _salt = secrets.token_bytes(32)
+            _hashed = hashlib.pbkdf2_hmac("sha256", _new_pass.encode(), _salt, 200_000)
+            _st_overrides["APP_PASSPHRASE_HASH"] = f"pbkdf2${_salt.hex()}${_hashed.hex()}"
+            _ST_JSON.write_text(
+                json.dumps({
+                    "OLLAMA_BASE_URL": _st_overrides.get("OLLAMA_BASE_URL", OLLAMA_BASE_URL),
+                    "EXTRACTION_MODEL": _st_overrides.get("EXTRACTION_MODEL", EXTRACTION_MODEL),
+                    "CLAUDE_PRO_START_DATE": _st_overrides.get("CLAUDE_PRO_START_DATE", CLAUDE_PRO_START_DATE),
+                    "APP_PASSPHRASE_HASH": _st_overrides["APP_PASSPHRASE_HASH"],
+                }, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            st.success("Passphrase saved. Restart the app to apply.")
+
     # ── Claude Pro ────────────────────────────────────────────────────────────
     st.divider()
     st.subheader("📊 Claude Pro Dashboard")
@@ -81,6 +141,10 @@ def render() -> None:
                 "EXTRACTION_MODEL":      _st_model.strip(),
                 "CLAUDE_PRO_START_DATE": _st_cp_start.strip(),
             }
+            # Preserve passphrase hash if already set
+            _existing_hash = _st_overrides.get("APP_PASSPHRASE_HASH", "")
+            if _existing_hash:
+                _new_overrides["APP_PASSPHRASE_HASH"] = _existing_hash
             _ST_JSON.write_text(
                 json.dumps(_new_overrides, indent=2, ensure_ascii=False),
                 encoding="utf-8",
@@ -103,4 +167,5 @@ def render() -> None:
         "EXTRACTION_MODEL":      EXTRACTION_MODEL,
         "CLAUDE_PRO_START_DATE": CLAUDE_PRO_START_DATE,
         "TECHCOLAB_VAULT":       str(VAULT_ROOT),
+        "APP_PASSPHRASE_HASH":   "set (hash hidden)" if APP_PASSPHRASE_HASH else "disabled",
     })

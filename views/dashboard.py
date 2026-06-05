@@ -96,7 +96,7 @@ def _compute_cc_stats() -> dict:
                             if not _ts:
                                 continue
                             _dobj = datetime.fromisoformat(_ts.replace("Z", "+00:00"))
-                            _d    = _dobj.date()
+                            _d    = _dobj.astimezone().date()
                             _etype = _e.get("type", "")
                             if _etype == "user":
                                 # Total messages (matches CC widget): every user turn,
@@ -107,10 +107,11 @@ def _compute_cc_stats() -> dict:
                                 if isinstance(_cnt, str) and _cnt.strip():
                                     # Typed prompts only — drives heatmap / streaks / peak hour.
                                     msgs_by_day[_d] += 1
-                                    msgs_by_hour[_dobj.hour] += 1
+                                    _local_dobj = _dobj.astimezone()
+                                    msgs_by_hour[_local_dobj.hour] += 1
                                     if _d not in msgs_by_day_hour:
                                         msgs_by_day_hour[_d] = Counter()
-                                    msgs_by_day_hour[_d][_dobj.hour] += 1
+                                    msgs_by_day_hour[_d][_local_dobj.hour] += 1
                             elif _etype == "assistant":
                                 events_by_day[_d] += 1
                                 _mod = _e.get("message", {}).get("model", "")
