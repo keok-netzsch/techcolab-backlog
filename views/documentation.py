@@ -132,6 +132,9 @@ Anotações livres.
 | `impacto` | `alta`, `média`, `baixa` |
 | `esforco` | `alto`, `médio`, `baixo` |
 | `area` | `produto`, `dados & IA`, `automação`, `gestão`, `governança`, `infraestrutura`, `comunicação`, `business` |
+| `sprint` | Free text — e.g. `S1`, `Jun/26`. Groups ideas for burn tracking. |
+| `okr_ref` | Free text — e.g. `Pedro O1-KR2`. Links idea to an OKR objective/key result. |
+| `blocked_by` | YAML list of idea IDs — e.g. `[idea-003, idea-007]`. |
 """)
 
     st.divider()
