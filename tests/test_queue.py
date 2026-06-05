@@ -31,7 +31,7 @@ def test_queue_transcribes_and_routes_person(tmp_path, monkeypatch):
         wav="2026-06-04_11-00_Ana-Leite.wav", transcript=str(tpath),
         kind="person", target="Ana-Leite", lang="pt", date="2026-06-04", time="11-00",
     )
-    monkeypatch.setattr(record, "transcribe", lambda w, language="pt": "transcricao fake")
+    monkeypatch.setattr(record, "transcribe", lambda w, language="pt": ("transcricao fake", "pt"))
     routed = {}
     monkeypatch.setattr(process, "cmd_transcript",
                         lambda target, t, date, structured=False, lang="pt": routed.update(target=target))
@@ -53,7 +53,7 @@ def test_queue_routes_note_and_runs_coach_for_english(tmp_path, monkeypatch):
         wav="2026-06-04_12-00_nota-avulsa.wav", transcript=str(tpath),
         kind="note", target=None, lang="en", date="2026-06-04", time="12-00", coach=True,
     )
-    monkeypatch.setattr(record, "transcribe", lambda w, language="pt": "hello this is english")
+    monkeypatch.setattr(record, "transcribe", lambda w, language="pt": ("hello this is english", "en"))
     monkeypatch.setattr(process, "cmd_note", lambda *a, **k: None)
     coach_called = {}
     monkeypatch.setattr(process.subprocess, "run",

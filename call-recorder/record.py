@@ -65,7 +65,11 @@ def prune_old_recordings(directory: str, days: int = RECORDINGS_RETENTION_DAYS) 
     return removed
 
 
-def transcribe(audio_path: str, language: str = LANGUAGE) -> str:
+def transcribe(audio_path: str, language: str | None = LANGUAGE) -> tuple[str, str]:
+    """Transcribe audio and return (text, detected_language).
+
+    Pass language=None to let Whisper auto-detect the language.
+    """
     from faster_whisper import WhisperModel
     print(f"[INFO] Carregando modelo Whisper ({MODEL_SIZE})...")
     # 'medium' is bundled locally (model/); other sizes (e.g. 'small') download by
@@ -81,7 +85,8 @@ def transcribe(audio_path: str, language: str = LANGUAGE) -> str:
     for seg in segments:
         ts = f"[{seg.start:05.1f}s]"
         lines.append(f"{ts} {seg.text.strip()}")
-    return "\n".join(lines)
+    detected = getattr(info, "language", None) or (language or "pt")
+    return "\n".join(lines), detected
 
 
 def main():
@@ -98,7 +103,7 @@ def main():
                         help="Apenas grava e salva o .wav (sem transcrever) — para fila/processamento posterior")
     args = parser.parse_args()
 
-    LANGUAGE_EFFECTIVE = args.language
+    LANGUAGE_EFFECTIVE = None if args.language == "auto" else args.language
 
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -146,10 +151,11 @@ def main():
         print(f"WAV_PATH:{wav_path}")
         return
 
-    transcript = transcribe(wav_path, language=LANGUAGE_EFFECTIVE)
+    transcript, detected_lang = transcribe(wav_path, language=LANGUAGE_EFFECTIVE)
+    print(f"[INFO] Idioma detectado: {detected_lang}")
 
     print("\n" + "=" * 60)
-    print("TRANSCRIÇÃO")
+    print("TRANSCRICAO")
     print("=" * 60)
     print(transcript)
     print("=" * 60)
@@ -157,10 +163,16 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(transcript)
 
-    print(f"\n[INFO] Transcrição salva em: {out_path}")
-    print(f"[INFO] Arquivo: {out_path}")
+    # Write language sidecar so the PS1 orchestrator can read it without parsing stdout
+    lang_sidecar = out_path + ".lang"
+    with open(lang_sidecar, "w", encoding="utf-8") as f:
+        f.write(detected_lang)
 
-    # Sinaliza caminho para o orquestrador (stdout última linha)
+    print(f"\n[INFO] Transcricao salva em: {out_path}")
+    print(f"[INFO] Arquivo: {out_path}")
+    print(f"DETECTED_LANG:{detected_lang}")
+
+    # Sinaliza caminho para o orquestrador (stdout ultima linha)
     print(f"TRANSCRIPT_PATH:{out_path}")
 
 

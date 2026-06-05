@@ -654,7 +654,9 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
         try:
             import record  # lazy: loads Whisper only when transcribing
             lang = job.get("lang", "pt")
-            transcript_text = record.transcribe(str(wav), language=lang)
+            whisper_lang = None if lang == "auto" else lang
+            transcript_text, detected_lang = record.transcribe(str(wav), language=whisper_lang)
+            effective_lang = detected_lang if lang == "auto" else lang
             tpath = Path(job["transcript"])
             tpath.parent.mkdir(parents=True, exist_ok=True)
             tpath.write_text(transcript_text, encoding="utf-8")
@@ -662,13 +664,15 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
             kind, date = job["kind"], job["date"]
             if kind == "person":
                 cmd_transcript(job["target"], str(tpath), date,
-                               structured=job.get("structured", False), lang=lang)
+                               structured=job.get("structured", False), lang=effective_lang)
             elif kind == "manager":
-                cmd_manager(job["target"], str(tpath), date, lang=lang)
+                cmd_manager(job["target"], str(tpath), date, lang=effective_lang)
             elif kind == "note":
-                cmd_note(str(tpath), date, lang=lang, time_str=job.get("time"))
+                cmd_note(str(tpath), date, lang=effective_lang, time_str=job.get("time"))
 
-            if job.get("coach"):  # English session → also run the coach
+            # Run coach if: explicit coach flag OR auto-detected English
+            run_coach = job.get("coach") or (lang == "auto" and effective_lang == "en")
+            if run_coach:
                 coach_py = str(Path(__file__).parent / "coach.py")
                 subprocess.run([sys.executable, coach_py, "--transcript", str(tpath)], check=False)
 

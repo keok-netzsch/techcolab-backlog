@@ -5,6 +5,7 @@ from datetime import date, timedelta
 
 import streamlit as st
 
+from backlog.cache import get_store, rebuild_index
 from components.ui import stat_grid
 from config import TEAM_DIR
 
@@ -190,8 +191,18 @@ def render() -> None:
                 _open_ai = [a for a in _lat["actions"] if not a["done"]]
                 if _open_ai:
                     st.markdown("**Open action items:**")
-                    for _a in _open_ai[:6]:
-                        st.markdown(f"  - ☐ {_a['text']}")
+                    for _ai_idx, _a in enumerate(_open_ai[:6]):
+                        _ai_col, _ai_btn_col = st.columns([10, 1], vertical_alignment="center")
+                        _ai_col.markdown(f"  - ☐ {_a['text']}")
+                        _btn_key = f"ai_to_bl_{_tm['folder']}_{_ai_idx}"
+                        if _ai_btn_col.button("➕", key=_btn_key, help="Add to backlog"):
+                            _new = get_store().create(
+                                title=_a["text"],
+                                description=f"Action item from 1:1 with {_tm['name']} on {_lat['date']}.",
+                                origin=f"team/{_tm['folder']}/1on1",
+                            )
+                            rebuild_index()
+                            st.toast(f"Added to backlog: {_new.id}", icon="✅")
             else:
                 st.caption("No 1:1 sessions recorded.")
 

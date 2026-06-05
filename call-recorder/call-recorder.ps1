@@ -68,12 +68,12 @@ function New-Stakeholder {
 function Invoke-Recording {
     param([string]$TransFile, [string]$LangFlag)
     Write-Host ""
-    Write-Host "  [REC] Gravando (idioma: $LangFlag)..." -ForegroundColor Red
+    Write-Host "  [REC] Gravando (idioma: auto-detect)..." -ForegroundColor Red
     Write-Host "  [REC] Feche a janela Python (Ctrl+C nela) para parar." -ForegroundColor Red
     Write-Host ""
     $py   = Join-Path $SCRIPT_DIR "record.py"
     $proc = Start-Process -FilePath $PYTHON `
-        -ArgumentList "`"$py`" --language $LangFlag --output `"$TransFile`"" `
+        -ArgumentList "`"$py`" --language auto --output `"$TransFile`"" `
         -PassThru -WindowStyle Normal
     $proc.WaitForExit()
     if ($proc.ExitCode -ne 0) {
@@ -133,31 +133,33 @@ Write-Host "  ================================" -ForegroundColor DarkCyan
 
 Remove-OldTranscripts
 
-# 1) Idioma
-$langIdx  = Show-Menu -Title "Idioma da conversa?" -Options @("English", "Portugues")
-$langFlag = if ($langIdx -eq 0) { "en" } else { "pt" }
+# Build unified person list: [team members] + [stakeholders (stk)] + [Outro]
+$teamPeople  = @(Get-VaultFolders "Team")
+$stkPeople   = @(Get-VaultFolders "Stakeholders")
+if ($teamPeople.Count -eq 0 -and $stkPeople.Count -eq 0) {
+    Write-Host "  [ERROR] Nenhum contato encontrado em Team/ ou Stakeholders/." -ForegroundColor Red
+    Read-Host "  ENTER"; exit 1
+}
 
-# 2) Categoria
-$catIdx = Show-Menu -Title "Categoria?" -Options @("Time (liderado)", "Stakeholder", "Outro (nota avulsa)")
+$combined = @()
+$combined += $teamPeople   | ForEach-Object { [pscustomobject]@{ Label=$_.Name;   Folder=$_.Name -replace ' ','-'; Kind="person"  } }
+$combined += $stkPeople    | ForEach-Object { [pscustomobject]@{ Label="$($_.Name) (stk)"; Folder=$_.Folder; Kind="manager" } }
+$combined += [pscustomobject]@{ Label="Outro (nota avulsa)"; Folder=""; Kind="note" }
+
+$selIdx = Show-Menu -Title "Com quem?" -Options @($combined | ForEach-Object { $_.Label })
+$sel    = $combined[$selIdx]
+Write-Host "  -> $($sel.Label)" -ForegroundColor Green
 
 $date_str  = Get-Date -Format "yyyy-MM-dd"
 $time_str  = Get-Date -Format "HH-mm"
 $trans_dir = Join-Path $SCRIPT_DIR "transcripts"
 New-Item -ItemType Directory -Force -Path $trans_dir | Out-Null
 
-# Resolve target (folder + processing action) per category
-$folder       = $null
-$structured   = $false
-$process_args = $null
+$kind       = $sel.Kind
+$folder     = $sel.Folder
+$structured = $false
 
-if ($catIdx -eq 0) {
-    # ----- TIME -----
-    $people = @(Get-VaultFolders "Team")
-    if ($people.Count -eq 0) { Write-Host "  [ERROR] Nenhum liderado em Team/." -ForegroundColor Red; Read-Host "  ENTER"; exit 1 }
-    $idx    = Show-Menu -Title "Com quem do time?" -Options @($people | ForEach-Object { $_.Name })
-    $folder = $people[$idx].Folder
-    Write-Host "  -> $($people[$idx].Name)" -ForegroundColor Green
-
+if ($kind -eq "person") {
     $typeIdx    = Show-Menu -Title "Tipo de reuniao" -Options @("Regular (pauta livre)", "Estruturada (mensal)")
     $structured = $typeIdx -eq 1
     if ($structured) {
@@ -179,41 +181,36 @@ if ($catIdx -eq 0) {
         Write-Host ""
         Read-Host "  Perguntas exibidas. ENTER quando pronto para gravar"
     }
-
-    $trans_file   = Join-Path $trans_dir "${date_str}_${time_str}_${folder}.txt"
-    $process_args = @("transcript", "--person", $folder, "--transcript", $trans_file, "--date", $date_str, "--lang", $langFlag)
-    if ($structured) { $process_args += "--structured" }
-
-} elseif ($catIdx -eq 1) {
-    # ----- STAKEHOLDER -----
-    $stk     = @(Get-VaultFolders "Stakeholders")
-    $options = @($stk | ForEach-Object { $_.Name }) + "[+] Criar novo stakeholder"
-    $idx     = Show-Menu -Title "Qual stakeholder?" -Options $options
-    if ($idx -eq $stk.Count) {
-        $newName = Read-Host "  Nome do novo stakeholder"
-        if (-not $newName.Trim()) { Write-Host "  [ERROR] Nome vazio." -ForegroundColor Red; Read-Host "  ENTER"; exit 1 }
-        $folder = New-Stakeholder $newName
-    } else {
-        $folder = $stk[$idx].Folder
-        Write-Host "  -> $($stk[$idx].Name)" -ForegroundColor Green
-    }
-    $trans_file   = Join-Path $trans_dir "${date_str}_${time_str}_${folder}.txt"
-    $process_args = @("manager", "--manager", $folder, "--transcript", $trans_file, "--date", $date_str, "--lang", $langFlag)
-
-} else {
-    # ----- OUTRO (nota avulsa) -----
-    Write-Host "  -> Nota avulsa (Inbox, para triar depois)" -ForegroundColor Green
-    $trans_file   = Join-Path $trans_dir "${date_str}_${time_str}_nota-avulsa.txt"
-    $process_args = @("note", "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", $langFlag)
 }
 
-# Metadata for the queue job
-$kind     = @("person", "manager", "note")[$catIdx]
-$target   = if ($catIdx -eq 2) { "" } else { $folder }
+if ($kind -eq "manager" -and $stkPeople.Count -gt 0) {
+    # Offer to create a new stakeholder if selection was the (stk) option not yet in vault
+    # (New-Stakeholder path kept for explicit [+] scenario via direct script use if needed)
+    if (-not (Test-Path (Join-Path (Join-Path $VAULT "Stakeholders") $folder))) {
+        Write-Host "  [WARN] Pasta do stakeholder nao encontrada: Stakeholders\$folder" -ForegroundColor Yellow
+    }
+}
+
+$trans_file = switch ($kind) {
+    "person"  { Join-Path $trans_dir "${date_str}_${time_str}_${folder}.txt" }
+    "manager" { Join-Path $trans_dir "${date_str}_${time_str}_${folder}.txt" }
+    default   { Join-Path $trans_dir "${date_str}_${time_str}_nota-avulsa.txt" }
+}
+
+$process_args = switch ($kind) {
+    "person"  { @("transcript", "--person",  $folder, "--transcript", $trans_file, "--date", $date_str, "--lang", "pt") }
+    "manager" { @("manager",    "--manager", $folder, "--transcript", $trans_file, "--date", $date_str, "--lang", "pt") }
+    default   { @("note", "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
+}
+if ($structured) { $process_args += "--structured" }
+
+# Metadata for the queue job (lang=auto: Whisper detects; coach decided by process.py)
+$langFlag = "auto"
+$target   = $folder
 $base     = [System.IO.Path]::GetFileNameWithoutExtension($trans_file)
 $rec_dir  = Join-Path $SCRIPT_DIR "recordings"
 $wav_path = Join-Path $rec_dir "$base.wav"
-$coach    = $langFlag -eq "en"
+$coach    = $false  # process.py decides from detected language when lang=auto
 
 # 3) Quando processar? (enfileirar = nao trava; processa as 17h no agente diario)
 $pmode = Show-Menu -Title "Quando processar?" -Options @("Enfileirar (processa as 17h, nao trava agora)", "Processar agora (lento)")
@@ -222,12 +219,12 @@ if ($pmode -eq 0) {
     # ----- FILA: grava so o .wav (sem Whisper) e enfileira -----
     New-Item -ItemType Directory -Force -Path $rec_dir | Out-Null
     Write-Host ""
-    Write-Host "  [REC] Gravando (idioma: $langFlag) - so audio, sem transcrever agora..." -ForegroundColor Red
+    Write-Host "  [REC] Gravando (idioma: auto-detect) - so audio, sem transcrever agora..." -ForegroundColor Red
     Write-Host "  [REC] Feche a janela Python (Ctrl+C nela) para parar." -ForegroundColor Red
     Write-Host ""
     $py_script = Join-Path $SCRIPT_DIR "record.py"
     $proc = Start-Process -FilePath $PYTHON `
-        -ArgumentList "`"$py_script`" --language $langFlag --record-only --output `"$trans_file`"" `
+        -ArgumentList "`"$py_script`" --language auto --record-only --output `"$trans_file`"" `
         -PassThru -WindowStyle Normal
     $proc.WaitForExit()
     if ($proc.ExitCode -ne 0 -or -not (Test-Path $wav_path)) {
@@ -239,11 +236,11 @@ if ($pmode -eq 0) {
         transcript = $trans_file
         kind       = $kind
         target     = $target
-        lang       = $langFlag
+        lang       = "auto"
         date       = $date_str
         time       = $time_str
         structured = [bool]$structured
-        coach      = [bool]$coach
+        coach      = $false
     }
     $job_path = Join-Path $rec_dir "$base.job.json"
     $enc = New-Object System.Text.UTF8Encoding($false)
@@ -260,8 +257,20 @@ if (-not (Invoke-Recording -TransFile $trans_file -LangFlag $langFlag)) {
     Read-Host "  ENTER para sair"; exit 1
 }
 
+# Read detected language from sidecar written by record.py
+$detectedLang = "pt"
+$langSidecar  = $trans_file + ".lang"
+if (Test-Path $langSidecar) {
+    $detectedLang = (Get-Content $langSidecar -Raw).Trim()
+    Remove-Item $langSidecar -Force
+}
+# Patch --lang in process_args with the detected value
+$process_args = $process_args | ForEach-Object { $_ }
+$li = [Array]::IndexOf($process_args, "--lang")
+if ($li -ge 0 -and $li + 1 -lt $process_args.Count) { $process_args[$li + 1] = $detectedLang }
+
 Write-Host ""
-Write-Host "  [Ollama] Processando transcricao..." -ForegroundColor Yellow
+Write-Host "  [Ollama] Processando transcricao (idioma detectado: $detectedLang)..." -ForegroundColor Yellow
 $process_py = Join-Path $SCRIPT_DIR "process.py"
 & $PYTHON $process_py @process_args
 $procExit = $LASTEXITCODE
@@ -271,7 +280,7 @@ if ($procExit -ne 0) {
     Read-Host "  ENTER para sair"; exit 1
 }
 
-if ($langFlag -eq "en") {
+if ($detectedLang -eq "en") {
     Invoke-Coach -TransFile $trans_file
 }
 
