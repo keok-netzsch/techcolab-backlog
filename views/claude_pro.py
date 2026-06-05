@@ -9,14 +9,8 @@ import streamlit as st
 from config import CLAUDE_PRO_START_DATE
 
 _REPORTS_DIR = Path(__file__).parent.parent / "reports"
-_TIMELINE_JSON = _REPORTS_DIR / "claude-pro-timeline.json"
-_DATA_JSON     = _REPORTS_DIR / "claude-pro-data.json"
+_DATA_JSON = _REPORTS_DIR / "claude-pro-data.json"
 
-
-def _fmt_date(iso: str) -> str:
-    _m = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
-    _dt = date.fromisoformat(iso)
-    return f"{_dt.day} {_m[_dt.month-1]} {_dt.year}"
 
 
 def render() -> None:
@@ -44,27 +38,6 @@ def render() -> None:
 
     _cp_start = date.fromisoformat(CLAUDE_PRO_START_DATE)
     _cp_days  = (date.today() - _cp_start).days
-
-    # ── Auto-update timeline once per day on first page load ──────────────────
-    _cp_auto_key = f"cp_timeline_updated_{date.today().isoformat()}"
-    if _cp_auto_key not in st.session_state:
-        st.session_state[_cp_auto_key] = True
-        import threading
-        def _bg_update():
-            try:
-                from agent.daily_report import _update_claude_pro_report
-                _update_claude_pro_report()
-            except Exception:
-                pass
-        threading.Thread(target=_bg_update, daemon=True).start()
-
-    # ── Load timeline ─────────────────────────────────────────────────────────
-    _cp_timeline: list = []
-    if _TIMELINE_JSON.exists():
-        try:
-            _cp_timeline = json.loads(_TIMELINE_JSON.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, ValueError):
-            st.warning("⚠ Timeline file is temporarily unavailable (write in progress). Reload to retry.")
 
     # ── Page-scoped CSS ───────────────────────────────────────────────────────
     st.markdown("""<style>
@@ -124,22 +97,6 @@ def render() -> None:
     .cp-badge-draft{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.08em;
                     text-transform:uppercase;padding:3px 9px;border-radius:999px;
                     background:rgba(99,102,241,.1);color:#6366f1;display:inline-block;margin-right:4px}
-    .cp-tl-wrap{position:relative;padding-left:28px;margin-top:.5rem}
-    .cp-tl-wrap::before{content:'';position:absolute;left:0;top:8px;bottom:0;width:1px;
-                         background:rgba(76,77,88,.12)}
-    .cp-tl-item{position:relative;margin-bottom:22px}
-    .cp-tl-item::before{content:'';position:absolute;left:-32px;top:6px;width:8px;height:8px;
-                         border-radius:50%;background:#02B793;border:2px solid #F9FAFB;
-                         box-shadow:0 0 0 1px #02B793}
-    .cp-tl-latest::before{width:10px;height:10px;left:-33px;top:5px;
-                           background:linear-gradient(135deg,#02B793,#0AD4A8);
-                           box-shadow:0 0 0 1px #02B793,0 0 8px rgba(2,183,147,.4)}
-    .cp-tl-date{font-family:'DM Mono',monospace;font-size:11px;color:rgba(76,77,88,.55);margin-bottom:3px}
-    .cp-tl-title{font-weight:500;font-size:14px;color:#2A2A2A;margin-bottom:3px}
-    .cp-tl-detail{font-size:13px;color:rgba(76,77,88,.55)}
-    .cp-tl-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;font-weight:500;
-                 letter-spacing:.1em;text-transform:uppercase;background:rgba(2,183,147,.09);
-                 color:#02B793;padding:2px 7px;border-radius:999px;margin-left:6px;vertical-align:middle}
     .cp-tools-tbl{width:100%;border-collapse:collapse;font-size:14px;margin-top:.5rem}
     .cp-tools-tbl th{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.12em;
                      text-transform:uppercase;color:rgba(76,77,88,.55);text-align:left;
@@ -183,32 +140,41 @@ def render() -> None:
             with st.spinner("Checking..."):
                 ok = _update_claude_pro_report()
             if ok:
-                st.session_state.pop(f"cp_timeline_updated_{date.today().isoformat()}", None)
                 st.rerun()
             else:
                 st.toast("Already up to date.", icon="✅")
 
     # ── Data freshness indicator ──────────────────────────────────────────────
     if _cp_data_updated:
-        _upd_clr = "#475569" if dark_mode else "rgba(76,77,88,.4)"
-        st.markdown(
-            f'<p style="font-size:11px;font-family:\'DM Mono\',monospace;color:{_upd_clr};'
-            f'margin-bottom:.5rem">Data last updated: {_cp_data_updated} · '
-            f'auto-refreshed daily at 08:00 by the agent</p>',
-            unsafe_allow_html=True,
-        )
+        try:
+            _upd_date = date.fromisoformat(_cp_data_updated[:10])
+            _upd_age  = (date.today() - _upd_date).days
+        except ValueError:
+            _upd_age = 0
+        if _upd_age > 2:
+            st.markdown(
+                f'<div style="margin-bottom:.75rem;padding:.45rem .75rem;border-radius:5px;'
+                f'border-left:3px solid #EF4444;background:rgba(239,68,68,.07)">'
+                f'<span style="font-size:.75rem;color:#EF4444;font-weight:600">DATA STALE</span>'
+                f'<span style="font-size:.75rem;color:#EF4444"> — last updated {_upd_age}d ago '
+                f'({_cp_data_updated[:10]}). Run the daily agent or click Refresh.</span></div>',
+                unsafe_allow_html=True,
+            )
+        else:
+            _upd_clr = "#475569" if dark_mode else "rgba(76,77,88,.4)"
+            st.markdown(
+                f'<p style="font-size:11px;font-family:\'DM Mono\',monospace;color:{_upd_clr};'
+                f'margin-bottom:.5rem">Data last updated: {_cp_data_updated} · '
+                f'auto-refreshed daily at 08:00 by the agent</p>',
+                unsafe_allow_html=True,
+            )
 
     # ── Overview stats ────────────────────────────────────────────────────────
     st.markdown('<div class="cp-sect-lbl">Overview</div>', unsafe_allow_html=True)
-    _cp_total_init  = len(_CP_ACTIVE) + len(_CP_COMPLETED)
-    _cp_active_days = len({e["date"] for e in _cp_timeline}) if _cp_timeline else 0
-    _cp_last_iso    = max((e["date"] for e in _cp_timeline), default=None) if _cp_timeline else None
-    _cp_last_ago    = (date.today() - date.fromisoformat(_cp_last_iso)).days if _cp_last_iso else None
-    _cp_last_lbl    = ("today" if _cp_last_ago == 0
-                       else f"{_cp_last_ago}d ago" if _cp_last_ago is not None else "—")
-    _cp_pct         = int(_cp_total_init and (len(_CP_COMPLETED) / _cp_total_init * 100))
-    _cp_bar_clr     = "#02B793" if not dark_mode else "#0AD4A8"
-    _cp_bar_bg      = "rgba(2,183,147,.12)" if not dark_mode else "rgba(10,212,168,.08)"
+    _cp_total_init = len(_CP_ACTIVE) + len(_CP_COMPLETED)
+    _cp_pct        = int(_cp_total_init and (len(_CP_COMPLETED) / _cp_total_init * 100))
+    _cp_bar_clr    = "#02B793" if not dark_mode else "#0AD4A8"
+    _cp_bar_bg     = "rgba(2,183,147,.12)" if not dark_mode else "rgba(10,212,168,.08)"
 
     st.markdown(f"""<div class="cp-stat-strip">
       <div class="cp-stat-box"><div class="cp-stat-num">{_cp_total_init}</div><div class="cp-stat-lbl">Total initiatives</div></div>
@@ -220,8 +186,8 @@ def render() -> None:
         </div>
         <div style="font-size:10px;color:rgba(76,77,88,.4);margin-top:3px;font-family:'DM Mono',monospace">{_cp_pct}% done</div>
       </div>
-      <div class="cp-stat-box"><div class="cp-stat-num">{_cp_active_days}</div><div class="cp-stat-lbl">Active days</div></div>
-      <div class="cp-stat-box"><div class="cp-stat-num">{_cp_last_lbl}</div><div class="cp-stat-lbl">Last active</div></div>
+      <div class="cp-stat-box"><div class="cp-stat-num">{len(_CP_ACTIVE)}</div><div class="cp-stat-lbl">In progress</div></div>
+      <div class="cp-stat-box"><div class="cp-stat-num">{_cp_days}d</div><div class="cp-stat-lbl">Since start</div></div>
     </div>""", unsafe_allow_html=True)
 
     # ── Executive summary ─────────────────────────────────────────────────────
@@ -302,55 +268,6 @@ def render() -> None:
                 </div>
                 <p style="font-size:13.5px;color:{_cp_body_clr};margin:.4rem 0 .3rem">{_init['body']}</p>
                 <ul class="cp-body-ul">{_bl}</ul>""", unsafe_allow_html=True)
-
-    # ── Timeline ──────────────────────────────────────────────────────────────
-    st.markdown('<div class="cp-sect-lbl">Timeline</div>', unsafe_allow_html=True)
-    st.subheader("Adoption Chronology")
-    st.caption("Sequence of configurations and milestones since Pro plan access — most recent first.")
-
-    if _cp_timeline:
-        _today_iso  = date.today().isoformat()
-        _TL_VISIBLE = 3
-        _tl_top  = ""
-        _tl_rest = ""
-        for _ti, _entry in enumerate(_cp_timeline):
-            _is_today   = (_entry["date"] == _today_iso)
-            _cls        = "cp-tl-item cp-tl-latest" if _ti == 0 else "cp-tl-item"
-            _badge      = ' <span class="cp-tl-badge">today</span>' if _is_today else ""
-            _disp_date  = _entry.get("display_date") or _fmt_date(_entry["date"])
-            _tl_title   = (_entry["title"].split("\n")[0].strip()
-                           if "\n" in _entry.get("title", "") else _entry.get("title", ""))
-            _detail_htm = (f'<div class="cp-tl-detail">{_entry["detail"]}</div>'
-                           if _entry.get("detail") else "")
-            _item = (
-                f'<div class="{_cls}">'
-                f'<div class="cp-tl-date">{_disp_date}{_badge}</div>'
-                f'<div class="cp-tl-title">{_tl_title}</div>'
-                f'{_detail_htm}</div>'
-            )
-            if _ti < _TL_VISIBLE:
-                _tl_top += _item
-            else:
-                _tl_rest += _item
-
-        _older    = len(_cp_timeline) - _TL_VISIBLE
-        _sum_clr  = "#475569" if dark_mode else "rgba(76,77,88,.5)"
-        _rest_block = (
-            f'<details style="margin:0;padding:0">'
-            f'<summary style="cursor:pointer;color:{_sum_clr};font-size:11.5px;'
-            f'font-family:\'DM Mono\',monospace;letter-spacing:.05em;'
-            f'margin-bottom:14px;outline:none">'
-            f'+ {_older} older entries</summary>'
-            f'{_tl_rest}'
-            f'</details>'
-        ) if _tl_rest else ""
-
-        st.markdown(
-            f'<div class="cp-tl-wrap">{_tl_top}{_rest_block}</div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.info("No timeline entries found. The JSON file may be missing.")
 
     # ── Tools & Integrations ──────────────────────────────────────────────────
     st.markdown('<div class="cp-sect-lbl">Configured Stack</div>', unsafe_allow_html=True)
