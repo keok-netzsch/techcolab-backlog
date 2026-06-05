@@ -52,6 +52,7 @@ class Idea:
     claude_tips: str | None = None    # markdown bullets generated via Ollama
     agente_autorizado: bool = False      # pre-approves todos in the daily report
     is_bug: bool = False                 # marks this idea as a bug/issue
+    blocked_by: list[str] = field(default_factory=list)  # list of idea IDs blocking this one
 
     def to_frontmatter(self) -> dict:
         return {
@@ -68,4 +69,5 @@ class Idea:
             "esforco": self.esforco or "",
             "agente_autorizado": self.agente_autorizado,
             "is_bug": self.is_bug,
+            "blocked_by": self.blocked_by or [],
         }

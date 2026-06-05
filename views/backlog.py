@@ -269,6 +269,7 @@ def render() -> None:
     ideas  = load_ideas()
     today  = date.today()
     _CLOSED = {"concluído", "descartado"}
+    _closed_ids = {i.id for i in ideas if i.status in _CLOSED}
 
     overdue = [i for i in ideas if i.due_date and i.due_date < today and i.status not in ("concluído", "descartado")]
     if overdue:
@@ -373,6 +374,8 @@ def render() -> None:
             due_flag     = "  📅" if idea.due_date and idea.due_date < today else ""
             badge        = f"  `{todos_done}/{todos_total}`" if todos_total else ""
             bug_badge    = f"  🐛`{bug_count}`" if bug_count else ""
+            _active_blockers = [b for b in idea.blocked_by if b not in _closed_ids]
+            blocked_badge = "  ⛔" if _active_blockers else ""
             short_id     = idea.id.replace("idea-", "")
             _clean_title = idea.title.replace("**", "").strip()
 
@@ -384,7 +387,7 @@ def render() -> None:
             c1.markdown(f"**{short_id}**")
             c2.markdown(prio_icon, unsafe_allow_html=True)
             c3.markdown(status_icon, unsafe_allow_html=True)
-            if c4.button(f"{_clean_title}{badge}{bug_badge}{due_flag}", key=f"row_btn_{idea.id}", use_container_width=True):
+            if c4.button(f"{_clean_title}{badge}{bug_badge}{due_flag}{blocked_badge}", key=f"row_btn_{idea.id}", use_container_width=True):
                 new_exp = not st.session_state[exp_key]
                 st.session_state[exp_key] = new_exp
                 if not new_exp and st.session_state.get("return_to_kanban") == idea.id:
@@ -396,6 +399,9 @@ def render() -> None:
                 continue
 
             with st.container(border=True):
+                _active_bl = [b for b in idea.blocked_by if b not in _closed_ids]
+                if _active_bl:
+                    st.warning(f"⛔ Blocked by: {', '.join(_active_bl)}", icon=None)
                 new_title = st.text_input("Title", value=idea.title, key=f"title_{idea.id}")
                 col_config, col_text = st.columns([2, 3])
 
@@ -422,6 +428,16 @@ def render() -> None:
                     new_esforco = st.selectbox("Effort", eff_opts,
                                                index=eff_opts.index(idea.esforco) if idea.esforco in eff_opts else 0,
                                                key=f"esforco_{idea.id}", format_func=lambda x: EFFORT_LABEL.get(x, x) if x else "")
+                    _blocker_opts = [i.id for i in ideas if i.id != idea.id]
+                    new_blocked_by = st.multiselect(
+                        "Blocked by",
+                        options=_blocker_opts,
+                        default=[b for b in idea.blocked_by if b in _blocker_opts],
+                        format_func=lambda x: next((f"{x} — {i.title[:40]}" for i in ideas if i.id == x), x),
+                        key=f"blocked_by_{idea.id}",
+                        placeholder="None",
+                        help="Ideas that must be completed before this one can proceed",
+                    )
                     st.caption(f"Origin: `{idea.origin or '—'}`  \nCreated: {idea.created_at}  \nUpdated: {idea.updated_at}")
 
                 with col_text:
@@ -663,6 +679,7 @@ def render() -> None:
                         idea.area = new_area or None; idea.due_date = new_due if new_due else None
                         idea.impacto = new_impacto or None; idea.esforco = new_esforco or None
                         idea.description = new_desc; idea.notes = new_notes
+                        idea.blocked_by = new_blocked_by
                         idea.todos = updated_todos
                         idea.claude_tips = st.session_state.get(tips_key) or idea.claude_tips
                         store.save(idea)

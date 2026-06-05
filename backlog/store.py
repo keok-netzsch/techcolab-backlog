@@ -173,6 +173,7 @@ class BacklogStore:
             claude_tips=claude_tips or None,
             agente_autorizado=bool(fm.get("agente_autorizado", False)),
             is_bug=bool(fm.get("is_bug", False)),
+            blocked_by=list(fm.get("blocked_by") or []),
         )
 
     def load_by_id(self, idea_id: str) -> Idea | None:
