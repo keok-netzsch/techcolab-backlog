@@ -282,34 +282,37 @@ def render() -> None:
             st.info("No calls recorded in this period.")
             _export.append("_No calls recorded in this period._")
         else:
-            _call_bg  = "#1A1D2E" if dark_mode else "#F8FAFC"
-        _call_bdr = "#2D3748" if dark_mode else "rgba(76,77,88,0.18)"
+            import html as _html
+        import streamlit.components.v1 as _components
+        _call_bg  = "#1A1D2E" if dark_mode else "#F8FAFC"
         _call_clr = "#CBD5E0" if dark_mode else "#374151"
         for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
                 _ck = f"wb_call_{_c['member']}_{_c['date'].isoformat()}"
                 if _ck not in st.session_state:
                     st.session_state[_ck] = False
-                _hcol, _tcol = st.columns([9, 1], vertical_alignment="center")
-                _hcol.markdown(f"📞 **{_c['member']}** — {_c['date'].strftime('%d/%m/%Y')}")
-                if _tcol.button("▲" if st.session_state[_ck] else "▼", key=f"wb_ct_{_c['member']}_{_c['date'].isoformat()}"):
+                # Arrow LEFT of name
+                _tcol, _hcol = st.columns([0.5, 11], vertical_alignment="center")
+                if _tcol.button("▲" if st.session_state[_ck] else "▼",
+                                key=f"wb_ct_{_c['member']}_{_c['date'].isoformat()}"):
                     st.session_state[_ck] = not st.session_state[_ck]
                     st.rerun()
+                _hcol.markdown(f"📞 **{_c['member']}** — {_c['date'].strftime('%d/%m/%Y')}")
                 if st.session_state[_ck]:
                     _body = re.sub(r"^---.*?---\n", "",
                                    _c["path"].read_text(encoding="utf-8", errors="replace"),
                                    flags=re.DOTALL).strip()
-                    _body_trunc = _body[:2500] + ("…" if len(_body) > 2500 else "")
-                    # Escape HTML special chars so the raw markdown isn't interpreted as tags
-                    _body_safe = (_body_trunc
-                                  .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
-                    # Single st.markdown call = single React node = no child re-renders on hover
-                    st.markdown(
-                        f'<div style="border:1px solid {_call_bdr};border-radius:6px;'
-                        f'padding:14px 18px;margin:4px 0 12px 0;background:{_call_bg}">'
-                        f'<pre style="font-size:0.78rem;white-space:pre-wrap;word-wrap:break-word;'
-                        f'font-family:\'DM Mono\',monospace;color:{_call_clr};margin:0;line-height:1.6">'
-                        f'{_body_safe}</pre></div>',
-                        unsafe_allow_html=True,
+                    _body_safe = _html.escape(_body[:3000])
+                    _n_lines   = min(_body[:3000].count("\n") + 4, 60)
+                    _h_px      = _n_lines * 19 + 28
+                    # iframe fully isolated from Streamlit React tree — hover cannot affect it
+                    _components.html(
+                        f'<!DOCTYPE html><html><head><meta charset="utf-8"><style>'
+                        f'html,body{{margin:0;padding:12px 16px;background:{_call_bg};color:{_call_clr};'
+                        f'font-family:"DM Mono",monospace;font-size:12px;line-height:1.6;'
+                        f'white-space:pre-wrap;word-wrap:break-word;overflow-x:hidden}}'
+                        f'</style></head><body>{_body_safe}</body></html>',
+                        height=_h_px,
+                        scrolling=False,
                     )
                 _export.append(f"- Call com {_c['member']} em {_c['date'].strftime('%d/%m/%Y')}")
         _export.append(""); st.divider()
