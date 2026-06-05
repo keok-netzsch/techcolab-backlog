@@ -172,6 +172,29 @@ This rule overrides any tendency to write Portuguese in the UI. No exceptions.
 
 ---
 
+## Known CSS Gotchas
+
+### Streamlit CSS bleeds across SPA navigation
+
+Streamlit is a single-page app. CSS injected via `st.markdown("<style>...")` is appended to
+the browser `<head>` and **persists** for the entire browser session, even after the user
+navigates to a different page. This means a broad CSS selector in one view can silently break
+another view.
+
+**Rule: NEVER use `div[data-testid="stVerticalBlockBorderWrapper"]` as a global CSS selector
+in any view.** It sets a height constraint that bleeds into expander wrappers on all other
+pages and causes expander content to disappear on hover.
+
+**Correct pattern:** use `st.container(height=N)` — Streamlit sets the height inline on
+that specific element, with no bleed.
+
+**Permanent fix location:** `assets/brand.css` contains expander stability rules
+(`opacity/visibility/display/will-change`) that counteract both the bleed issue and
+Streamlit's React hover re-renders that briefly unmount `stExpanderDetails`. These rules
+must stay in `brand.css` (always loaded, both light and dark) — do not remove them.
+
+---
+
 ## What NOT to do
 
 - **NEVER commit vault data into this PUBLIC repo** — no `Team/`, `Stakeholders/`, `PDI.md`, `OKR.md`, `Overview.md`, `Performance/`, `1on1/`, `backlog items/`, `agent-reports/`, or any HR/compensation content. The vault is a separate local-only repo (OneDrive); this repo only runs *against* it via `TECHCOLAB_VAULT`. See `SECURITY.md`. A `.githooks/pre-commit` guard enforces this (`git config core.hooksPath .githooks`).
