@@ -869,6 +869,39 @@ def render() -> None:
                         _sicon = STATUS_COLOR.get(_sii.status, sdot("backlog"))
                         _c2.markdown(_sicon + " " + STATUS_LABEL.get(_sii.status, _sii.status), unsafe_allow_html=True)
 
+        # ── OKR contribution map ─────────────────────────────────────────────────
+        _okr_ideas = [i for i in ideas_all if i.okr_ref]
+        if _okr_ideas:
+            st.divider()
+            st.subheader("OKR contributions")
+            _okr_map: dict[str, list] = {}
+            for _oi in _okr_ideas:
+                _okr_map.setdefault(_oi.okr_ref, []).append(_oi)
+
+            for _oref in sorted(_okr_map):
+                _olist  = _okr_map[_oref]
+                _odone  = sum(1 for i in _olist if i.status in {"concluído", "descartado"})
+                _ototal = len(_olist)
+                _opct   = _odone / _ototal if _ototal else 0
+                _obar_fill = "#02B793" if _opct >= 1.0 else ("#F59E0B" if _opct >= 0.5 else "#64748B")
+
+                st.markdown(
+                    f'<div style="margin:8px 0 2px">'
+                    f'<span style="font-weight:700;font-size:0.9rem;color:{_txt_clr}">🎯 {_oref}</span>'
+                    f'&nbsp;&nbsp;<span style="color:#64748B;font-size:0.78rem">'
+                    f'{_odone}/{_ototal} done</span></div>'
+                    f'<div style="background:{"#2D3748" if dark_mode else "#E2E8F0"};'
+                    f'border-radius:999px;height:6px;overflow:hidden;margin-bottom:6px">'
+                    f'<div style="width:{max(2, int(_opct*100))}%;height:100%;'
+                    f'background:{_obar_fill};border-radius:999px"></div></div>',
+                    unsafe_allow_html=True,
+                )
+                for _oii in sorted(_olist, key=lambda i: i.status):
+                    _c0, _c1, _c2 = st.columns([2, 6, 2])
+                    _c0.markdown(f"`{_oii.id}`")
+                    _c1.markdown(_oii.title.replace("**", "").strip()[:58])
+                    _c2.markdown(STATUS_COLOR.get(_oii.status, sdot("backlog")) + " " + STATUS_LABEL.get(_oii.status, _oii.status), unsafe_allow_html=True)
+
         st.divider()
         st.subheader("Period report")
         if st.button("📋 Generate period report"):

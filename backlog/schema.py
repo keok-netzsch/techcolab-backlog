@@ -54,6 +54,7 @@ class Idea:
     is_bug: bool = False                 # marks this idea as a bug/issue
     blocked_by: list[str] = field(default_factory=list)  # list of idea IDs blocking this one
     sprint: str | None = None            # sprint/cycle name, e.g. "S1", "Jun/26"
+    okr_ref: str | None = None           # free-text OKR reference, e.g. "Pedro O1-KR2"
 
     def to_frontmatter(self) -> dict:
         return {
@@ -72,4 +73,5 @@ class Idea:
             "is_bug": self.is_bug,
             "blocked_by": self.blocked_by or [],
             "sprint": self.sprint or "",
+            "okr_ref": self.okr_ref or "",
         }

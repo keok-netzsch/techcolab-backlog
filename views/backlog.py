@@ -445,6 +445,14 @@ def render() -> None:
                     if _sprint_opts and _sprint_cur not in _sprint_opts:
                         st.caption("Existing sprints: " + ", ".join(f"`{s}`" for s in _sprint_opts))
 
+                    _okr_input = st.text_input(
+                        "OKR reference",
+                        value=idea.okr_ref or "",
+                        placeholder="e.g. Pedro O1-KR2, Daniel O2",
+                        key=f"okr_ref_{idea.id}",
+                        help="Free-text reference to an OKR objective or key result this idea supports",
+                    )
+
                     _blocker_opts = [i.id for i in ideas if i.id != idea.id]
                     new_blocked_by = st.multiselect(
                         "Blocked by",
@@ -698,6 +706,7 @@ def render() -> None:
                         idea.description = new_desc; idea.notes = new_notes
                         idea.blocked_by = new_blocked_by
                         idea.sprint = _sprint_input.strip() or None
+                        idea.okr_ref = _okr_input.strip() or None
                         idea.todos = updated_todos
                         idea.claude_tips = st.session_state.get(tips_key) or idea.claude_tips
                         store.save(idea)
