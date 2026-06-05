@@ -86,15 +86,28 @@ button[data-testid="stBaseButton-secondary"] {
    here and clip expander content. React hover re-renders also briefly
    unmount stExpanderDetails. These rules lock visibility permanently.
    NEVER override stVerticalBlockBorderWrapper globally from a view —
-   use st.container(height=N) only (Streamlit sets it inline). ───── */
-details[data-testid="stExpander"][open] > div[data-testid="stExpanderDetails"] {
+   use st.container(height=N) only (Streamlit sets it inline).
+   The [open] selector + direct child is intentional — it targets only
+   open expanders. The broader [data-testid="stExpanderDetails"] rule
+   (no parent requirement) handles cases where React re-renders move
+   the element outside the [open] parent temporarily. ───────────── */
+details[data-testid="stExpander"][open] > div[data-testid="stExpanderDetails"],
+[data-testid="stExpanderDetails"] {
     opacity: 1 !important;
     visibility: visible !important;
     display: block !important;
+    transform: translateZ(0);
     will-change: transform;
+    transition: none !important;
+    pointer-events: auto !important;
+}
+/* Prevent overflow clipping from any ancestor */
+[data-testid="stExpander"] {
+    overflow: visible !important;
 }
 /* Block any height constraint from leaking into expander wrappers */
 [data-testid="stExpander"] [data-testid="stVerticalBlockBorderWrapper"] {
     height: auto !important;
     overflow: visible !important;
+    min-height: 0 !important;
 }

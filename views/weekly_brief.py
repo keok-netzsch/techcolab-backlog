@@ -155,7 +155,7 @@ def render() -> None:
             _export.append("_No items in progress._")
         else:
             if _active:
-                st.caption("Ideas in development")
+                st.caption("Active ideas")
                 _rows2 = ""
                 for i in _active:
                     _rows2 += (
