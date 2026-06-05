@@ -282,7 +282,10 @@ def render() -> None:
             st.info("No calls recorded in this period.")
             _export.append("_No calls recorded in this period._")
         else:
-            for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
+            _call_bg  = "#1A1D2E" if dark_mode else "#F8FAFC"
+        _call_bdr = "#2D3748" if dark_mode else "rgba(76,77,88,0.18)"
+        _call_clr = "#CBD5E0" if dark_mode else "#374151"
+        for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
                 _ck = f"wb_call_{_c['member']}_{_c['date'].isoformat()}"
                 if _ck not in st.session_state:
                     st.session_state[_ck] = False
@@ -292,11 +295,22 @@ def render() -> None:
                     st.session_state[_ck] = not st.session_state[_ck]
                     st.rerun()
                 if st.session_state[_ck]:
-                    with st.container(border=True):
-                        _body = re.sub(r"^---.*?---\n", "",
-                                       _c["path"].read_text(encoding="utf-8", errors="replace"),
-                                       flags=re.DOTALL).strip()
-                        st.markdown(_body[:2500] + ("…" if len(_body) > 2500 else ""))
+                    _body = re.sub(r"^---.*?---\n", "",
+                                   _c["path"].read_text(encoding="utf-8", errors="replace"),
+                                   flags=re.DOTALL).strip()
+                    _body_trunc = _body[:2500] + ("…" if len(_body) > 2500 else "")
+                    # Escape HTML special chars so the raw markdown isn't interpreted as tags
+                    _body_safe = (_body_trunc
+                                  .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+                    # Single st.markdown call = single React node = no child re-renders on hover
+                    st.markdown(
+                        f'<div style="border:1px solid {_call_bdr};border-radius:6px;'
+                        f'padding:14px 18px;margin:4px 0 12px 0;background:{_call_bg}">'
+                        f'<pre style="font-size:0.78rem;white-space:pre-wrap;word-wrap:break-word;'
+                        f'font-family:\'DM Mono\',monospace;color:{_call_clr};margin:0;line-height:1.6">'
+                        f'{_body_safe}</pre></div>',
+                        unsafe_allow_html=True,
+                    )
                 _export.append(f"- Call com {_c['member']} em {_c['date'].strftime('%d/%m/%Y')}")
         _export.append(""); st.divider()
 
