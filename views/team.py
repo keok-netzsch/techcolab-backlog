@@ -119,7 +119,18 @@ def render() -> None:
         st.info("Team folder not found. Check TEAM_DIR in config.py.")
         return
 
-    for _tm in _MEMBERS:
+    _member_names = [m["name"] for m in _MEMBERS]
+    _selected = st.selectbox(
+        "Team member",
+        [""] + _member_names,
+        format_func=lambda x: "Select a team member…" if x == "" else x,
+        key="team_selected_member",
+    )
+    if not _selected:
+        st.caption("Select a team member above to view their details.")
+        return
+
+    for _tm in [m for m in _MEMBERS if m["name"] == _selected]:
         _folder = TEAM_DIR / _tm["folder"]
         _sess   = _parse_1on1(_folder / "1on1.md")
         _dates  = _all_dates(_folder, _sess)

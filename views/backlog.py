@@ -600,9 +600,7 @@ def render() -> None:
                     st.session_state[_new_ctr_key] = 0
                 _ctr = st.session_state[_new_ctr_key]
 
-                _nc0, _nc_txt, _nc_date, _nc_auto, _nc_bug, _nc_add = st.columns([0.7, 6, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
-                with _nc0:
-                    st.markdown('<div style="padding-top:8px;color:#ccc;text-align:center;font-size:0.9rem">+</div>', unsafe_allow_html=True)
+                _nc_txt, _nc_date, _nc_auto, _nc_bug, _nc_add = st.columns([6.7, 2, 0.5, 0.5, 0.5], vertical_alignment="center")
                 with _nc_txt:
                     new_todo_text = st.text_input("", placeholder="New to-do...", key=f"bl_new_txt_{idea.id}_{_ctr}", label_visibility="collapsed")
                 with _nc_date:

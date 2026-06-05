@@ -120,6 +120,12 @@ class BacklogStore:
 
     def save(self, idea: Idea) -> Path:
         idea.updated_at = date.today()
+        # Auto-advance: if any todo is active/done and idea is still in backlog, move forward
+        _STATUS_RANK = {"backlog": 0, "em desenvolvimento": 1, "em validação": 2, "concluído": 3, "arquivado": 4}
+        if _STATUS_RANK.get(idea.status, 99) == 0 and any(
+            t.get("in_progress") or t.get("done") for t in idea.todos
+        ):
+            idea.status = "em desenvolvimento"
         fm = yaml.dump(idea.to_frontmatter(), allow_unicode=True, default_flow_style=False).strip()
 
         todos_block = _render_todos(idea.todos) if idea.todos else "_nenhum_"
