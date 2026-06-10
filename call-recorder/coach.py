@@ -75,6 +75,76 @@ def _check_ollama():
         sys.exit(1)
 
 
+def _ensure_english(ev: dict) -> dict:
+    """Post-process evaluation dict: translate any PT text fields to English via a fast Ollama call."""
+    # Collect fields that may have been returned in Portuguese
+    fields: dict[str, str] = {}
+    if ev.get("summary"):
+        fields["summary"] = ev["summary"]
+    for i, e in enumerate(ev.get("errors", [])):
+        if e.get("corrected"):
+            fields[f"errors_{i}_corrected"] = e["corrected"]
+        if e.get("explanation"):
+            fields[f"errors_{i}_explanation"] = e["explanation"]
+    for i, t in enumerate(ev.get("improvement_tips", [])):
+        if t.get("tip"):
+            fields[f"tips_{i}_tip"] = t["tip"]
+        if t.get("example"):
+            fields[f"tips_{i}_example"] = t["example"]
+    for i, s in enumerate(ev.get("strengths", [])):
+        fields[f"strength_{i}"] = s
+    for i, v in enumerate(ev.get("vocabulary_suggestions", [])):
+        for j, alt in enumerate(v.get("alternatives", [])):
+            fields[f"vocab_{i}_alt_{j}"] = alt
+
+    if not fields:
+        return ev
+
+    items_json = json.dumps(fields, ensure_ascii=False)
+    prompt = (
+        "Translate the following JSON values to English. "
+        "Return ONLY a valid JSON object with the same keys and translated values. "
+        "Do not add any explanation.\n\n" + items_json
+    )
+    try:
+        r = requests.post(
+            OLLAMA_URL,
+            json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False, "format": "json"},
+            timeout=120,
+        )
+        r.raise_for_status()
+        translated = json.loads(r.json()["response"].strip())
+    except Exception:
+        return ev  # silently fall back to original if translation fails
+
+    # Write back translated values
+    if "summary" in translated:
+        ev["summary"] = translated["summary"]
+    for i, e in enumerate(ev.get("errors", [])):
+        k_c, k_e = f"errors_{i}_corrected", f"errors_{i}_explanation"
+        if k_c in translated:
+            e["corrected"] = translated[k_c]
+        if k_e in translated:
+            e["explanation"] = translated[k_e]
+    for i, t in enumerate(ev.get("improvement_tips", [])):
+        k_t, k_ex = f"tips_{i}_tip", f"tips_{i}_example"
+        if k_t in translated:
+            t["tip"] = translated[k_t]
+        if k_ex in translated:
+            t["example"] = translated[k_ex]
+    for i in range(len(ev.get("strengths", []))):
+        k = f"strength_{i}"
+        if k in translated:
+            ev["strengths"][i] = translated[k]
+    for i, v in enumerate(ev.get("vocabulary_suggestions", [])):
+        for j in range(len(v.get("alternatives", []))):
+            k = f"vocab_{i}_alt_{j}"
+            if k in translated:
+                v["alternatives"][j] = translated[k]
+
+    return ev
+
+
 def _clean_transcript(transcript: str) -> str:
     """Remove Whisper hallucination loops at end of recording (e.g. repeated 'Let's go')."""
     lines = transcript.splitlines()
@@ -259,6 +329,7 @@ Rules:
 
     payload = {
         "model":  OLLAMA_MODEL,
+        "system": "You are an English language coach. You must respond exclusively in English. Never write in Portuguese or any other language, even when the transcript is in Portuguese.",
         "prompt": prompt,
         "stream": False,
         "format": "json",
@@ -267,7 +338,7 @@ Rules:
     r.raise_for_status()
     raw = r.json()["response"].strip()
 
-    return json.loads(raw)
+    return _ensure_english(json.loads(raw))
 
 
 def _score_bar(score) -> str:
