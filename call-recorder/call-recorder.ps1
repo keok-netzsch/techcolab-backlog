@@ -93,18 +93,20 @@ function Invoke-Recording {
     return $true
 }
 
-# Run the English coach on a transcript (English practice tracking).
+# Run the English coach on a transcript in background (non-blocking, ~10 min on CPU).
 function Invoke-Coach {
     param([string]$TransFile)
     Write-Host ""
-    Write-Host "  [EN] Conversa em ingles - avaliando como pratica de ingles..." -ForegroundColor Cyan
+    Write-Host "  [EN] Conversa em ingles detectada. Iniciando coach em background (~10 min)..." -ForegroundColor Cyan
     $coach = Join-Path $SCRIPT_DIR "coach.py"
-    & $PYTHON $coach --transcript $TransFile
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  [WARN] coach.py falhou (exit $LASTEXITCODE). Avaliacao de ingles pulada." -ForegroundColor Yellow
-    } else {
-        Write-Host "  [OK] Progresso de ingles atualizado (Areas/English-Learning/)." -ForegroundColor DarkCyan
-    }
+    $logFile = [System.IO.Path]::ChangeExtension($TransFile, ".coach.log")
+    Start-Process -FilePath $PYTHON `
+        -ArgumentList $coach, "--transcript", $TransFile `
+        -RedirectStandardOutput $logFile `
+        -RedirectStandardError $logFile `
+        -WindowStyle Hidden
+    Write-Host "  [OK] Coach rodando em background. Log: $logFile" -ForegroundColor DarkCyan
+    Write-Host "  [OK] Resultado sera salvo em Areas/English-Learning/ ao terminar." -ForegroundColor DarkCyan
 }
 
 # Cleanup of old transcripts (>30 days). Audio (.wav) is pruned by record.py.

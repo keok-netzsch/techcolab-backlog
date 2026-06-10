@@ -400,9 +400,15 @@ def _render_session(ev: dict, transcript: str, topic: str, session_dt: datetime,
     if ev.get("errors"):
         lines += ["## Errors to Fix", ""]
         for e in ev["errors"]:
-            lines.append(f"**{e['type'].title()}** — _{e['original']}_")
-            lines.append(f"→ **{e['corrected']}**")
-            lines.append(f"  {e['explanation']}")
+            original = e.get("original", "")
+            corrected = e.get("corrected", "")
+            explanation = e.get("explanation", "")
+            label = f"**{e.get('type', 'Error').title()}**"
+            lines.append(f"{label} — _{original}_" if original else label)
+            if corrected:
+                lines.append(f"→ **{corrected}**")
+            if explanation:
+                lines.append(f"  {explanation}")
             lines.append("")
 
     if ev.get("improvement_tips"):
@@ -541,7 +547,16 @@ def main():
         default="",
         help="Override session date (YYYY-MM-DD). Useful when processing a recording made on a previous day.",
     )
+    parser.add_argument(
+        "--model",
+        default="",
+        help="Override Ollama model (default: qwen2.5-coder:latest). Useful for benchmarking alternatives.",
+    )
     args = parser.parse_args()
+
+    if args.model:
+        global OLLAMA_MODEL
+        OLLAMA_MODEL = args.model
 
     _check_ollama()
 
