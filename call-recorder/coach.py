@@ -198,6 +198,7 @@ def _evaluate(transcript: str, topic: str, topic_type: str = "") -> dict:
 
     prompt = f"""You are an expert English language coach evaluating a non-native speaker (B1–C1 range, Brazilian Portuguese L1) in a professional context.
 Your goal is ACCURATE, FAIR evaluation — neither inflated nor artificially harsh.
+IMPORTANT: All text fields in your JSON response (summary, explanation, tip, example, strengths, alternatives, corrected) MUST be written in English only. Never respond in Portuguese.
 
 {session_header}
 
