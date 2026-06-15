@@ -303,10 +303,16 @@ def render() -> None:
     col_v1, col_v2 = st.columns([1.4, 6.6], vertical_alignment="bottom")
     # Remember the last view across nav reloads (which reset session_state) by
     # seeding from / saving to an on-disk preference.
-    if "view_mode" not in st.session_state:
-        st.session_state["view_mode"] = get_pref("backlog_view", "List")
+    _VIEW_OPTIONS = ["List", "Kanban"]
+    if "_view_mode" not in st.session_state:
+        st.session_state["_view_mode"] = get_pref("backlog_view", "List")
     with col_v1:
-        view_mode = st.radio("View", ["List", "Kanban"], horizontal=True, key="view_mode", label_visibility="collapsed")
+        view_mode = st.radio(
+            "View", _VIEW_OPTIONS, horizontal=True,
+            index=_VIEW_OPTIONS.index(st.session_state["_view_mode"]),
+            label_visibility="collapsed",
+        )
+        st.session_state["_view_mode"] = view_mode
     if get_pref("backlog_view", "List") != view_mode:
         set_pref("backlog_view", view_mode)
     with col_v2:
@@ -357,7 +363,7 @@ def render() -> None:
                     )
                     if edit_col.button("✏️", key=f"kb_edit_{idea.id}", help="Edit"):
                         st.session_state[f"exp_{idea.id}"] = True
-                        st.session_state["view_mode"] = "List"
+                        st.session_state["_view_mode"] = "List"
                         st.session_state["return_to_kanban"] = idea.id
                         st.rerun()
                     col.markdown("---")
@@ -396,7 +402,7 @@ def render() -> None:
                 new_exp = not st.session_state[exp_key]
                 st.session_state[exp_key] = new_exp
                 if not new_exp and st.session_state.get("return_to_kanban") == idea.id:
-                    st.session_state["view_mode"] = "Kanban"
+                    st.session_state["_view_mode"] = "Kanban"
                     st.session_state.pop("return_to_kanban", None)
             c5.markdown(area_chip(idea.area), unsafe_allow_html=True)
 
@@ -723,7 +729,7 @@ def render() -> None:
                         st.session_state.pop(f"staged_todos_{idea.id}", None)
                         st.session_state[exp_key] = False
                         if st.session_state.get("return_to_kanban") == idea.id:
-                            st.session_state["view_mode"] = "Kanban"
+                            st.session_state["_view_mode"] = "Kanban"
                             st.session_state.pop("return_to_kanban", None)
                         if _auto_reverted:
                             st.session_state["backlog_flash"] = ("warning", f"{idea.id} saved — status reverted to In Development (open to-dos added).")
