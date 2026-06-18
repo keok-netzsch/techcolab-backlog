@@ -20,14 +20,23 @@ function Show-Menu {
     Write-Host ""
     Write-Host "  $Title" -ForegroundColor Cyan
     Write-Host ("  " + "-" * $Title.Length)
+    # "--SEP--" renders as an unnumbered divider and is not selectable.
+    $map = @{}
+    $n = 0
     for ($i = 0; $i -lt $Options.Count; $i++) {
-        Write-Host ("  [" + ($i + 1) + "] " + $Options[$i])
+        if ($Options[$i] -eq "--SEP--") {
+            Write-Host "      ----------------------------" -ForegroundColor DarkGray
+        } else {
+            $n++
+            $map[$n] = $i
+            Write-Host ("  [" + $n + "] " + $Options[$i])
+        }
     }
     Write-Host ""
     $idx = -1
-    while ($idx -lt 0 -or $idx -ge $Options.Count) {
-        $raw = Read-Host "  Escolha (1-$($Options.Count))"
-        if ($raw -match '^\d+$') { $idx = [int]$raw - 1 }
+    while ($idx -lt 0) {
+        $raw = Read-Host "  Escolha (1-$n)"
+        if ($raw -match '^\d+$' -and $map.ContainsKey([int]$raw)) { $idx = $map[[int]$raw] }
     }
     return $idx
 }
@@ -144,10 +153,8 @@ if ($teamPeople.Count -eq 0 -and $stkPeople.Count -eq 0) {
 }
 
 # Custom ordering (KO preference):
-#   [1] Stefan, [2] Alberto, [3..] team members, then other stakeholders from [10].
-# Reserved slots pad the gap so stakeholder numbers stay stable as the team grows.
+#   [1] Stefan, [2] Alberto, [3..] team members, divider, then other stakeholders.
 $PRIORITY_STK = @("Stefan-Lautenschlager", "Alberto-Reuters")
-$STK_START    = 10
 
 $combined = @()
 # 1-2: priority stakeholders, in the order above (only if they exist)
@@ -157,20 +164,17 @@ foreach ($pf in $PRIORITY_STK) {
 }
 # next: team members
 $combined += $teamPeople | ForEach-Object { [pscustomobject]@{ Label=$_.Name; Folder=$_.Name -replace ' ','-'; Kind="person" } }
-# pad reserved slots so other stakeholders begin at $STK_START
-while ($combined.Count -lt ($STK_START - 1)) {
-    $combined += [pscustomobject]@{ Label="(vaga reservada p/ time)"; Folder=""; Kind="reserved" }
+# divider + remaining stakeholders (excluding the priority ones)
+$otherStk = @($stkPeople | Where-Object { $PRIORITY_STK -notcontains $_.Folder })
+if ($otherStk.Count -gt 0) {
+    $combined += [pscustomobject]@{ Label="--SEP--"; Folder=""; Kind="sep" }
+    $combined += $otherStk | ForEach-Object { [pscustomobject]@{ Label="$($_.Name) (stk)"; Folder=$_.Folder; Kind="manager" } }
 }
-# from $STK_START: remaining stakeholders (excluding the priority ones)
-$combined += $stkPeople | Where-Object { $PRIORITY_STK -notcontains $_.Folder } | ForEach-Object { [pscustomobject]@{ Label="$($_.Name) (stk)"; Folder=$_.Folder; Kind="manager" } }
 # last: Outro
 $combined += [pscustomobject]@{ Label="Outro (nota avulsa)"; Folder=""; Kind="note" }
 
-do {
-    $selIdx = Show-Menu -Title "Com quem?" -Options @($combined | ForEach-Object { $_.Label })
-    $sel    = $combined[$selIdx]
-    if ($sel.Kind -eq "reserved") { Write-Host "  [vaga reservada] Escolha outro numero." -ForegroundColor DarkGray }
-} while ($sel.Kind -eq "reserved")
+$selIdx = Show-Menu -Title "Com quem?" -Options @($combined | ForEach-Object { $_.Label })
+$sel    = $combined[$selIdx]
 Write-Host "  -> $($sel.Label)" -ForegroundColor Green
 
 $date_str  = Get-Date -Format "yyyy-MM-dd"
