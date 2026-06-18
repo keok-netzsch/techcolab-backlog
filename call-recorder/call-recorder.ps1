@@ -143,13 +143,34 @@ if ($teamPeople.Count -eq 0 -and $stkPeople.Count -eq 0) {
     Read-Host "  ENTER"; exit 1
 }
 
+# Custom ordering (KO preference):
+#   [1] Stefan, [2] Alberto, [3..] team members, then other stakeholders from [10].
+# Reserved slots pad the gap so stakeholder numbers stay stable as the team grows.
+$PRIORITY_STK = @("Stefan-Lautenschlager", "Alberto-Reuters")
+$STK_START    = 10
+
 $combined = @()
-$combined += $teamPeople   | ForEach-Object { [pscustomobject]@{ Label=$_.Name;   Folder=$_.Name -replace ' ','-'; Kind="person"  } }
-$combined += $stkPeople    | ForEach-Object { [pscustomobject]@{ Label="$($_.Name) (stk)"; Folder=$_.Folder; Kind="manager" } }
+# 1-2: priority stakeholders, in the order above (only if they exist)
+foreach ($pf in $PRIORITY_STK) {
+    $m = $stkPeople | Where-Object { $_.Folder -eq $pf } | Select-Object -First 1
+    if ($m) { $combined += [pscustomobject]@{ Label="$($m.Name) (stk)"; Folder=$m.Folder; Kind="manager" } }
+}
+# next: team members
+$combined += $teamPeople | ForEach-Object { [pscustomobject]@{ Label=$_.Name; Folder=$_.Name -replace ' ','-'; Kind="person" } }
+# pad reserved slots so other stakeholders begin at $STK_START
+while ($combined.Count -lt ($STK_START - 1)) {
+    $combined += [pscustomobject]@{ Label="(vaga reservada p/ time)"; Folder=""; Kind="reserved" }
+}
+# from $STK_START: remaining stakeholders (excluding the priority ones)
+$combined += $stkPeople | Where-Object { $PRIORITY_STK -notcontains $_.Folder } | ForEach-Object { [pscustomobject]@{ Label="$($_.Name) (stk)"; Folder=$_.Folder; Kind="manager" } }
+# last: Outro
 $combined += [pscustomobject]@{ Label="Outro (nota avulsa)"; Folder=""; Kind="note" }
 
-$selIdx = Show-Menu -Title "Com quem?" -Options @($combined | ForEach-Object { $_.Label })
-$sel    = $combined[$selIdx]
+do {
+    $selIdx = Show-Menu -Title "Com quem?" -Options @($combined | ForEach-Object { $_.Label })
+    $sel    = $combined[$selIdx]
+    if ($sel.Kind -eq "reserved") { Write-Host "  [vaga reservada] Escolha outro numero." -ForegroundColor DarkGray }
+} while ($sel.Kind -eq "reserved")
 Write-Host "  -> $($sel.Label)" -ForegroundColor Green
 
 $date_str  = Get-Date -Format "yyyy-MM-dd"
