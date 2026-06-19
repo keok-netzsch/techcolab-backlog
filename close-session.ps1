@@ -70,7 +70,13 @@ $vault_path = $env:TECHCOLAB_VAULT
 if (-not $vault_path) {
     $vault_path = "$env:USERPROFILE\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\App\Personal toolkit"
 }
-$sessions_dir = Join-Path $vault_path "AI\sessions"
+# Session logs are canonical at the VAULT ROOT (per _CLAUDE.md), not the App/Personal toolkit subfolder
+if ($vault_path -match 'App[\\/]Personal toolkit[\\/]?$') {
+    $vault_root = Split-Path (Split-Path $vault_path -Parent) -Parent
+} else {
+    $vault_root = $vault_path
+}
+$sessions_dir = Join-Path $vault_root "AI\sessions"
 
 try {
     New-Item -ItemType Directory -Force -Path $sessions_dir | Out-Null

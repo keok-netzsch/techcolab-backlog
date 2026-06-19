@@ -4,11 +4,11 @@
 
 cd /d "%~dp0"
 
-:: Activate venv if it exists; fall back to system Python otherwise
+:: Activate venv if it exists; otherwise use system Python (the expected default here)
 if exist ".venv\Scripts\activate.bat" (
     call .venv\Scripts\activate.bat
 ) else (
-    echo [agent] .venv not found, using system Python
+    echo [agent] Using system Python ^(no .venv; this is the normal setup^)
 )
 
 if not exist logs mkdir logs
