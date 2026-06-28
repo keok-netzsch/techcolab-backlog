@@ -834,11 +834,28 @@ def main():
     except Exception as _e:
         print(f"[agent] Agenda generation skipped: {_e}")
 
-    # Notify
+    # Action Dashboard: consolidate open action items into Action-Dashboard.md (idea-031).
+    # Personal output only — a local vault note + the toast below (no team channel yet).
+    print("[agent] Generating Action Dashboard...")
+    _dash = None
+    try:
+        import sys as _sys
+        _crd = str(Path(__file__).parent.parent / "call-recorder")
+        if _crd not in _sys.path:
+            _sys.path.insert(0, _crd)
+        import process as _procd
+        _dash = _procd.cmd_dashboard()
+        print(f"[agent] Dashboard: {_dash['total']} open actions ({_dash['overdue']} overdue)")
+    except Exception as _e:
+        print(f"[agent] Dashboard generation skipped: {_e}")
+
+    # Notify (Windows toast — local, only the current user sees it)
     all_good = tests["ok"] and not data["overdue"]
     status_label = "All good" if all_good else "Action needed"
     status_emoji = "OK" if all_good else "WARN"
     msg = f"{data['active']} active items, {data['pending_todos']} pending to-dos, {len(data['candidates'])} tasks proposed"
+    if _dash:
+        msg += f" | actions: {_dash['overdue']} overdue, {_dash['today']} today"
     _notify(f"TechColab Agent - {status_label}", msg)
     print(f"[agent] Done. [{status_emoji}] {status_label}")
 
