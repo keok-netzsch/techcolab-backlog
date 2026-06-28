@@ -25,9 +25,11 @@ def vault(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("mode,suffix,ntype", [
-    ("project", "project-meeting", "project-meeting"),
-    ("retro",   "retrospective",   "retrospective"),
-    ("idea",    "idea-capture",    "idea-capture"),
+    ("project",      "project-meeting",  "project-meeting"),
+    ("retro",        "retrospective",    "retrospective"),
+    ("idea",         "idea-capture",     "idea-capture"),
+    ("requirements", "requirements",     "requirements"),
+    ("learning",     "learning-capture", "learning-capture"),
 ])
 def test_capture_writes_inbox_note(vault, mode, suffix, ntype):
     t = vault / "t.txt"

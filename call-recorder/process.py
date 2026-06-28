@@ -105,6 +105,29 @@ CAPTURE_MODES = {
             "Em '## Ideia' resuma em 1-2 frases."
         ),
     },
+    "requirements": {
+        "suffix": "requirements",
+        "type":   "requirements",
+        "status": "a-triar",
+        "label":  "sessao de requisitos",
+        "instructions": (
+            "Esta e uma SESSAO DE REQUISITOS. Estruture em portugues com as secoes:\n"
+            "## User stories\n## Criterios de aceite\n## Perguntas em aberto\n"
+            "Em '## User stories' use o formato: Como [persona], quero [acao], para [valor]."
+        ),
+    },
+    "learning": {
+        "suffix": "learning-capture",
+        "type":   "learning-capture",
+        "status": "a-triar",
+        "label":  "registro de aprendizado",
+        "instructions": (
+            "Este e um REGISTRO DE APRENDIZADO (curso, leitura ou evento). Organize em portugues com as secoes:\n"
+            "## Resumo\n## Principais aprendizados\n## Como aplicar\n## Referencia\n"
+            "Em '## Como aplicar' use o formato - [ ] (responsavel) acao. "
+            "Na triagem, este registro pode ser linkado ao PDI."
+        ),
+    },
 }
 # transcript/output filename suffix -> capture mode (for sweep reprocessing)
 SUFFIX_TO_MODE = {cfg["suffix"]: mode for mode, cfg in CAPTURE_MODES.items()}

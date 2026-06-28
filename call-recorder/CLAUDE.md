@@ -16,7 +16,7 @@ PowerShell + Python tool that records speech, transcribes with Whisper (local, C
 | `english-coach.ps1` | Standalone English session: record → Whisper → Ollama eval (also reachable via category=any + language=English in `call-recorder.ps1`) |
 | `record.py` | Mic capture + faster-whisper transcription (CPU, int8). Saves audio to `recordings/*.wav` (7-day retention). |
 | `coach.py` | Ollama evaluation — reads transcript, writes to vault |
-| `process.py` | Processes transcripts → vault notes. Subcommands: `transcript` (Team 1:1), `manager` (Stakeholder), `note` (Outro → `Inbox/<date>_<time>_nota-avulsa.md`), `capture --mode {project,retro,idea}` (idea-031 standalone sessions → `Inbox/<date>_<time>_{project-meeting,retrospective,idea-capture}.md`, status `a-triar`), `agenda`, `sweep`, `queue`. |
+| `process.py` | Processes transcripts → vault notes. Subcommands: `transcript` (Team 1:1), `manager` (Stakeholder), `note` (Outro → `Inbox/<date>_<time>_nota-avulsa.md`), `capture --mode {project,retro,idea,requirements,learning}` (idea-031 standalone sessions → `Inbox/<date>_<time>_{project-meeting,retrospective,idea-capture,requirements,learning-capture}.md`, status `a-triar`), `agenda`, `sweep`, `queue`. |
 | `transcripts/` | Persisted transcript archive (named `YYYY-MM-DD_HH-MM_Person.txt`) |
 | `recordings/` | Saved raw audio `.wav` (same base name as transcript). **Auto-purged after 7 days** (`RECORDINGS_RETENTION_DAYS` in `record.py`). `.gitignore`d. |
 

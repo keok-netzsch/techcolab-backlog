@@ -172,9 +172,11 @@ if ($otherStk.Count -gt 0) {
 }
 # session types not tied to a person (idea-031)
 $combined += [pscustomobject]@{ Label="--SEP--"; Folder=""; Kind="sep" }
-$combined += [pscustomobject]@{ Label="Project Meeting"; Folder=""; Kind="project" }
-$combined += [pscustomobject]@{ Label="Retrospective";   Folder=""; Kind="retro" }
-$combined += [pscustomobject]@{ Label="Idea Capture";    Folder=""; Kind="idea" }
+$combined += [pscustomobject]@{ Label="Project Meeting";     Folder=""; Kind="project" }
+$combined += [pscustomobject]@{ Label="Retrospective";       Folder=""; Kind="retro" }
+$combined += [pscustomobject]@{ Label="Idea Capture";        Folder=""; Kind="idea" }
+$combined += [pscustomobject]@{ Label="Requirements Session"; Folder=""; Kind="requirements" }
+$combined += [pscustomobject]@{ Label="Learning Capture";    Folder=""; Kind="learning" }
 $combined += [pscustomobject]@{ Label="Outro (nota avulsa)"; Folder=""; Kind="note" }
 
 $selIdx = Show-Menu -Title "Com quem?" -Options @($combined | ForEach-Object { $_.Label })
@@ -225,19 +227,23 @@ if ($kind -eq "manager" -and $stkPeople.Count -gt 0) {
 $trans_file = switch ($kind) {
     "person"  { Join-Path $trans_dir "${date_str}_${time_str}_${folder}.txt" }
     "manager" { Join-Path $trans_dir "${date_str}_${time_str}_${folder}.txt" }
-    "project" { Join-Path $trans_dir "${date_str}_${time_str}_project-meeting.txt" }
-    "retro"   { Join-Path $trans_dir "${date_str}_${time_str}_retrospective.txt" }
-    "idea"    { Join-Path $trans_dir "${date_str}_${time_str}_idea-capture.txt" }
-    default   { Join-Path $trans_dir "${date_str}_${time_str}_nota-avulsa.txt" }
+    "project"      { Join-Path $trans_dir "${date_str}_${time_str}_project-meeting.txt" }
+    "retro"        { Join-Path $trans_dir "${date_str}_${time_str}_retrospective.txt" }
+    "idea"         { Join-Path $trans_dir "${date_str}_${time_str}_idea-capture.txt" }
+    "requirements" { Join-Path $trans_dir "${date_str}_${time_str}_requirements.txt" }
+    "learning"     { Join-Path $trans_dir "${date_str}_${time_str}_learning-capture.txt" }
+    default        { Join-Path $trans_dir "${date_str}_${time_str}_nota-avulsa.txt" }
 }
 
 $process_args = switch ($kind) {
     "person"  { @("transcript", "--person",  $folder, "--transcript", $trans_file, "--date", $date_str, "--lang", "pt") }
     "manager" { @("manager",    "--manager", $folder, "--transcript", $trans_file, "--date", $date_str, "--lang", "pt") }
-    "project" { @("capture", "--mode", "project", "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
-    "retro"   { @("capture", "--mode", "retro",   "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
-    "idea"    { @("capture", "--mode", "idea",    "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
-    default   { @("note", "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
+    "project"      { @("capture", "--mode", "project",      "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
+    "retro"        { @("capture", "--mode", "retro",        "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
+    "idea"         { @("capture", "--mode", "idea",         "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
+    "requirements" { @("capture", "--mode", "requirements", "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
+    "learning"     { @("capture", "--mode", "learning",     "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
+    default        { @("note", "--transcript", $trans_file, "--date", $date_str, "--time", $time_str, "--lang", "pt") }
 }
 if ($structured) { $process_args += "--structured" }
 
