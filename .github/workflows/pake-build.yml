@@ -1,0 +1,60 @@
+name: Pake build (web -> desktop app)
+
+# Manual builder: turns any URL into a Windows desktop app via Pake (Rust+Tauri).
+# Runs entirely in the cloud — no local Node 22 / Rust toolchain needed.
+# Trigger: Actions tab -> "Pake build" -> Run workflow -> fill url + name.
+# Output: download the installer from the run's Artifacts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL to package (e.g. http://localhost:8501 or https://chat.openai.com)"
+        required: true
+      name:
+        description: "App name (letters/numbers, no spaces)"
+        required: true
+        default: "TechcolabBacklog"
+      icon_url:
+        description: "Optional .ico URL for the app icon"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install pake-cli
+        shell: bash
+        run: npm install -g pake-cli
+
+      - name: Prepare optional icon
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.icon_url }}" ]; then
+            curl -L "${{ github.event.inputs.icon_url }}" -o icon.ico
+            echo "ICON_ARG=--icon icon.ico" >> "$GITHUB_ENV"
+          else
+            echo "ICON_ARG=" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build desktop app
+        shell: bash
+        run: pake "${{ github.event.inputs.url }}" --name "${{ github.event.inputs.name }}" $ICON_ARG
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.name }}-windows
+          path: |
+            *.msi
+            *.exe
+          if-no-files-found: error
