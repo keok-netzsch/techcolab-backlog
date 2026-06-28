@@ -643,6 +643,128 @@ def cmd_capture(mode: str, transcript_path: str, date: str,
     print(f"  Status: {cfg['status']} (classifique depois no vault).")
 
 
+# ── Action Dashboard: consolidate open `- [ ]` across the vault (idea-031) ────
+
+DASHBOARD_FILE = "Action-Dashboard.md"
+DASHBOARD_EXCLUDE_DIRS = {
+    ".obsidian", "_attachments", "Archive", "raw", "Clippings",
+    ".git", ".trash", "node_modules",
+}
+_TASK_RE  = re.compile(r"^\s*[-*]\s+\[ \]\s+(.*\S)\s*$")
+_OWNER_RE = re.compile(r"^\((?P<owner>[^)]{1,40})\)\s*(?P<rest>.*)$")
+_DUE_RE   = re.compile(r"@(\d{4}-\d{2}-\d{2})")
+
+
+def _collect_open_tasks(root: Path, output_name: str) -> list:
+    """Walk the vault and return every open `- [ ]` task with owner/due/source."""
+    tasks = []
+    for md in root.rglob("*.md"):
+        rel = md.relative_to(root)
+        if any(part in DASHBOARD_EXCLUDE_DIRS for part in rel.parts):
+            continue
+        if md.name == output_name:
+            continue
+        try:
+            text = md.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        for line in text.splitlines():
+            m = _TASK_RE.match(line)
+            if not m:
+                continue
+            body = m.group(1).strip()
+            owner = None
+            om = _OWNER_RE.match(body)
+            if om:
+                owner = om.group("owner").strip()
+                body = om.group("rest").strip()
+            dm = _DUE_RE.search(body)
+            due = dm.group(1) if dm else None
+            # Signal filter: a real action item has an owner (Name) OR a due @date.
+            # Plain `- [ ]` lines (template checklists, study docs) are noise — skip.
+            if owner is None and due is None:
+                continue
+            body = _DUE_RE.sub("", body).strip(" -·")  # drop the @date from display text
+            tasks.append({"owner": owner or "sem dono", "text": body,
+                          "due": due, "stem": md.stem})
+    return tasks
+
+
+def cmd_dashboard(output_name: str = DASHBOARD_FILE) -> dict:
+    """Generate a single markdown note consolidating all open action items in the
+    vault, grouped by due status (overdue / today / upcoming / no date). Regenerated
+    on each run. Returns counts."""
+    root = Path(VAULT)
+    tasks = _collect_open_tasks(root, output_name)
+    today = datetime.now().date()
+
+    def _d(s):
+        try:
+            return datetime.strptime(s, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return None
+
+    overdue, due_today, upcoming, undated = [], [], [], []
+    for t in tasks:
+        d = _d(t["due"])
+        if d is None:
+            undated.append(t)
+        elif d < today:
+            overdue.append(t)
+        elif d == today:
+            due_today.append(t)
+        else:
+            upcoming.append(t)
+    for grp in (overdue, due_today, upcoming):
+        grp.sort(key=lambda t: (t["due"] or "", t["owner"].lower()))
+    undated.sort(key=lambda t: (t["owner"].lower(), t["stem"].lower()))
+
+    # per-owner counts
+    owners = {}
+    for t in tasks:
+        owners[t["owner"]] = owners.get(t["owner"], 0) + 1
+
+    def _line(t):
+        due = f" — `{t['due']}`" if t["due"] else ""
+        return f"- [ ] ({t['owner']}) {t['text']}{due} · [[{t['stem']}]]"
+
+    def _section(title, items):
+        if not items:
+            return ""
+        return f"## {title} ({len(items)})\n\n" + "\n".join(_line(t) for t in items) + "\n\n"
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    owner_summary = " · ".join(
+        f"{o}: {n}" for o, n in sorted(owners.items(), key=lambda kv: (-kv[1], kv[0].lower()))
+    ) or "nenhuma"
+
+    out = (
+        "---\n"
+        f"date: {datetime.now().strftime('%Y-%m-%d')}\n"
+        "type: dashboard\n"
+        "generated: true\n"
+        "tags: [dashboard, actions, generated]\n"
+        "---\n\n"
+        "> **Gerado automaticamente** por `process.py dashboard`. Nao editar a mao "
+        "(sobrescrito a cada execucao). Marque os itens no arquivo de origem.\n"
+        "> Escopo: apenas itens de acao com **dono** `(Nome)` ou **prazo** `@data` "
+        "(checklists de template sao ignorados).\n\n"
+        f"# Action Dashboard\n\n"
+        f"Atualizado: {now} · {len(tasks)} acoes abertas · por dono: {owner_summary}\n\n"
+        + _section("Atrasadas", overdue)
+        + _section("Hoje", due_today)
+        + _section("Proximas", upcoming)
+        + _section("Sem prazo", undated)
+    ).rstrip() + "\n"
+
+    (root / output_name).write_text(out, encoding="utf-8")
+    counts = {"total": len(tasks), "overdue": len(overdue), "today": len(due_today),
+              "upcoming": len(upcoming), "undated": len(undated)}
+    print(f"[dashboard] {output_name}: total={counts['total']} overdue={counts['overdue']} "
+          f"today={counts['today']} upcoming={counts['upcoming']} undated={counts['undated']}")
+    return counts
+
+
 # ── Sweep: reprocess failed/partial call processings ─────────────────────────
 
 def _classify_transcript(name: str):
@@ -862,13 +984,16 @@ def main():
     q.add_argument("--dir",     default=None, help="recordings dir (default: ./recordings)")
     q.add_argument("--dry-run", action="store_true", help="List pending jobs without processing")
 
+    db = sub.add_parser("dashboard", help="Consolidate all open '- [ ]' tasks in the vault into Action-Dashboard.md")
+    db.add_argument("--output", default=DASHBOARD_FILE, help=f"Output filename in vault root (default: {DASHBOARD_FILE})")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         sys.exit(1)
 
-    # sweep/queue do their own (non-fatal) Ollama check; the rest need Ollama up.
-    if args.command not in ("sweep", "queue"):
+    # sweep/queue/dashboard do their own thing; the rest need Ollama up.
+    if args.command not in ("sweep", "queue", "dashboard"):
         _check_ollama()
 
     if args.command == "agenda":
@@ -886,6 +1011,8 @@ def main():
         cmd_sweep(args.dir, args.min_age_min, args.dry_run, args.lang, args.max_age_days)
     elif args.command == "queue":
         cmd_queue(args.dir, args.dry_run)
+    elif args.command == "dashboard":
+        cmd_dashboard(args.output)
 
 
 if __name__ == "__main__":
