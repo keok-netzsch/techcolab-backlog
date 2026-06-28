@@ -107,16 +107,24 @@ class BacklogStore:
         self.dir = Path(directory)
         self.dir.mkdir(parents=True, exist_ok=True)
 
+    def _find(self, idea_id: str) -> Path | None:
+        """Locate an idea file anywhere under self.dir (incl. archived subfolders
+        like _arquivo/). Returns the existing path or None."""
+        matches = sorted(self.dir.rglob(f"{idea_id}.md"))
+        return matches[0] if matches else None
+
     def _path(self, idea_id: str) -> Path:
-        return self.dir / f"{idea_id}.md"
+        # Save back to the existing location (so editing an archived idea doesn't
+        # create a duplicate in the root); fall back to root for new ideas.
+        return self._find(idea_id) or (self.dir / f"{idea_id}.md")
 
     def _next_id(self) -> str:
-        existing = sorted(self.dir.glob("idea-*.md"))
+        # rglob so archived ideas still count — never reuse a number.
+        existing = sorted(self.dir.rglob("idea-*.md"))
         if not existing:
             return "idea-001"
-        last = existing[-1].stem  # "idea-042"
-        num = int(last.split("-")[1]) + 1
-        return f"idea-{num:03d}"
+        nums = [int(p.stem.split("-")[1]) for p in existing if p.stem.split("-")[1].isdigit()]
+        return f"idea-{(max(nums) + 1):03d}" if nums else "idea-001"
 
     def save(self, idea: Idea) -> Path:
         idea.updated_at = date.today()
@@ -185,8 +193,9 @@ class BacklogStore:
         return self.load(path)
 
     def load_all(self) -> list[Idea]:
+        # rglob so archived ideas (e.g. _arquivo/) still load — history preserved.
         ideas = []
-        for p in sorted(self.dir.glob("idea-*.md")):
+        for p in sorted(self.dir.rglob("idea-*.md")):
             idea = self.load(p)
             if idea:
                 ideas.append(idea)
