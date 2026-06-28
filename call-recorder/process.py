@@ -67,6 +67,48 @@ SECTION_MODE = {
 MANAGER_SECTION_MAP  = {"1on1": "1on1.md", "Overview": "Overview.md"}
 MANAGER_SECTION_MODE = {"1on1": "prepend", "Overview": "append"}
 
+# Standalone capture modes (idea-031) — sessions not tied to a person/stakeholder.
+# Each records → transcribes → Ollama structures the transcript into an Inbox note
+# for later triage. suffix is used for both the transcript and the output filename.
+CAPTURE_MODES = {
+    "project": {
+        "suffix": "project-meeting",
+        "type":   "project-meeting",
+        "status": "a-triar",
+        "label":  "reuniao de projeto",
+        "instructions": (
+            "Esta e uma REUNIAO DE PROJETO. Estruture em portugues com as secoes:\n"
+            "## Decisoes\n## Riscos\n## Proximos passos\n"
+            "Em 'Proximos passos' use o formato - [ ] (responsavel) acao. "
+            "Se identificar o tema/projeto, coloque-o como titulo na primeira linha."
+        ),
+    },
+    "retro": {
+        "suffix": "retrospective",
+        "type":   "retrospective",
+        "status": "a-triar",
+        "label":  "retrospectiva agil",
+        "instructions": (
+            "Esta e uma RETROSPECTIVA AGIL. Estruture em portugues com as secoes:\n"
+            "## O que foi bem\n## O que nao foi bem\n## Acoes de melhoria\n"
+            "Em 'Acoes de melhoria' use o formato - [ ] (responsavel) acao."
+        ),
+    },
+    "idea": {
+        "suffix": "idea-capture",
+        "type":   "idea-capture",
+        "status": "a-triar",
+        "label":  "captura de ideia",
+        "instructions": (
+            "Esta e uma CAPTURA DE IDEIA (gravacao livre). Organize em portugues com as secoes:\n"
+            "## Ideia\n## Problema ou oportunidade\n## Solucao proposta\n## Perguntas em aberto\n"
+            "Em '## Ideia' resuma em 1-2 frases."
+        ),
+    },
+}
+# transcript/output filename suffix -> capture mode (for sweep reprocessing)
+SUFFIX_TO_MODE = {cfg["suffix"]: mode for mode, cfg in CAPTURE_MODES.items()}
+
 
 # ── Ollama ────────────────────────────────────────────────────────────────────
 
@@ -530,6 +572,54 @@ def cmd_note(transcript_path: str, date: str, lang: str = "pt", time_str: str = 
     print("  Status: a-triar (classifique depois no vault).")
 
 
+def cmd_capture(mode: str, transcript_path: str, date: str,
+                lang: str = "pt", time_str: str = None):
+    """Structure a standalone session (project meeting / retrospective / idea
+    capture) into an Inbox note for later triage. See CAPTURE_MODES (idea-031)."""
+    cfg = CAPTURE_MODES.get(mode)
+    if not cfg:
+        print(f"[ERROR] Modo de captura desconhecido: {mode}")
+        sys.exit(1)
+
+    transcript = read_file(transcript_path)
+    if not transcript.strip():
+        print("[ERROR] Transcript vazio.")
+        sys.exit(1)
+    if not time_str:
+        time_str = datetime.now().strftime("%H-%M")
+
+    lang_word = "ingles" if lang == "en" else "portugues"
+    prompt = (
+        "Voce e um assistente que organiza transcricoes em notas estruturadas para o Obsidian.\n"
+        f"A transcricao abaixo (em {lang_word}) e de uma {cfg['label']}.\n"
+        f"{cfg['instructions']}\n"
+        "Baseie-se EXCLUSIVAMENTE na transcricao; nao invente. "
+        "Responda APENAS com o conteudo em markdown, sem preambulo.\n\n"
+        f"=== TRANSCRICAO ===\n{transcript[:8000]}"
+    )
+    print(f"\n  [Ollama] Organizando {cfg['label']}...\n")
+    summary = _ollama_generate(prompt, stream=True).strip()
+
+    inbox = Path(VAULT) / "Inbox"
+    inbox.mkdir(parents=True, exist_ok=True)
+    fname = f"{date}_{time_str}_{cfg['suffix']}.md"
+    fpath = inbox / fname
+    header = (
+        "---\n"
+        f"date: {date}\n"
+        f"time: {time_str.replace('-', ':')}\n"
+        f"type: {cfg['type']}\n"
+        f"status: {cfg['status']}\n"
+        f"lang: {lang}\n"
+        "tags: [inbox, triage]\n"
+        "---\n\n"
+    )
+    body = summary + "\n\n## Transcricao\n\n" + transcript.strip() + "\n"
+    fpath.write_text(header + body, encoding="utf-8")
+    print(f"\n  [OK] Nota salva: Inbox/{fname}")
+    print(f"  Status: {cfg['status']} (classifique depois no vault).")
+
+
 # ── Sweep: reprocess failed/partial call processings ─────────────────────────
 
 def _classify_transcript(name: str):
@@ -541,6 +631,8 @@ def _classify_transcript(name: str):
     d, t, rest = m.group(1), m.group(2), m.group(3)
     if rest == "nota-avulsa":
         return (d, t, None, "note")
+    if rest in SUFFIX_TO_MODE:
+        return (d, t, None, SUFFIX_TO_MODE[rest])
     if (Path(VAULT) / "Team" / rest).is_dir():
         return (d, t, rest, "person")
     if (Path(VAULT) / "Stakeholders" / rest).is_dir():
@@ -554,6 +646,9 @@ def _is_processed(d: str, t: str, target, kind: str) -> bool:
     the Inbox file exists."""
     if kind == "note":
         return (Path(VAULT) / "Inbox" / f"{d}_{t}_nota-avulsa.md").exists()
+    if kind in CAPTURE_MODES:
+        suffix = CAPTURE_MODES[kind]["suffix"]
+        return (Path(VAULT) / "Inbox" / f"{d}_{t}_{suffix}.md").exists()
     base = "Team" if kind == "person" else "Stakeholders"
     oneonone = Path(VAULT) / base / target / "1on1.md"
     if not oneonone.exists():
@@ -606,6 +701,8 @@ def cmd_sweep(transcripts_dir: str = None, min_age_min: int = 5,
                 cmd_manager(target, str(f), d, lang=lang)
             elif kind == "note":
                 cmd_note(str(f), d, lang=lang, time_str=t)
+            elif kind in CAPTURE_MODES:
+                cmd_capture(kind, str(f), d, lang=lang, time_str=t)
             result["reprocessed"].append(f.name)
         except SystemExit:
             result["failed"].append(f.name)
@@ -669,6 +766,8 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
                 cmd_manager(job["target"], str(tpath), date, lang=effective_lang)
             elif kind == "note":
                 cmd_note(str(tpath), date, lang=effective_lang, time_str=job.get("time"))
+            elif kind in CAPTURE_MODES:
+                cmd_capture(kind, str(tpath), date, lang=effective_lang, time_str=job.get("time"))
 
             # Run coach if: explicit coach flag OR auto-detected English
             run_coach = job.get("coach") or (lang == "auto" and effective_lang == "en")
@@ -720,6 +819,15 @@ def main():
     n.add_argument("--lang",       default="pt", choices=["pt", "en"],
                    help="Recording language — pt (default) or en")
 
+    cap = sub.add_parser("capture", help="Structure a project meeting / retrospective / idea capture into Inbox")
+    cap.add_argument("--mode",       required=True, choices=list(CAPTURE_MODES.keys()),
+                     help="project | retro | idea")
+    cap.add_argument("--transcript", required=True, help="Path to transcript .txt")
+    cap.add_argument("--date",       required=True, help="YYYY-MM-DD")
+    cap.add_argument("--time",       default=None, help="HH-MM (default: now)")
+    cap.add_argument("--lang",       default="pt", choices=["pt", "en"],
+                     help="Recording language — pt (default) or en")
+
     sw = sub.add_parser("sweep", help="Reprocess transcripts whose vault note is missing (failed/partial)")
     sw.add_argument("--dir",         default=None, help="Transcripts dir (default: ./transcripts)")
     sw.add_argument("--min-age-min", type=int, default=5, help="Skip files newer than this (in-flight)")
@@ -749,6 +857,8 @@ def main():
         cmd_manager(args.manager, args.transcript, args.date, lang=args.lang)
     elif args.command == "note":
         cmd_note(args.transcript, args.date, lang=args.lang, time_str=args.time)
+    elif args.command == "capture":
+        cmd_capture(args.mode, args.transcript, args.date, lang=args.lang, time_str=args.time)
     elif args.command == "sweep":
         cmd_sweep(args.dir, args.min_age_min, args.dry_run, args.lang, args.max_age_days)
     elif args.command == "queue":
