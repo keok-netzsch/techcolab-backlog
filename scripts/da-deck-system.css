@@ -1,0 +1,180 @@
+/*
+  Data & Analytics (by NETZSCH) — Deck System CSS
+  Sistema de slide dedicado para a skill `da-deck`, separado do da-brand.css (que é
+  para relatórios/one-pagers HTML soltos, não decks de apresentação).
+
+  Portado da REFERÊNCIA REAL da skill gerenciada `techcolab-deck` (lida diretamente em
+  2026-07-01 em references/design-system.md e references/web-deck.md) — canvas, tokens
+  de espaçamento/tipografia e regra de badge são os MESMOS valores comprovados, só a
+  paleta de cor e o logo trocam para D&A. Isso é a Opção B do ADR de portagem: reaproveitar
+  as regras estruturais que evitam os bugs conhecidos (logo sumindo, overlap de rodapé),
+  sem reescrever o stack inteiro para Vite+React (isso é a Opção A, no backlog).
+
+  Uso: <link rel="stylesheet" href="C:\Users\Kelvin.okuda\techcolab-backlog\scripts\da-brand.css">
+       <link rel="stylesheet" href="C:\Users\Kelvin.okuda\techcolab-backlog\scripts\da-deck-system.css">
+*/
+
+:root {
+  /* ── Canvas fixo (idêntico à techcolab-deck — mesma base, então os tokens de
+     espaçamento abaixo são diretamente reaproveitáveis) ────────────────────── */
+  --da-canvas-w: 1920px;
+  --da-canvas-h: 1080px;
+
+  /* ── Espaçamento — MESMOS valores da referência real. --da-slide-pb é a causa
+     raiz da correção do bug de overlap: uma margem de segurança generosa e FIXA
+     no rodapé, não um valor "no olho" por deck. ──────────────────────────────── */
+  --da-slide-pt: 4.05rem;
+  --da-slide-pb: 5.74rem;
+  --da-slide-px: 4rem;
+  --da-slide-gap: 2.4rem;
+  --da-slide-card-h: 420px;
+  --da-slide-footer-bottom: 2rem;
+
+  /* ── Tipografia de slide (escala nomeada, não tamanhos arbitrários) ────────── */
+  --da-slide-hero: 4.5rem;
+  --da-slide-title: 3.1rem;
+  --da-slide-sub-title: 1.7rem;
+  --da-slide-eyebrow: 1.05rem;
+  --da-slide-body: 1.4rem;
+  --da-slide-body-sm: 1.25rem;
+  --da-slide-number: 8rem;
+  --da-slide-number-label: 1.4rem;
+  --da-slide-card-title: 2rem;
+
+  /* ── Fundos de slide (paleta D&A — accent/neutro trocados, mesma estrutura) ── */
+  --da-slide-dark-bg: #263240;   /* var(--da-slate) do da-brand.css */
+  --da-slide-light-bg: #F9FAFB;
+}
+
+/* ── ViewportLock — canvas fixo 1920x1080 que escala pra qualquer tela.
+   Mesmo padrão da techcolab-deck: nunca deixar o layout "responsivo" tentar se
+   readaptar sozinho — trava a proporção e escala o bloco inteiro.
+   IMPORTANTE: o CSS sozinho só define a estrutura — o scale de verdade (transform:
+   scale()) é aplicado por JS. Ver o snippet <script> obrigatório em SKILL.md
+   ("Boilerplate obrigatório — scale do canvas"). Sem esse script, .da-deck-canvas
+   fica 1920x1080 fixo e literal — corrigido 2026-07-01 após achado de QA (o CSS
+   antigo prometia escala que não existia). ──────────────────────────────────── */
+.da-deck-viewport {
+  width: 100vw; height: 100vh; overflow: hidden;
+  background: #000; display: flex; align-items: center; justify-content: center;
+  position: fixed; top: 0; left: 0;
+}
+.da-deck-canvas {
+  width: var(--da-canvas-w); height: var(--da-canvas-h);
+  transform-origin: center center; overflow: hidden; flex-shrink: 0; position: relative;
+}
+
+/* ── Slide base ──────────────────────────────────────────────────────────────
+   Todo slide usa esta estrutura: a área de conteúdo fica ENTRE --da-slide-pt e
+   --da-slide-pb. Qualquer bloco de altura variável (bullets, steps empilhados,
+   cards) deve caber dentro dessa faixa — medir com getBoundingClientRect() antes
+   de entregar, nunca supor que "vai caber". */
+.da-slide {
+  width: 100%; height: 100%; position: relative; overflow: hidden;
+  font-family: var(--da-font, 'Inter', sans-serif);
+}
+.da-slide-dark  { background: var(--da-slide-dark-bg); color: #fff; }
+.da-slide-light { background: var(--da-slide-light-bg); color: var(--da-text, #4C4D57); }
+.da-slide-content {
+  padding: var(--da-slide-pt) var(--da-slide-px) var(--da-slide-pb);
+  height: 100%; box-sizing: border-box;
+}
+
+/* ── Classification Badge (MANDATORY — perguntar sempre antes de gerar) ────────
+   Mesmas cores da techcolab-deck: é convenção corporativa NETZSCH, não identidade
+   visual de sub-marca — não trocar essas cores por tokens D&A. */
+.da-badge-classification {
+  position: absolute; top: 20px; right: var(--da-slide-px); z-index: 10;
+  border-radius: 999px; padding: 10px 36px;
+  font-size: 16px; font-weight: 500; white-space: nowrap;
+}
+.da-badge-internal              { background: #FFD944; color: #000000; }
+.da-badge-confidential          { background: #E8872A; color: #FFFFFF; }
+.da-badge-strictly-confidential { background: #D42B2B; color: #FFFFFF; }
+
+/* ── Logo — disciplina anti-regressão ───────────────────────────────────────
+   Regra: SEMPRE dimensionar por WIDTH com height:auto, NUNCA por height fixo.
+   Os PNGs em Resources/DA/logo/ já estão recortados ao bounding box real
+   (sem padding invisível) — mas se algum dia forem re-extraídos, dimensionar
+   por height de novo pode reintroduzir o bug "logo microscópica". Tamanho do
+   rodapé é o mesmo da techcolab-deck (120px); o da capa foi aumentado a
+   pedido do Kelvin (2026-07-02) — 160px original ficava discreto demais na
+   marca D&A, capa pede mais destaque que o padrão herdado da Techco.lab. */
+.da-logo-cover {
+  position: absolute; top: 92px; right: 64px;
+  width: 390px; height: auto; min-width: 300px;
+}
+.da-logo-footer {
+  position: absolute; bottom: 32px; left: 64px;
+  width: 120px; height: auto; min-width: 90px;
+}
+
+/* ── Título com gradiente (fundo claro) ─────────────────────────────────────── */
+.da-slide-title-gradient {
+  font-size: var(--da-slide-title); font-weight: 700; line-height: 1.25;
+  letter-spacing: -0.025em;
+  background: var(--da-gradient-h1, linear-gradient(135deg, #007167, #3D90B0));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.da-slide-title-light { /* fundo escuro: sem gradiente, texto sólido */
+  font-size: var(--da-slide-title); font-weight: 700; line-height: 1.25;
+  letter-spacing: -0.025em; color: #fff;
+}
+.da-slide-eyebrow {
+  font-size: var(--da-slide-eyebrow); font-weight: 500;
+  letter-spacing: 0.2em; text-transform: uppercase;
+}
+.da-slide-eyebrow-light { color: var(--da-slate, #263240); }
+.da-slide-eyebrow-dark  { color: rgba(255,255,255,0.45); }
+
+/* ── Bullets com barra vertical (nunca bullet-dot padrão) ───────────────────── */
+.da-slide-bullet {
+  display: flex; align-items: flex-start; gap: 12px;
+  font-size: var(--da-slide-body); margin-bottom: 1rem;
+}
+.da-slide-bullet::before {
+  content: ''; width: 4px; height: 1.1em; margin-top: 0.2em; flex-shrink: 0;
+  background: var(--da-accent, #007167); border-radius: 2px;
+}
+
+/* ── Steps/flow empilhados ────────────────────────────────────────────────────
+   Padrão reutilizável para processos/funis em sequência (ex: "A → B → C").
+   Calibrado para caber com folga dentro de .da-slide-content em até ~6 itens
+   num canvas 1920x1080. Foi o elemento que causou o bug de overlap original —
+   usar estas classes em vez de reinventar CSS inline ad hoc por deck. Se
+   precisar de mais de 6 itens, dividir em 2 slides em vez de espremer. */
+.da-slide-steps {
+  display: flex; flex-direction: column; gap: 20px; max-width: 1150px;
+}
+.da-step-chip {
+  background: #fff; border: 2px solid var(--da-border, #E5E7EB);
+  border-left: 6px solid var(--da-accent, #007167); border-radius: 10px;
+  padding: 20px 28px; font-size: var(--da-slide-body-sm); font-weight: 500;
+  color: var(--da-slate, #263240);
+}
+.da-step-chip.accent {
+  background: var(--da-accent, #007167); color: #fff; border-color: var(--da-accent, #007167);
+  border-left-color: var(--da-accent-light, #0AD4A8);
+}
+.da-step-chip small {
+  display: block; margin-top: 4px; font-size: 1rem; font-weight: 400;
+  color: var(--da-text-secondary, #7D868F);
+}
+.da-step-chip.accent small { color: rgba(255,255,255,0.75); }
+
+/* ── Footer signature (capa) ─────────────────────────────────────────────────── */
+.da-slide-footer-signature {
+  position: absolute; bottom: var(--da-slide-footer-bottom); left: 64px;
+  display: flex; align-items: center; gap: 16px;
+}
+.da-slide-footer-signature .bar {
+  width: 4px; height: 44px; border-radius: 2px; background: var(--da-accent, #007167);
+}
+.da-slide-footer-signature .title {
+  color: var(--da-accent, #007167); text-transform: uppercase;
+  letter-spacing: 0.15em; font-weight: 700; font-size: 0.9rem;
+}
+.da-slide-footer-signature .meta {
+  color: rgba(255,255,255,0.6); font-size: 0.8rem; margin-top: 2px;
+}

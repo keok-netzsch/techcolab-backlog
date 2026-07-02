@@ -1,0 +1,198 @@
+/*
+  Data & Analytics (by NETZSCH) — Brand CSS
+  Sub-marca da Techco.lab: mesmo tema/accent oficial (#007167), wordmark e neutro próprios.
+  Importar em qualquer projeto HTML ou relatório.
+  Uso: <link rel="stylesheet" href="%USERPROFILE%\techcolab-backlog\scripts\da-brand.css">
+  Ou copiar as variáveis :root para dentro de um <style> inline.
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* Fonte oficial do master pptx é "Frutiger Neue LT W1G" (Linotype, licenciada — NÃO embutida no
+   arquivo, não extraível). Nomes exatos abertos primeiro: se estiver instalada na máquina (deploy
+   corporativo NETZSCH), o navegador usa o desenho real; senão cai pro Segoe UI (mais próxima,
+   nativa do Windows), depois Inter/system-ui. Use --da-font para corpo, --da-font-heading para
+   títulos/labels (a variante "Cn Thin" do tema é para headings, "Light" é para corpo). */
+
+/* ── Design Tokens ──────────────────────────────────────── */
+:root {
+  /* Cores principais (do tema oficial do pptx) */
+  --da-accent:         #007167;
+  --da-accent-hover:   #005953;
+  --da-accent-light:   #0AD4A8;
+
+  /* Accents secundários (tema compartilhado com Techco.lab) */
+  --da-slate:          #263240;
+  --da-blue:           #003A7E;
+  --da-blue-light:     #3D90B0;
+  --da-purple:         #624C79;
+  --da-orange:         #E27B00;
+
+  /* Gradientes */
+  --da-gradient-btn:   linear-gradient(90deg, #007167, #0AD4A8);
+  --da-gradient-h1:    linear-gradient(135deg, #007167, #3D90B0);
+
+  /* Texto */
+  --da-text:           #4C4D57;
+  --da-text-secondary: #7D868F;
+  --da-text-muted:     #9CA3AF;
+
+  /* Superfícies */
+  --da-bg:             #FFFFFF;
+  --da-bg-card:        #F9FAFB;
+  --da-border:         #E5E7EB;
+
+  /* Estados / diagnósticos */
+  --da-error:          #EF4444;
+  --da-success:        #059669;
+  --da-opportunity:    #624C79;
+
+  /* Tipografia */
+  --da-font:           'Frutiger Neue LT W1G Light', 'Frutiger Neue LT W1G', 'Segoe UI', 'Inter', system-ui, sans-serif;
+  --da-font-heading:   'Frutiger Neue LT W1G Cn Thin', 'Frutiger Neue LT W1G', 'Segoe UI', 'Inter', system-ui, sans-serif;
+  --da-radius:         8px;
+  --da-radius-sm:      6px;
+}
+
+/* ── Dark mode ──────────────────────────────────────────────
+   Ativar com <html data-theme="dark"> (toggle manual) ou deixe
+   o bloco @media abaixo seguir a preferência do sistema quando
+   não houver data-theme explícito. */
+[data-theme="dark"] {
+  --da-accent-hover:   #0AD4A8;
+  --da-text:           #F2F2F2;
+  --da-text-secondary: #A7B0B8;
+  --da-text-muted:     #7D868F;
+  --da-bg:             #14191D;
+  --da-bg-card:        #1D2429;
+  --da-border:         #2C353B;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --da-accent-hover:   #0AD4A8;
+    --da-text:           #F2F2F2;
+    --da-text-secondary: #A7B0B8;
+    --da-text-muted:     #7D868F;
+    --da-bg:             #14191D;
+    --da-bg-card:        #1D2429;
+    --da-border:         #2C353B;
+  }
+}
+
+/* ── Base ───────────────────────────────────────────────── */
+body {
+  font-family: var(--da-font);
+  color: var(--da-text);
+  background: var(--da-bg);
+  transition: background-color .15s ease, color .15s ease;
+}
+
+/* ── Títulos ────────────────────────────────────────────── */
+h1, h2, h3, h4 {
+  font-family: var(--da-font-heading);
+}
+h1 {
+  background: var(--da-gradient-h1);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* ── Botões ─────────────────────────────────────────────── */
+.da-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 16px;
+  border-radius: var(--da-radius-sm);
+  background: var(--da-gradient-btn);
+  color: #fff;
+  font-family: var(--da-font);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+.da-btn:hover { background: var(--da-accent-hover); }
+
+/* ── Cards de stat ──────────────────────────────────────── */
+.da-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: .5rem 0;
+}
+.da-card {
+  background: var(--da-bg-card);
+  border: 1px solid var(--da-border);
+  border-radius: var(--da-radius);
+  padding: 8px 12px;
+}
+.da-card-label {
+  font-size: .7rem;
+  color: var(--da-text-secondary);
+  font-weight: 500;
+  margin-bottom: 2px;
+  white-space: nowrap;
+}
+.da-card-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--da-text);
+  line-height: 1.2;
+}
+
+/* ── Diagnostic cards (border-left) ─────────────────────── */
+.da-issue {
+  margin: .4rem 0;
+  padding: .5rem .75rem;
+  border-radius: var(--da-radius-sm);
+  border-left: 3px solid var(--da-error);
+  background: rgba(239, 68, 68, .05);
+}
+.da-fix {
+  margin: -.2rem 0 .5rem;
+  padding: .5rem .75rem;
+  border-radius: var(--da-radius-sm);
+  border-left: 3px solid var(--da-success);
+  background: rgba(5, 150, 105, .05);
+}
+.da-opportunity {
+  margin: .4rem 0;
+  padding: .5rem .75rem;
+  border-radius: var(--da-radius-sm);
+  border-left: 3px solid var(--da-opportunity);
+  background: rgba(98, 76, 121, .05);
+}
+.da-issue-label,
+.da-fix-label,
+.da-opportunity-label {
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  display: block;
+  margin-bottom: 2px;
+}
+.da-issue-label      { color: var(--da-error); }
+.da-fix-label        { color: var(--da-success); }
+.da-opportunity-label{ color: var(--da-opportunity); }
+
+/* ── Badge de prioridade ─────────────────────────────────── */
+.da-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 0.65rem;
+  font-family: Georgia, serif;
+  vertical-align: middle;
+}
+.da-badge-high   { background: #007167; color: #fff; }
+.da-badge-medium { background: #E27B00; color: #fff; }
+.da-badge-low    { background: #E5E7EB; color: #7D868F; }
