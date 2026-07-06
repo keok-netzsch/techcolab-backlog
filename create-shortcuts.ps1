@@ -109,7 +109,7 @@ $lnkLauncher.TargetPath      = "wscript.exe"
 $lnkLauncher.Arguments       = "`"$TB\launcher.vbs`""
 $lnkLauncher.WorkingDirectory = $TB
 $lnkLauncher.Description     = "Techco.lab Unified Launcher"
-$lnkLauncher.IconLocation    = "shell32.dll,43"
+$lnkLauncher.IconLocation    = "$TB\assets\techcolab.ico,0"
 $lnkLauncher.Save()
 Write-Host "  ✅ Techco.lab Launcher  →  $desktop\Techco.lab Launcher.lnk" -ForegroundColor Green
 
