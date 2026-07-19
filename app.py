@@ -301,7 +301,7 @@ st.markdown(
 )
 
 # ── Top navigation (pure HTML — full height control) ───────────────────────
-_PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Team", "Claude Pro", "Weekly Brief", "English Coach"]
+_PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Team", "AI Usage", "Weekly Brief", "English Coach"]
 _ALL_PAGES  = _PAGES_MAIN + ["FAQ", "Tutorial", "Documentation", "Settings"]
 
 _qpage = st.query_params.get("page", "Dashboard")
@@ -425,9 +425,9 @@ elif page == "Team":
     from views.team import render as _render_team
     _render_team()
 
-elif page == "Claude Pro":
-    from views.claude_pro import render as _render_claude_pro
-    _render_claude_pro()
+elif page == "AI Usage":
+    from views.usage_monitor import render as _render_usage_monitor
+    _render_usage_monitor()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 7 — ENGLISH COACH
