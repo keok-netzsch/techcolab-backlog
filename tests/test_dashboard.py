@@ -84,3 +84,44 @@ def test_dashboard_empty_vault(vault):
     counts = process.cmd_dashboard()
     assert counts["total"] == 0
     assert (vault / "Action-Dashboard.md").exists()
+
+
+def test_dashboard_dedups_repeated_action(vault):
+    # Same action carried across the cumulative log, the per-meeting note and
+    # three agent reports must count once, keeping every source backlink.
+    line = "- [ ] (Ana) Entregar documentacao do pipeline\n"
+    _write(vault / "Team" / "Ana" / "1on1.md", line)
+    _write(vault / "Team" / "Ana" / "1on1" / "2026-05-25_1on1_Ana.md", line)
+    for d in ("2026-05-26", "2026-05-27", "2026-05-28"):
+        _write(vault / "agent-reports" / f"report-{d}.md", line)
+
+    counts = process.cmd_dashboard()
+
+    assert counts["total"] == 1          # five copies collapse to one action
+    assert counts["undated"] == 1
+    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    assert out.count("Entregar documentacao do pipeline") == 1
+    assert "x5" in out or "×5" in out  # duplicate multiplier shown
+    assert "[[1on1]]" in out                 # at least one source preserved
+
+
+def test_dashboard_dedup_is_case_and_whitespace_insensitive(vault):
+    _write(vault / "a.md", "- [ ] (Kelvin)  Revisar   Deck \n")
+    _write(vault / "b.md", "- [ ] (kelvin) revisar deck\n")
+
+    counts = process.cmd_dashboard()
+
+    assert counts["total"] == 1
+
+
+def test_dashboard_caps_source_links(vault):
+    # More than MAX_SOURCES origins -> show the cap then a "+N" overflow marker.
+    line = "- [ ] (Kelvin) acao muito repetida\n"
+    for i in range(process.MAX_SOURCES + 3):
+        _write(vault / f"src{i}.md", line)
+
+    process.cmd_dashboard()
+
+    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    assert f"+{3}" in out                     # 3 sources beyond the cap
+    assert out.count("[[src") == process.MAX_SOURCES

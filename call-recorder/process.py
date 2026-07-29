@@ -690,12 +690,47 @@ def _collect_open_tasks(root: Path, output_name: str) -> list:
     return tasks
 
 
+# How many source backlinks to show inline before collapsing to "+N".
+MAX_SOURCES = 5
+
+
+def _norm(s: str) -> str:
+    """Case/whitespace-insensitive key for matching the same action across files."""
+    return re.sub(r"\s+", " ", s).strip().casefold()
+
+
+def _dedup_tasks(tasks: list) -> list:
+    """Collapse identical action items that appear in multiple source files.
+
+    Vault cross-linking means the same 1:1 action lands in the cumulative
+    `1on1.md`, the per-meeting note, a daily note AND every `agent-reports/
+    report-*.md` that carried it forward. Without dedup the same action is
+    counted many times (e.g. one Tailscale to-do appeared ~30x). Key is
+    (owner, normalized text, due); the surviving entry keeps every distinct
+    source stem so each origin can still be cleaned up. Insertion order is
+    preserved so downstream sorting stays deterministic.
+    """
+    grouped: dict = {}
+    order: list = []
+    for t in tasks:
+        key = (_norm(t["owner"]), _norm(t["text"]), t["due"] or "")
+        g = grouped.get(key)
+        if g is None:
+            g = {"owner": t["owner"], "text": t["text"],
+                 "due": t["due"], "stems": []}
+            grouped[key] = g
+            order.append(key)
+        if t["stem"] not in g["stems"]:
+            g["stems"].append(t["stem"])
+    return [grouped[k] for k in order]
+
+
 def cmd_dashboard(output_name: str = DASHBOARD_FILE) -> dict:
     """Generate a single markdown note consolidating all open action items in the
     vault, grouped by due status (overdue / today / upcoming / no date). Regenerated
     on each run. Returns counts."""
     root = Path(VAULT)
-    tasks = _collect_open_tasks(root, output_name)
+    tasks = _dedup_tasks(_collect_open_tasks(root, output_name))
     today = datetime.now().date()
 
     def _d(s):
@@ -717,7 +752,7 @@ def cmd_dashboard(output_name: str = DASHBOARD_FILE) -> dict:
             upcoming.append(t)
     for grp in (overdue, due_today, upcoming):
         grp.sort(key=lambda t: (t["due"] or "", t["owner"].lower()))
-    undated.sort(key=lambda t: (t["owner"].lower(), t["stem"].lower()))
+    undated.sort(key=lambda t: (t["owner"].lower(), t["stems"][0].lower()))
 
     # per-owner counts
     owners = {}
@@ -726,7 +761,12 @@ def cmd_dashboard(output_name: str = DASHBOARD_FILE) -> dict:
 
     def _line(t):
         due = f" — `{t['due']}`" if t["due"] else ""
-        return f"- [ ] ({t['owner']}) {t['text']}{due} · [[{t['stem']}]]"
+        stems = t["stems"]
+        shown = " ".join(f"[[{s}]]" for s in stems[:MAX_SOURCES])
+        if len(stems) > MAX_SOURCES:
+            shown += f" +{len(stems) - MAX_SOURCES}"
+        dup = f" ×{len(stems)}" if len(stems) > 1 else ""
+        return f"- [ ] ({t['owner']}) {t['text']}{due}{dup} · {shown}"
 
     def _section(title, items):
         if not items:
