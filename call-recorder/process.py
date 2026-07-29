@@ -343,6 +343,81 @@ Formato: lista markdown com tempo por item. Responda em portugues."""
     print("  " + "-" * 50)
 
 
+# ── Speaker labeling (idea-031) — text-only, interim (no voice diarization) ─────
+
+def label_speakers(transcript: str, participants=None, lang: str = "pt",
+                   model: str = OLLAMA_MODEL) -> str:
+    """Attribute each turn of a transcript to a speaker from TEXT CONTEXT alone.
+
+    This is the interim, dependency-free stand-in for real (voice-based) speaker
+    diarization: there is no audio signal here, so the model guesses who is
+    speaking from conversational cues. Labels are HINTS, not ground truth — it
+    cannot reliably tell two similar speakers apart. Timestamps and wording are
+    preserved; only a `[Speaker]` tag is prepended to each line.
+
+    participants: known names (e.g. ["Kelvin Okuda", "Ana Leite"]) the model must
+    reuse verbatim; if omitted it falls back to SPEAKER_1/SPEAKER_2/... Returns the
+    labeled transcript, or the original text unchanged when it is empty (no LLM call).
+    """
+    if not transcript or not transcript.strip():
+        return transcript
+
+    if participants:
+        who = ", ".join(participants)
+        roster = (f"Participantes conhecidos (use EXATAMENTE estes rotulos): {who}. "
+                  f"Se algum trecho nao encaixar, use SPEAKER_?.")
+    else:
+        roster = ("Nao ha lista de participantes; rotule cada falante distinto como "
+                  "SPEAKER_1, SPEAKER_2, ... de forma consistente ao longo do texto.")
+
+    lang_line = "Mantenha o idioma original dos trechos." if lang == "pt" else \
+                "Keep the original language of each turn."
+    prompt = f"""Voce recebe a transcricao de uma conversa com marcas de tempo [SS.Ss].
+Tarefa: identificar quem fala em cada trecho, APENAS pelo contexto do texto
+(nao ha informacao de voz). {roster}
+
+REGRAS:
+- Preserve os timestamps e o texto EXATAMENTE como estao.
+- Prefixe cada linha com o falante entre colchetes: [00.0s] [Kelvin Okuda] texto.
+- Nao invente conteudo, nao resuma, nao traduza; apenas atribua falantes.
+- Em duvida entre dois falantes, escolha o mais provavel pelo contexto.
+{lang_line}
+
+Transcricao:
+---
+{transcript[:12000]}
+---
+
+Responda APENAS com a transcricao rotulada, uma linha por trecho."""
+    return _ollama_generate(prompt, stream=False, model=model)
+
+
+def cmd_diarize(transcript_file: str, people: str = None, output: str = None) -> str:
+    """CLI: label speakers in a transcript file. Writes `<name>.diarized.txt` next
+    to the input (or --output) and returns the path. Standalone on purpose — it is
+    a second LLM pass (~minutes on CPU), so it is not forced into every 1:1 flow."""
+    transcript = read_file(transcript_file)
+    if not transcript.strip():
+        print(f"[ERROR] Transcricao vazia ou nao encontrada: {transcript_file}")
+        sys.exit(1)
+
+    participants = None
+    if people:
+        participants = [p.strip() for p in people.split(",") if p.strip()]
+
+    print("\n  [Ollama] Atribuindo falantes (baseado em texto — aproximado)...\n")
+    labeled = label_speakers(transcript, participants)
+
+    if output:
+        out_path = output
+    else:
+        base, ext = os.path.splitext(transcript_file)
+        out_path = base + ".diarized" + (ext or ".txt")
+    Path(out_path).write_text(labeled, encoding="utf-8")
+    print(f"  [OK] Transcricao rotulada salva em: {out_path}")
+    return out_path
+
+
 # Structured monthly 1:1 questions (idea-020 — Just to Talk, 4 perguntas fixas)
 _STRUCTURED_QUESTIONS = [
     "Como você tem se sentido em relação à sua carga de trabalho nas últimas semanas?",
@@ -1044,6 +1119,11 @@ def main():
     db = sub.add_parser("dashboard", help="Consolidate all open '- [ ]' tasks in the vault into Action-Dashboard.md")
     db.add_argument("--output", default=DASHBOARD_FILE, help=f"Output filename in vault root (default: {DASHBOARD_FILE})")
 
+    dz = sub.add_parser("diarize", help="Rotula falantes numa transcricao (baseado em texto, aproximado — idea-031)")
+    dz.add_argument("--transcript", required=True, help="Arquivo .txt da transcricao a rotular")
+    dz.add_argument("--people", default=None, help="Nomes conhecidos, separados por virgula (ex: 'Kelvin Okuda,Ana Leite')")
+    dz.add_argument("--output", default=None, help="Saida (padrao: <nome>.diarized.txt ao lado do input)")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -1070,6 +1150,8 @@ def main():
         cmd_queue(args.dir, args.dry_run)
     elif args.command == "dashboard":
         cmd_dashboard(args.output)
+    elif args.command == "diarize":
+        cmd_diarize(args.transcript, args.people, args.output)
 
 
 if __name__ == "__main__":
