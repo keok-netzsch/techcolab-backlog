@@ -21,6 +21,7 @@ VIEWS = [
     "tutorial",
     "documentation",
     "team",
+    "usage_monitor",
     "claude_pro",
     "english_coach",
     "faq",

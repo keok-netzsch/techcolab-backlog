@@ -78,6 +78,7 @@ TechColab_D&A_KO/
 | `views/backlog.py` | Backlog | `load_ideas()`, `BacklogStore` |
 | `views/todo_list.py` | To-Do List | `load_ideas()` |
 | `views/team.py` | Team | Vault `Team/{Person}/` files |
+| `views/usage_monitor.py` | AI Usage | NETZSCH AI Gateway `/key/info` + local ignored history |
 | `views/claude_pro.py` | Claude Pro | `load_ideas()` + `reports/claude-pro-data.json` (exec summary + tools only) |
 | `views/weekly_brief.py` | Weekly Brief | `load_ideas()` + vault `Log/` + vault `Team/{Person}/1on1/` |
 | `views/english_coach.py` | English Coach | Vault `English-Coach/` |
