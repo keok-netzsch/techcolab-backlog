@@ -185,6 +185,8 @@ Open **AI Usage** to check the balance associated with your NETZSCH AI Gateway k
 - The page reads `NETZSCH_LLM_API_KEY` only from the Windows environment; it never displays or saves the key.
 - Select **Refresh balance** to retrieve current spend, available budget, reset date, and gateway rate limits.
 - Each manual check is stored locally in `logs/ai-usage-history.jsonl`, which is excluded from Git.
+- **Spend this month** charts cumulative spend for the current calendar-month cycle against the budget line, with a dashed projection based on the last 3 days' pace.
+- **Monthly history** compares total spend across calendar months — a proxy for the real billing cycle, since the gateway doesn't report the actual reset day.
 - If the page cannot find the environment variable, set it and fully restart the Toolkit.
 
 ---
