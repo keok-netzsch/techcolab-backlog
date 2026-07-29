@@ -30,6 +30,7 @@ logs/
 call-recorder/model/
 call-recorder/transcripts/
 call-recorder/transcript_*.txt
+call-recorder/transcript_*.txt.lang
 call-recorder/recordings/
 
 # ── OS ──────────────────────────────────────────────────────
