@@ -247,6 +247,34 @@ def _monthly_totals(daily: pd.DataFrame) -> pd.DataFrame:
     return monthly[["month", "total"]]
 
 
+def _render_budget_donut(spend: float, budget: float, percent: float | None, color: str) -> None:
+    used = max(min(spend, budget), 0.0)
+    remaining = max(budget - spend, 0.0)
+    donut_df = pd.DataFrame({"category": ["Used", "Remaining"], "value": [used, remaining]})
+    arc = alt.Chart(donut_df).mark_arc(innerRadius=52, outerRadius=80, cornerRadius=2).encode(
+        theta=alt.Theta("value:Q", stack=True, sort=None),
+        color=alt.Color(
+            "category:N",
+            scale=alt.Scale(domain=["Used", "Remaining"], range=[color, "#E5E7EB"]),
+            legend=None,
+        ),
+        tooltip=[alt.Tooltip("category:N", title="Status"), alt.Tooltip("value:Q", title="Amount", format="$.2f")],
+    )
+    center_value = alt.Chart(pd.DataFrame({"text": [_money(spend)]})).mark_text(
+        fontSize=20, fontWeight=800, color="#111827", dy=-6,
+    ).encode(text="text:N")
+    center_label_text = f"{percent:.0f}% used" if percent is not None else "spent"
+    center_label = alt.Chart(pd.DataFrame({"text": [center_label_text]})).mark_text(
+        fontSize=10, color="#6B7280", dy=14,
+    ).encode(text="text:N")
+    chart = (
+        alt.layer(arc, center_value, center_label)
+        .properties(width=170, height=170)
+        .configure_view(strokeWidth=0)
+    )
+    st.altair_chart(chart, use_container_width=False)
+
+
 _CHART_AXIS_KW = dict(
     grid=True,
     gridColor="#F3F4F6",
@@ -460,135 +488,122 @@ def render() -> None:
     reset_at = snapshot.get("budget_reset_at")
     reset_is_local_note = reset_at is None
 
-    _col_budget, _col_reset = st.columns([3, 2])
+    donut_color = "#9CA3AF"
+    if percent is not None:
+        donut_color = "#EF4444" if percent >= 90 else "#F59E0B" if percent >= 75 else "#02B793"
 
-    with _col_budget:
+    per_day, days_left = _burn_rate(history)
+    opus_price = _load_opus_price_estimate()
+    computed_at = _value(opus_price.get("computed_at"))[:10]
+
+    _col_donut, _col_cost, _col_pace = st.columns(3)
+
+    with _col_donut:
         with st.container(border=True):
             label = "Budget this month" + (" · as informed by you" if budget_is_estimated else "")
+            st.markdown(f'<div class="cc-sl">{html.escape(label)}</div>', unsafe_allow_html=True)
+            spend_f = _as_float(spend) or 0.0
+            budget_f = _as_float(max_budget) or MONTHLY_BUDGET
+            _render_budget_donut(spend_f, budget_f, percent, donut_color)
+            caption_bits = [f"{_money(spend)} of {_money(max_budget)}", f"{remaining} remaining"]
+            if budget_is_estimated:
+                caption_bits.append("figure informed by NBS, not returned by the gateway")
+            st.caption("  ·  ".join(caption_bits))
+
+    with _col_cost:
+        with st.container(border=True):
+            st.markdown('<div class="cc-sl">Cost per million tokens</div>', unsafe_allow_html=True)
             st.markdown(
                 stat_grid(
-                    [{"label": label, "value": f"{_money(spend)} of {_money(max_budget)}", "vstyle": "font-size:2rem;font-weight:800"}],
+                    [{
+                        "label": f"Claude Opus (est. {computed_at})",
+                        "value": _money(opus_price["price_per_million_input_tokens"]),
+                        "vstyle": "font-size:1.6rem;font-weight:800",
+                    }],
                     columns=1,
                 ),
                 unsafe_allow_html=True,
             )
-            if percent is not None:
-                color = "#EF4444" if percent >= 90 else "#F59E0B" if percent >= 75 else "#02B793"
-                st.progress(percent / 100)
+            if opus_price.get("contaminated"):
                 st.markdown(
-                    f'<div style="display:flex;justify-content:space-between;font-size:.75rem;'
-                    f'color:{color};margin-top:-.4rem">'
-                    f'<span>{percent:.0f}% used</span><span>{remaining} remaining</span></div>',
+                    '<p style="font-size:.72rem;color:#F59E0B;margin:.3rem 0 0">'
+                    "⚠ Codex activity detected in the recalculation window — treat this estimate "
+                    "as unreliable this week.</p>",
                     unsafe_allow_html=True,
                 )
-            if budget_is_estimated:
-                st.caption(
-                    "The gateway API does not return max_budget — this figure is the amount "
-                    "the NBS team communicated, not a live value."
-                )
+            st.caption(
+                "Estimate, not official — gateway pricing endpoints return 403 for this key. "
+                "Recalculated weekly from local usage. Opus only."
+            )
 
-    with _col_reset:
+    with _col_pace:
         with st.container(border=True):
-            if reset_is_local_note:
-                st.caption("Budget reset")
-                note_input = st.text_input(
-                    "Reset note",
-                    value=_load_reset_note(),
-                    placeholder="e.g. every 1st of the month, or 2026-08-15",
-                    label_visibility="collapsed",
-                )
-                if st.button("Save", key="save_reset_note"):
-                    try:
-                        _save_reset_note(note_input.strip())
-                        st.rerun()
-                    except OSError as error:
-                        st.markdown(
-                            '<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
-                            'border-left:3px solid #F59E0B;background:rgba(245,158,11,.05)">'
-                            f'Could not save the note: {html.escape(str(error))}</div>',
-                            unsafe_allow_html=True,
-                        )
-                st.caption(
-                    'Handbook: resets "generally every 30 days", exact day not given per key — '
-                    "confirm with NBS if it matters. Stored on this machine only."
-                )
+            st.markdown('<div class="cc-sl">Consumption pace</div>', unsafe_allow_html=True)
+            pace_value = f"{_money(per_day)}/day" if per_day is not None else "—"
+            st.markdown(
+                stat_grid([{"label": "Spend pace", "value": pace_value, "vstyle": "font-size:1.6rem;font-weight:800"}], columns=1),
+                unsafe_allow_html=True,
+            )
+            if per_day is None:
+                st.caption("Need at least 2 checks on different days to estimate a pace.")
             else:
-                st.markdown(
-                    stat_grid([{"label": "Budget reset", "value": _value(reset_at), "vstyle": "font-size:1.4rem"}], columns=1),
-                    unsafe_allow_html=True,
+                note = (
+                    f"At this pace, ~{days_left:.0f} days until the {_money(max_budget)} budget is reached."
+                    if days_left is not None
+                    else "Negligible consumption over the observed period."
                 )
+                st.caption(note)
 
-    rpm_limit = snapshot.get("rpm_limit")
-    tpm_limit = snapshot.get("tpm_limit")
-    limits_are_fixed = rpm_limit is None and tpm_limit is None
-    if rpm_limit is None:
-        rpm_limit = GATEWAY_RPM_LIMIT
-    if tpm_limit is None:
-        tpm_limit = GATEWAY_TPM_LIMIT
-
-    st.subheader("Gateway limits")
-    st.markdown(
-        stat_grid(
-            [
-                ("Requests per minute", f"{rpm_limit:,}"),
-                ("Tokens per minute", f"{tpm_limit:,}"),
-                ("Budget period", _value(snapshot.get("budget_duration"))),
-            ],
-            columns=3,
-        ),
-        unsafe_allow_html=True,
-    )
-    if limits_are_fixed:
-        st.caption("Fixed limits from the AI Gateway Developer Handbook — the API doesn't return them.")
-
-    st.subheader("Cost reference")
-    with st.container(border=True):
-        opus_price = _load_opus_price_estimate()
-        computed_at = _value(opus_price.get("computed_at"))[:10]
+    with st.expander("Gateway limits & budget reset", expanded=False):
+        rpm_limit = snapshot.get("rpm_limit")
+        tpm_limit = snapshot.get("tpm_limit")
+        limits_are_fixed = rpm_limit is None and tpm_limit is None
+        if rpm_limit is None:
+            rpm_limit = GATEWAY_RPM_LIMIT
+        if tpm_limit is None:
+            tpm_limit = GATEWAY_TPM_LIMIT
         st.markdown(
             stat_grid(
-                [{
-                    "label": f"Claude Opus — estimated price (as of {computed_at})",
-                    "value": f"{_money(opus_price['price_per_million_input_tokens'])} / 1M input tokens",
-                    "vstyle": "font-size:1.4rem;font-weight:800",
-                }],
-                columns=1,
+                [
+                    ("Requests per minute", f"{rpm_limit:,}"),
+                    ("Tokens per minute", f"{tpm_limit:,}"),
+                    ("Budget period", _value(snapshot.get("budget_duration"))),
+                ],
+                columns=3,
             ),
             unsafe_allow_html=True,
         )
-        if opus_price.get("contaminated"):
-            st.markdown(
-                '<p style="font-size:.75rem;color:#F59E0B;margin:.4rem 0 0">'
-                "⚠ Codex activity was detected in the same 7-day window used to recalculate this — "
-                "the estimate may be skewed by non-Opus spend and should not be treated as reliable "
-                "this week.</p>",
-                unsafe_allow_html=True,
-            )
-        st.caption(
-            "Estimate, not an official rate — the gateway doesn't expose a pricing endpoint to this "
-            "key's permission level (/model/info and /spend/logs both return 403). Recalculated weekly "
-            "from local usage (passive correlation, no live test calls) using Anthropic's published "
-            "cache-pricing ratios (cache-write = 1.25x input, cache-read = 0.1x input, output = 5x "
-            "input). Opus only — other models on this gateway (GPT-5.4, Sonnet, etc.) haven't been "
-            "measured this way."
-        )
+        if limits_are_fixed:
+            st.caption("Fixed limits from the AI Gateway Developer Handbook — the API doesn't return them.")
 
-    st.subheader("Consumption pace")
-    per_day, days_left = _burn_rate(history)
-    with st.container(border=True):
-        if per_day is None:
-            st.caption("Need at least 2 checks on different days to estimate a pace.")
-        else:
-            note = (
-                f"At this pace, ~{days_left:.0f} days until the {_money(MONTHLY_BUDGET)} budget is reached."
-                if days_left is not None
-                else "Negligible consumption over the observed period."
+        if reset_is_local_note:
+            st.caption("Budget reset")
+            note_input = st.text_input(
+                "Reset note",
+                value=_load_reset_note(),
+                placeholder="e.g. every 1st of the month, or 2026-08-15",
+                label_visibility="collapsed",
             )
+            if st.button("Save", key="save_reset_note"):
+                try:
+                    _save_reset_note(note_input.strip())
+                    st.rerun()
+                except OSError as error:
+                    st.markdown(
+                        '<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
+                        'border-left:3px solid #F59E0B;background:rgba(245,158,11,.05)">'
+                        f'Could not save the note: {html.escape(str(error))}</div>',
+                        unsafe_allow_html=True,
+                    )
+            st.caption(
+                'Handbook: resets "generally every 30 days", exact day not given per key — '
+                "confirm with NBS if it matters. Stored on this machine only."
+            )
+        else:
             st.markdown(
-                stat_grid([{"label": "Spend pace", "value": f"{_money(per_day)}/day", "vstyle": "font-size:2rem;font-weight:800"}], columns=1),
+                stat_grid([{"label": "Budget reset", "value": _value(reset_at), "vstyle": "font-size:1.4rem"}], columns=1),
                 unsafe_allow_html=True,
             )
-            st.caption(note)
 
     chart_budget = _as_float(max_budget) or MONTHLY_BUDGET
     daily = _daily_spend(history)
