@@ -89,19 +89,82 @@ def transcribe(audio_path: str, language: str | None = LANGUAGE) -> tuple[str, s
     return "\n".join(lines), detected
 
 
-def main():
-    import numpy as np
-    import sounddevice as sd
-    import soundfile as sf
+# File Processing (idea-031): accept an existing audio/video file as input instead
+# of recording from the mic. faster-whisper decodes the container via ffmpeg/PyAV,
+# so a video's audio track is transcribed directly with no manual extraction step.
+SUPPORTED_MEDIA_EXTS = {
+    ".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac", ".wma",   # audio
+    ".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v",           # video
+}
 
+
+def is_supported_media(path: str) -> bool:
+    """True if `path` has an extension Whisper can decode (audio or video)."""
+    return os.path.splitext(str(path))[1].lower() in SUPPORTED_MEDIA_EXTS
+
+
+def transcribe_file(input_path: str, output_path: str | None = None,
+                    language: str | None = LANGUAGE) -> tuple[str, str]:
+    """Transcribe an existing audio/video file through the same pipeline as a live
+    capture. Returns (transcript_path, detected_language).
+
+    Pass language="auto" (or None) to let Whisper detect the language. Raises
+    FileNotFoundError if the file is missing and ValueError for unsupported types.
+    """
+    if not os.path.isfile(input_path):
+        raise FileNotFoundError(f"Input file not found: {input_path}")
+    if not is_supported_media(input_path):
+        ext = os.path.splitext(input_path)[1] or "(none)"
+        raise ValueError(
+            f"Unsupported media type: {ext}. "
+            f"Supported: {', '.join(sorted(SUPPORTED_MEDIA_EXTS))}"
+        )
+
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if output_path:
+        out_path = output_path
+    else:
+        stem = os.path.splitext(os.path.basename(input_path))[0]
+        ts = datetime.now().strftime("%Y-%m-%d_%H-%M")
+        out_path = os.path.join(script_dir, f"transcript_{stem}_{ts}.txt")
+
+    lang_eff = None if language == "auto" else language
+    transcript, detected = transcribe(input_path, language=lang_eff)
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(transcript)
+    # Language sidecar so the PS1 orchestrator can read it without parsing stdout.
+    with open(out_path + ".lang", "w", encoding="utf-8") as f:
+        f.write(detected)
+    return out_path, detected
+
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", default=None,
                         help="Caminho para salvar a transcrição (.txt)")
     parser.add_argument("--language", default=LANGUAGE,
-                        help="Idioma para Whisper (ex: pt, en). Padrão: pt")
+                        help="Idioma para Whisper (ex: pt, en, auto). Padrão: pt")
+    parser.add_argument("--input", default=None,
+                        help="Transcreve um arquivo de áudio/vídeo existente (ex.: reuniao.mp4) "
+                             "em vez de gravar do microfone")
     parser.add_argument("--record-only", action="store_true",
                         help="Apenas grava e salva o .wav (sem transcrever) — para fila/processamento posterior")
     args = parser.parse_args()
+
+    # File Processing mode: transcribe an existing file and exit. Handled before the
+    # audio-capture imports so it works on machines without a mic / PortAudio.
+    if args.input:
+        out_path, detected = transcribe_file(args.input, args.output, args.language)
+        print(f"[INFO] Idioma detectado: {detected}")
+        print(f"[INFO] Transcricao salva em: {out_path}")
+        print(f"DETECTED_LANG:{detected}")
+        print(f"TRANSCRIPT_PATH:{out_path}")
+        return
+
+    import numpy as np
+    import sounddevice as sd
+    import soundfile as sf
 
     LANGUAGE_EFFECTIVE = None if args.language == "auto" else args.language
 
