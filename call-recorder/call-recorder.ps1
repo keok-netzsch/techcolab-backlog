@@ -102,6 +102,42 @@ function Invoke-Recording {
     return $true
 }
 
+# Transcribe an existing audio/video file (File Processing, idea-031) into
+# $TransFile via record.py --input. Prompts for the path; returns $true on a
+# non-empty transcript. faster-whisper decodes mp4/mov/etc via ffmpeg/PyAV.
+function Invoke-FileTranscription {
+    param([string]$TransFile)
+    Write-Host ""
+    $inFile = (Read-Host "  Caminho do arquivo (audio/video, ex: C:\path\reuniao.mp4)")
+    $inFile = $inFile.Trim().Trim('"').Trim("'")
+    if ([string]::IsNullOrWhiteSpace($inFile) -or -not (Test-Path $inFile)) {
+        Write-Host "  [ERROR] Arquivo nao encontrado: $inFile" -ForegroundColor Red
+        return $false
+    }
+    Write-Host ""
+    Write-Host "  [FILE] Transcrevendo arquivo (pode demorar em CPU)..." -ForegroundColor Yellow
+    $py   = Join-Path $SCRIPT_DIR "record.py"
+    $proc = Start-Process -FilePath $PYTHON `
+        -ArgumentList "`"$py`" --input `"$inFile`" --language auto --output `"$TransFile`"" `
+        -PassThru -WindowStyle Normal
+    $proc.WaitForExit()
+    if ($proc.ExitCode -ne 0) {
+        Write-Host "  [ERROR] record.py --input encerrou com erro (exit $($proc.ExitCode))." -ForegroundColor Red
+        return $false
+    }
+    if (-not (Test-Path $TransFile)) {
+        Write-Host "  [ERROR] Transcricao nao encontrada: $TransFile" -ForegroundColor Red
+        return $false
+    }
+    if ((Get-Item $TransFile).Length -lt 10) {
+        Write-Host "  [ERROR] Transcript vazio ou muito curto." -ForegroundColor Red
+        Remove-Item $TransFile -Force
+        return $false
+    }
+    Write-Host "  [OK] Transcricao gerada ($((Get-Item $TransFile).Length) bytes)." -ForegroundColor Green
+    return $true
+}
+
 # Run the English coach on a transcript in background (non-blocking, ~10 min on CPU).
 function Invoke-Coach {
     param([string]$TransFile)
@@ -256,7 +292,9 @@ $wav_path = Join-Path $rec_dir "$base.wav"
 $coach    = $false  # process.py decides from detected language when lang=auto
 
 # 3) Quando processar? (enfileirar = nao trava; processa as 17h no agente diario)
-$pmode = Show-Menu -Title "Quando processar?" -Options @("Enfileirar (processa as 17h, nao trava agora)", "Processar agora (lento)")
+#    Opcao 3 (File Processing, idea-031): usa um arquivo de audio/video existente
+#    em vez de gravar do microfone; cai no mesmo pos-processamento.
+$pmode = Show-Menu -Title "Quando processar?" -Options @("Enfileirar (processa as 17h, nao trava agora)", "Processar agora (lento)", "Processar arquivo existente (audio/video)")
 
 if ($pmode -eq 0) {
     # ----- FILA: grava so o .wav (sem Whisper) e enfileira -----
@@ -296,8 +334,16 @@ if ($pmode -eq 0) {
 }
 
 # ----- PROCESSAR AGORA (fluxo sincrono) -----
-if (-not (Invoke-Recording -TransFile $trans_file -LangFlag $langFlag)) {
-    Read-Host "  ENTER para sair"; exit 1
+# pmode 2 = File Processing (arquivo existente); pmode 1 = gravar do microfone.
+# Ambos produzem $trans_file + sidecar .lang e seguem o mesmo pos-processamento.
+if ($pmode -eq 2) {
+    if (-not (Invoke-FileTranscription -TransFile $trans_file)) {
+        Read-Host "  ENTER para sair"; exit 1
+    }
+} else {
+    if (-not (Invoke-Recording -TransFile $trans_file -LangFlag $langFlag)) {
+        Read-Host "  ENTER para sair"; exit 1
+    }
 }
 
 # Read detected language from sidecar written by record.py
