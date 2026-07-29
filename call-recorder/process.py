@@ -649,10 +649,25 @@ DASHBOARD_FILE = "Action-Dashboard.md"
 DASHBOARD_EXCLUDE_DIRS = {
     ".obsidian", "_attachments", "Archive", "raw", "Clippings",
     ".git", ".trash", "node_modules",
+    "agent-reports",  # daily generated snapshots that echo open actions — not a task source
 }
 _TASK_RE  = re.compile(r"^\s*[-*]\s+\[ \]\s+(.*\S)\s*$")
 _OWNER_RE = re.compile(r"^\((?P<owner>[^)]{1,40})\)\s*(?P<rest>.*)$")
 _DUE_RE   = re.compile(r"@(\d{4}-\d{2}-\d{2})")
+_STATUS_RE = re.compile(r"^status:\s*['\"]?([^'\"\n]+?)['\"]?\s*$", re.MULTILINE)
+# A note whose backlog status is closed contributes no live actions (its `- [ ]`
+# sub-todos are stale). Covers accented/unaccented spellings.
+_CLOSED_STATUSES = {"concluído", "concluido", "descartado"}
+
+
+def _is_closed_note(text: str) -> bool:
+    """True if the note's leading frontmatter marks it concluído/descartado."""
+    if not text.startswith("---"):
+        return False
+    end = text.find("\n---", 3)
+    fm = text[:end] if end != -1 else text
+    m = _STATUS_RE.search(fm)
+    return bool(m and m.group(1).strip().casefold() in _CLOSED_STATUSES)
 
 
 def _collect_open_tasks(root: Path, output_name: str) -> list:
@@ -667,6 +682,8 @@ def _collect_open_tasks(root: Path, output_name: str) -> list:
         try:
             text = md.read_text(encoding="utf-8", errors="replace")
         except Exception:
+            continue
+        if _is_closed_note(text):        # skip concluído/descartado notes wholesale
             continue
         for line in text.splitlines():
             m = _TASK_RE.match(line)

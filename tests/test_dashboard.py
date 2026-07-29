@@ -87,13 +87,14 @@ def test_dashboard_empty_vault(vault):
 
 
 def test_dashboard_dedups_repeated_action(vault):
-    # Same action carried across the cumulative log, the per-meeting note and
-    # three agent reports must count once, keeping every source backlink.
+    # Same action carried across the cumulative log, the per-meeting note, a
+    # daily note and two project notes must count once, keeping every backlink.
     line = "- [ ] (Ana) Entregar documentacao do pipeline\n"
     _write(vault / "Team" / "Ana" / "1on1.md", line)
     _write(vault / "Team" / "Ana" / "1on1" / "2026-05-25_1on1_Ana.md", line)
-    for d in ("2026-05-26", "2026-05-27", "2026-05-28"):
-        _write(vault / "agent-reports" / f"report-{d}.md", line)
+    _write(vault / "Daily" / "2026-05-26.md", line)
+    _write(vault / "Projects" / "p1.md", line)
+    _write(vault / "Projects" / "p2.md", line)
 
     counts = process.cmd_dashboard()
 
@@ -101,8 +102,8 @@ def test_dashboard_dedups_repeated_action(vault):
     assert counts["undated"] == 1
     out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
     assert out.count("Entregar documentacao do pipeline") == 1
-    assert "x5" in out or "×5" in out  # duplicate multiplier shown
-    assert "[[1on1]]" in out                 # at least one source preserved
+    assert "×5" in out                   # ×5 duplicate multiplier shown
+    assert "[[1on1]]" in out                  # at least one source preserved
 
 
 def test_dashboard_dedup_is_case_and_whitespace_insensitive(vault):
@@ -112,6 +113,42 @@ def test_dashboard_dedup_is_case_and_whitespace_insensitive(vault):
     counts = process.cmd_dashboard()
 
     assert counts["total"] == 1
+
+
+def test_dashboard_excludes_agent_reports(vault):
+    # Daily agent snapshots echo open actions; they are not a task source.
+    _write(vault / "agent-reports" / "report-2026-06-19.md",
+           "- [ ] (Kelvin) acao ecoada no report @2026-06-19\n")
+    _write(vault / "Projects" / "real.md",
+           "- [ ] (Kelvin) acao real do projeto\n")
+
+    counts = process.cmd_dashboard()
+
+    assert counts["total"] == 1
+    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    assert "acao ecoada" not in out
+    assert "acao real do projeto" in out
+
+
+def test_dashboard_skips_closed_backlog_notes(vault):
+    # A discarded/finished idea's open sub-todos are stale -> whole note skipped.
+    _write(vault / "backlog items" / "idea-028.md",
+           "---\nid: idea-028\nstatus: descartado\n---\n"
+           "- [ ] (Kelvin) instalar Tailscale @2026-06-05\n")
+    _write(vault / "backlog items" / "idea-099.md",
+           "---\nid: idea-099\nstatus: concluído\n---\n"
+           "- [ ] (Kelvin) tarefa ja concluida\n")
+    _write(vault / "backlog items" / "idea-031.md",
+           "---\nid: idea-031\nstatus: em desenvolvimento\n---\n"
+           "- [ ] (Kelvin) feature ativa do roadmap @2026-08-14\n")
+
+    counts = process.cmd_dashboard()
+
+    assert counts["total"] == 1                 # only the active idea contributes
+    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    assert "instalar Tailscale" not in out
+    assert "tarefa ja concluida" not in out
+    assert "feature ativa do roadmap" in out
 
 
 def test_dashboard_caps_source_links(vault):
