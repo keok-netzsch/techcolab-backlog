@@ -9,15 +9,16 @@ from __future__ import annotations
 import html
 import json
 import os
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+import altair as alt
+import pandas as pd
 import requests
 import streamlit as st
 
 from components.ui import _STAT_GRID_CSS, stat_grid
-
 
 _KEY_INFO_URL = "https://litellm.chatbot.netzsch.com/key/info"
 _HISTORY_FILE = Path(__file__).parent.parent / "logs" / "ai-usage-history.jsonl"
@@ -37,6 +38,12 @@ _INTERESTING_FIELDS = (
 MONTHLY_BUDGET = 100.0
 GATEWAY_RPM_LIMIT = 100
 GATEWAY_TPM_LIMIT = 500_000
+
+# How far back the local snapshot history is kept and read for the charts.
+# Calendar-month cycles are an approximation: the gateway never returns
+# budget_reset_at, so there is no confirmed reset day to align to.
+HISTORY_RETENTION_DAYS = 90
+PROJECTION_WINDOW_DAYS = 3
 
 # Fallback estimated Opus $/1M-input-token rate, back-calculated from a real measured
 # call on 2026-07-16 (11,922 input + 176,594 cache-write + 273,666 cache-read + 6,093
@@ -122,7 +129,15 @@ def _load_history() -> list[dict[str, Any]]:
                 entries.append(entry)
         except json.JSONDecodeError:
             continue
-    return entries[-30:]
+    cutoff = datetime.now().astimezone() - timedelta(days=HISTORY_RETENTION_DAYS)
+    kept = []
+    for entry in entries:
+        try:
+            if datetime.fromisoformat(entry["checked_at"]) >= cutoff:
+                kept.append(entry)
+        except (KeyError, TypeError, ValueError):
+            continue
+    return kept
 
 
 def _load_reset_note() -> str:
@@ -157,6 +172,168 @@ def _burn_rate(history: list[dict[str, Any]]) -> tuple[float | None, float | Non
     remaining = max(0.0, MONTHLY_BUDGET - spend1)
     days_left = remaining / per_day if per_day > 0 else None
     return per_day, days_left
+
+
+def _month_end(day: date) -> date:
+    next_month = day.replace(day=28) + timedelta(days=4)
+    return next_month - timedelta(days=next_month.day)
+
+
+def _daily_spend(history: list[dict[str, Any]]) -> pd.DataFrame:
+    """Collapse snapshots to one row per day: end-of-day cumulative spend + that day's delta."""
+    rows = []
+    for entry in history:
+        spend = _as_float(entry.get("spend"))
+        if spend is None:
+            continue
+        try:
+            checked_at = datetime.fromisoformat(entry["checked_at"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        rows.append({"date": checked_at.date(), "checked_at": checked_at, "spend": spend})
+    if not rows:
+        return pd.DataFrame(columns=["date", "spend", "day_spend"])
+    df = pd.DataFrame(rows).sort_values("checked_at")
+    daily = df.groupby("date", as_index=False).last()[["date", "spend"]].sort_values("date").reset_index(drop=True)
+    day_spend = daily["spend"].diff()
+    day_spend.iloc[0] = daily["spend"].iloc[0]
+    daily["day_spend"] = day_spend.clip(lower=0)
+    return daily
+
+
+def _current_month_series(daily: pd.DataFrame) -> pd.DataFrame:
+    if daily.empty:
+        return daily
+    today = datetime.now().astimezone().date()
+    return daily[daily["date"] >= today.replace(day=1)].reset_index(drop=True)
+
+
+def _project_current_month(daily: pd.DataFrame, month_df: pd.DataFrame) -> pd.DataFrame | None:
+    """Straight-line projection to month end from a trailing moving-average pace."""
+    if month_df.empty:
+        return None
+    today = datetime.now().astimezone().date()
+    recent = daily[daily["date"] <= today].tail(PROJECTION_WINDOW_DAYS)
+    if recent.empty:
+        return None
+    avg_daily = recent["day_spend"].mean()
+    if not avg_daily or avg_daily <= 0:
+        return None
+    last_date = month_df["date"].max()
+    month_end = _month_end(last_date)
+    if last_date >= month_end:
+        return None
+    last_spend = float(month_df.loc[month_df["date"] == last_date, "spend"].iloc[0])
+    n_days = (month_end - last_date).days
+    rows = [{"date": last_date, "spend": last_spend}]
+    rows += [{"date": last_date + timedelta(days=i), "spend": last_spend + avg_daily * i} for i in range(1, n_days + 1)]
+    return pd.DataFrame(rows)
+
+
+def _monthly_totals(daily: pd.DataFrame) -> pd.DataFrame:
+    """Approximate per-calendar-month spend as the increase in the cumulative counter.
+
+    This is a proxy: the gateway never reports the real budget_reset_at, so a reset
+    that lands mid-month will show up as a dip inside that month rather than a clean
+    cutoff. Floored at 0 so a reset never reads as negative spend.
+    """
+    if daily.empty:
+        return pd.DataFrame(columns=["month", "total"])
+    df = daily.copy()
+    df["month"] = df["date"].apply(lambda d: d.replace(day=1))
+    monthly = df.groupby("month", as_index=False)["spend"].last().sort_values("month").reset_index(drop=True)
+    monthly["prev_spend"] = monthly["spend"].shift(1).fillna(0.0)
+    monthly["total"] = (monthly["spend"] - monthly["prev_spend"]).clip(lower=0)
+    return monthly[["month", "total"]]
+
+
+_CHART_AXIS_KW = dict(
+    grid=True,
+    gridColor="#F3F4F6",
+    domainColor="#E5E7EB",
+    tickColor="#E5E7EB",
+    labelColor="#6B7280",
+    labelFontSize=10,
+    titleColor="#6B7280",
+    titleFontSize=11,
+)
+
+
+def _render_month_chart(month_df: pd.DataFrame, projected_df: pd.DataFrame | None, budget: float) -> None:
+    actual = alt.Chart(month_df).mark_area(
+        line={"color": "#02B793", "strokeWidth": 2},
+        color="#02B793",
+        opacity=0.16,
+        interpolate="monotone",
+    ).encode(
+        x=alt.X("date:T", title=None),
+        y=alt.Y("spend:Q", title="Spend (USD)", scale=alt.Scale(zero=True)),
+        tooltip=[alt.Tooltip("date:T", title="Date"), alt.Tooltip("spend:Q", title="Spend", format="$.2f")],
+    )
+    budget_rule = alt.Chart(pd.DataFrame({"y": [budget]})).mark_rule(
+        strokeDash=[4, 4], color="#9CA3AF", strokeWidth=1.5,
+    ).encode(y="y:Q")
+    layers = [actual, budget_rule]
+
+    if projected_df is not None and len(projected_df) > 1:
+        projected = alt.Chart(projected_df).mark_line(
+            strokeDash=[5, 4], color="#02B793", opacity=0.55, strokeWidth=2, interpolate="monotone",
+        ).encode(
+            x="date:T",
+            y="spend:Q",
+            tooltip=[
+                alt.Tooltip("date:T", title="Date (projected)"),
+                alt.Tooltip("spend:Q", title="Projected spend", format="$.2f"),
+            ],
+        )
+        layers.append(projected)
+
+    chart = (
+        alt.layer(*layers)
+        .properties(height=220)
+        .configure_view(strokeWidth=0)
+        .configure_axis(**_CHART_AXIS_KW)
+    )
+    st.altair_chart(chart, use_container_width=True)
+    legend_bits = [
+        '<span style="color:#02B793">■</span> Actual spend',
+        f'<span style="color:#9CA3AF">- - -</span> Budget ({_money(budget)})',
+    ]
+    if projected_df is not None and len(projected_df) > 1:
+        legend_bits.append('<span style="color:#02B793;opacity:.55">- - -</span> Projected (3-day avg pace)')
+    st.markdown(
+        f'<p style="font-size:.72rem;color:#6B7280;margin:.2rem 0 0">{"  ·  ".join(legend_bits)}</p>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_monthly_history_chart(monthly: pd.DataFrame, budget: float) -> None:
+    df = monthly.copy()
+    df["month_label"] = df["month"].apply(lambda d: d.strftime("%b %Y"))
+    bars = alt.Chart(df).mark_bar(
+        color="#02B793", cornerRadiusTopLeft=3, cornerRadiusTopRight=3, size=28,
+    ).encode(
+        x=alt.X("month_label:N", title=None, sort=list(df["month_label"])),
+        y=alt.Y("total:Q", title="Spend (USD)", scale=alt.Scale(zero=True)),
+        tooltip=[alt.Tooltip("month_label:N", title="Month"), alt.Tooltip("total:Q", title="Total spend", format="$.2f")],
+    )
+    budget_rule = alt.Chart(pd.DataFrame({"y": [budget]})).mark_rule(
+        strokeDash=[4, 4], color="#9CA3AF", strokeWidth=1.5,
+    ).encode(y="y:Q")
+    chart = (
+        alt.layer(bars, budget_rule)
+        .properties(height=180)
+        .configure_view(strokeWidth=0)
+        .configure_axis(**_CHART_AXIS_KW)
+    )
+    st.altair_chart(chart, use_container_width=True)
+    st.markdown(
+        f'<p style="font-size:.72rem;color:#6B7280;margin:.2rem 0 0">'
+        f'<span style="color:#02B793">■</span> Spend per calendar month  ·  '
+        f'<span style="color:#9CA3AF">- - -</span> Budget ({_money(budget)})  ·  '
+        'approximate — the gateway does not report the real reset day</p>',
+        unsafe_allow_html=True,
+    )
 
 
 def _money(value: Any) -> str:
@@ -412,6 +589,24 @@ def render() -> None:
                 unsafe_allow_html=True,
             )
             st.caption(note)
+
+    chart_budget = _as_float(max_budget) or MONTHLY_BUDGET
+    daily = _daily_spend(history)
+    month_df = _current_month_series(daily)
+
+    st.subheader("Spend this month")
+    if month_df.empty:
+        st.caption("Need at least one check this month to chart spend.")
+    else:
+        projected_df = _project_current_month(daily, month_df)
+        _render_month_chart(month_df, projected_df, chart_budget)
+
+    monthly = _monthly_totals(daily)
+    st.subheader("Monthly history")
+    if monthly.empty:
+        st.caption("Not enough history yet to compare months.")
+    else:
+        _render_monthly_history_chart(monthly, chart_budget)
 
     if history:
         st.subheader("Recent checks")
