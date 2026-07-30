@@ -283,7 +283,7 @@ def _render_budget_donut(spend: float, budget: float, color: str) -> None:
     used = max(min(spend, budget), 0.0)
     remaining = max(budget - spend, 0.0)
     donut_df = pd.DataFrame({"category": ["Used", "Remaining"], "value": [used, remaining]})
-    arc = alt.Chart(donut_df).mark_arc(innerRadius=30, outerRadius=45).encode(
+    arc = alt.Chart(donut_df).mark_arc(innerRadius=22, outerRadius=34).encode(
         theta=alt.Theta("value:Q", stack=True, sort=None),
         color=alt.Color(
             "category:N",
@@ -292,7 +292,7 @@ def _render_budget_donut(spend: float, budget: float, color: str) -> None:
         ),
         tooltip=[alt.Tooltip("category:N", title="Status"), alt.Tooltip("value:Q", title="Amount", format="$.2f")],
     )
-    chart = arc.properties(width=96, height=96).configure_view(strokeWidth=0)
+    chart = arc.properties(width=72, height=72).configure_view(strokeWidth=0)
     st.altair_chart(chart, use_container_width=False)
 
 
@@ -532,25 +532,28 @@ def render() -> None:
     opus_price = _load_opus_price_estimate()
     computed_at = _value(opus_price.get("computed_at"))[:10]
 
+    _ROW1_HEIGHT = 250
+
     _col_donut, _col_cost, _col_pace = st.columns(3)
 
     with _col_donut:
-        with st.container(border=True):
+        with st.container(height=_ROW1_HEIGHT, border=True):
             label = "Budget this month" + (" · as informed by you" if budget_is_estimated else "")
             st.markdown(f'<div class="cc-sl">{html.escape(label)}</div>', unsafe_allow_html=True)
             spend_f = _as_float(spend) or 0.0
             budget_f = _as_float(max_budget) or MONTHLY_BUDGET
-            _sp1, _sp2, _sp3 = st.columns([1, 2, 1])
-            with _sp2:
-                _render_budget_donut(spend_f, budget_f, donut_color)
             percent_text = f"{percent:.0f}% used" if percent is not None else "—"
-            st.markdown(
-                stat_grid(
-                    [{"label": percent_text, "value": _money(spend), "vstyle": "font-size:1.6rem;font-weight:800"}],
-                    columns=1,
-                ),
-                unsafe_allow_html=True,
-            )
+            _dc1, _dc2 = st.columns([1, 2], vertical_alignment="center")
+            with _dc1:
+                _render_budget_donut(spend_f, budget_f, donut_color)
+            with _dc2:
+                st.markdown(
+                    stat_grid(
+                        [{"label": percent_text, "value": _money(spend), "vstyle": "font-size:1.6rem;font-weight:800"}],
+                        columns=1,
+                    ),
+                    unsafe_allow_html=True,
+                )
             caption_bits = [
                 f"{_money(spend)} of {_money(max_budget)}".replace("$", "\\$"),
                 f"{remaining} remaining".replace("$", "\\$"),
@@ -560,7 +563,7 @@ def render() -> None:
             st.caption("  ·  ".join(caption_bits))
 
     with _col_cost:
-        with st.container(border=True):
+        with st.container(height=_ROW1_HEIGHT, border=True):
             st.markdown('<div class="cc-sl">Cost per million tokens</div>', unsafe_allow_html=True)
             st.markdown(
                 stat_grid(
@@ -586,7 +589,7 @@ def render() -> None:
             )
 
     with _col_pace:
-        with st.container(border=True):
+        with st.container(height=_ROW1_HEIGHT, border=True):
             st.markdown('<div class="cc-sl">Consumption pace</div>', unsafe_allow_html=True)
             pace_value = f"{_money(per_day)}/day" if per_day is not None else "—"
             st.markdown(
