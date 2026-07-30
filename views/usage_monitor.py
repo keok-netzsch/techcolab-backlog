@@ -276,26 +276,6 @@ def _suggest_monthly_limit(daily: pd.DataFrame) -> dict[str, float] | None:
     }
 
 
-def _render_budget_donut(spend: float, budget: float, color: str) -> None:
-    """Ring only — no text inside the SVG. Vega text marks use a hardcoded fill and
-    don't pick up the app's dark-mode text color, so the value/percent are rendered
-    as normal HTML next to the chart instead, where dark mode already applies."""
-    used = max(min(spend, budget), 0.0)
-    remaining = max(budget - spend, 0.0)
-    donut_df = pd.DataFrame({"category": ["Used", "Remaining"], "value": [used, remaining]})
-    arc = alt.Chart(donut_df).mark_arc(innerRadius=22, outerRadius=34).encode(
-        theta=alt.Theta("value:Q", stack=True, sort=None),
-        color=alt.Color(
-            "category:N",
-            scale=alt.Scale(domain=["Used", "Remaining"], range=[color, "#E5E7EB"]),
-            legend=None,
-        ),
-        tooltip=[alt.Tooltip("category:N", title="Status"), alt.Tooltip("value:Q", title="Amount", format="$.2f")],
-    )
-    chart = arc.properties(width=72, height=72).configure_view(strokeWidth=0)
-    st.altair_chart(chart, use_container_width=False)
-
-
 _CHART_AXIS_KW = dict(
     grid=True,
     # Low-alpha gray instead of a solid hex: a light-mode-tuned solid color (e.g. #F3F4F6)
@@ -524,43 +504,29 @@ def render() -> None:
     reset_at = snapshot.get("budget_reset_at")
     reset_is_local_note = reset_at is None
 
-    donut_color = "#9CA3AF"
-    if percent is not None:
-        donut_color = "#EF4444" if percent >= 90 else "#F59E0B" if percent >= 75 else "#02B793"
-
     per_day, days_left = _burn_rate(history)
     opus_price = _load_opus_price_estimate()
     computed_at = _value(opus_price.get("computed_at"))[:10]
+    current_budget = _as_float(max_budget) or MONTHLY_BUDGET
+    suggestion = _suggest_monthly_limit(daily)
 
-    _ROW1_HEIGHT = 250
+    _ROW1_HEIGHT = 190
 
-    _col_donut, _col_cost, _col_pace = st.columns(3)
+    _col_budget, _col_cost, _col_pace, _col_current, _col_suggested = st.columns(5)
 
-    with _col_donut:
+    with _col_budget:
         with st.container(height=_ROW1_HEIGHT, border=True):
             label = "Budget this month" + (" · as informed by you" if budget_is_estimated else "")
             st.markdown(f'<div class="cc-sl">{html.escape(label)}</div>', unsafe_allow_html=True)
-            spend_f = _as_float(spend) or 0.0
-            budget_f = _as_float(max_budget) or MONTHLY_BUDGET
             percent_text = f"{percent:.0f}% used" if percent is not None else "—"
-            _dc1, _dc2 = st.columns([1, 2], vertical_alignment="center")
-            with _dc1:
-                _render_budget_donut(spend_f, budget_f, donut_color)
-            with _dc2:
-                st.markdown(
-                    stat_grid(
-                        [{"label": percent_text, "value": _money(spend), "vstyle": "font-size:1.6rem;font-weight:800"}],
-                        columns=1,
-                    ),
-                    unsafe_allow_html=True,
-                )
-            caption_bits = [
-                f"{_money(spend)} of {_money(max_budget)}".replace("$", "\\$"),
-                f"{remaining} remaining".replace("$", "\\$"),
-            ]
-            if budget_is_estimated:
-                caption_bits.append("figure informed by NBS, not returned by the gateway")
-            st.caption("  ·  ".join(caption_bits))
+            st.markdown(
+                stat_grid(
+                    [{"label": percent_text, "value": _money(spend), "vstyle": "font-size:1.6rem;font-weight:800"}],
+                    columns=1,
+                ),
+                unsafe_allow_html=True,
+            )
+            st.caption(f"{remaining} remaining".replace("$", "\\$"))
 
     with _col_cost:
         with st.container(height=_ROW1_HEIGHT, border=True):
@@ -576,16 +542,10 @@ def render() -> None:
                 ),
                 unsafe_allow_html=True,
             )
-            if opus_price.get("contaminated"):
-                st.markdown(
-                    '<p style="font-size:.72rem;color:#F59E0B;margin:.3rem 0 0">'
-                    "⚠ Codex activity detected in the recalculation window — treat this estimate "
-                    "as unreliable this week.</p>",
-                    unsafe_allow_html=True,
-                )
             st.caption(
-                "Estimate, not official — gateway pricing endpoints return 403 for this key. "
-                "Recalculated weekly from local usage. Opus only."
+                "⚠ Estimate skewed this week (Codex activity in window)."
+                if opus_price.get("contaminated")
+                else "Estimate — gateway pricing endpoints return 403 for this key."
             )
 
     with _col_pace:
@@ -597,62 +557,67 @@ def render() -> None:
                 unsafe_allow_html=True,
             )
             if per_day is None:
-                st.caption("Need at least 2 checks on different days to estimate a pace.")
+                st.caption("Need 2+ checks on different days.")
             else:
                 note = (
-                    f"At this pace, ~{days_left:.0f} days until the {_money(max_budget)} budget is reached."
+                    f"~{days_left:.0f} days until budget reached.".replace("$", "\\$")
                     if days_left is not None
-                    else "Negligible consumption over the observed period."
+                    else "Negligible pace."
                 )
                 st.caption(note)
 
-    suggestion = _suggest_monthly_limit(daily)
+    with _col_current:
+        with st.container(height=_ROW1_HEIGHT, border=True):
+            st.markdown('<div class="cc-sl">Current budget</div>', unsafe_allow_html=True)
+            st.markdown(
+                stat_grid([{"label": "This month", "value": _money(current_budget), "vstyle": "font-size:1.6rem;font-weight:800"}], columns=1),
+                unsafe_allow_html=True,
+            )
+            st.caption("Informal cap from NBS." if budget_is_estimated else "From the gateway.")
+
+    with _col_suggested:
+        with st.container(height=_ROW1_HEIGHT, border=True):
+            st.markdown('<div class="cc-sl">Suggested for your pace</div>', unsafe_allow_html=True)
+            suggested_value = _money(suggestion["suggested"]) if suggestion is not None else "—"
+            st.markdown(
+                stat_grid([{"label": "30-day + buffer", "value": suggested_value, "vstyle": "font-size:1.6rem;font-weight:800"}], columns=1),
+                unsafe_allow_html=True,
+            )
+            st.caption("Needs 3+ days of history." if suggestion is None else "Heuristic — see note below.")
+
     if suggestion is not None:
-        current_budget = _as_float(max_budget) or MONTHLY_BUDGET
-        st.markdown('<div class="cc-sl" style="margin-top:.6rem">Suggested monthly limit</div>', unsafe_allow_html=True)
-        with st.container(border=True):
-            st.markdown(
-                stat_grid(
-                    [
-                        ("Current budget", _money(current_budget)),
-                        ("Suggested for your pace", _money(suggestion["suggested"])),
-                    ],
-                    columns=2,
-                ),
-                unsafe_allow_html=True,
+        if suggestion["suggested"] > current_budget:
+            card_label, card_color = "Opportunity", "#6366F1"
+            action_text = (
+                f'Your pace projects to about {html.escape(_money(suggestion["projected_30d"]))} over a '
+                f'30-day month. Consider asking NBS for a {html.escape(_money(suggestion["suggested"]))} '
+                "limit so you don't get blocked mid-month."
             )
-            if suggestion["suggested"] > current_budget:
-                card_label, card_color = "Opportunity", "#6366F1"
-                action_text = (
-                    f'Your pace projects to about {html.escape(_money(suggestion["projected_30d"]))} over a '
-                    f'30-day month. Consider asking NBS for a {html.escape(_money(suggestion["suggested"]))} '
-                    "limit so you don't get blocked mid-month."
-                )
-            else:
-                card_label, card_color = "On track", "#059669"
-                action_text = (
-                    f'Your current budget already covers your pace '
-                    f'({html.escape(_money(suggestion["projected_30d"]))} projected over 30 days) with room to spare.'
-                )
-            st.markdown(
-                f'<div style="margin:.4rem 0 0;padding:.5rem .75rem;border-radius:6px;'
-                f'border-left:3px solid {card_color};background:rgba(0,0,0,.03)">'
-                f'<span style="font-size:.7rem;color:{card_color};font-weight:700;'
-                f'text-transform:uppercase;letter-spacing:.04em">{card_label}</span><br>'
-                f'<span style="font-size:.78rem;color:#6B7280">{action_text}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
+        else:
+            card_label, card_color = "On track", "#059669"
+            action_text = (
+                f'Your current budget already covers your pace '
+                f'({html.escape(_money(suggestion["projected_30d"]))} projected over 30 days) with room to spare.'
             )
-            st.markdown(
-                f'<p style="font-size:.7rem;color:#9CA3AF;margin:.4rem 0 0">'
-                f'Based on {suggestion["span_days"]:.0f} days observed: '
-                f'{html.escape(_money(suggestion["avg_daily"]))}/day average, '
-                f'{html.escape(_money(suggestion["recent_avg"]))}/day over the last 7 days · '
-                "30-day projection with a 20% buffer, rounded to the nearest $25. "
-                "Rough heuristic on a small sample — revisit as more history accumulates."
-                "</p>",
-                unsafe_allow_html=True,
-            )
+        st.markdown(
+            f'<div style="margin:.4rem 0 0;padding:.5rem .75rem;border-radius:6px;'
+            f'border-left:3px solid {card_color};background:rgba(0,0,0,.03)">'
+            f'<span style="font-size:.7rem;color:{card_color};font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:.04em">{card_label}</span><br>'
+            f'<span style="font-size:.78rem;color:#6B7280">{action_text}</span>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<p style="font-size:.7rem;color:#9CA3AF;margin:.4rem 0 0">'
+            f'Based on {suggestion["span_days"]:.0f} days observed: '
+            f'{html.escape(_money(suggestion["avg_daily"]))}/day average, '
+            f'{html.escape(_money(suggestion["recent_avg"]))}/day over the last 7 days · '
+            "30-day projection with a 20% buffer, rounded to the nearest $25. "
+            "Rough heuristic on a small sample — revisit as more history accumulates."
+            "</p>",
+            unsafe_allow_html=True,
+        )
 
     with st.expander("Gateway limits & budget reset", expanded=False):
         rpm_limit = snapshot.get("rpm_limit")
