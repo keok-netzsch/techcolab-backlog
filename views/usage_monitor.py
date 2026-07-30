@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import html
 import json
+import math
 import os
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -247,11 +248,42 @@ def _monthly_totals(daily: pd.DataFrame) -> pd.DataFrame:
     return monthly[["month", "total"]]
 
 
-def _render_budget_donut(spend: float, budget: float, percent: float | None, color: str) -> None:
+def _suggest_monthly_limit(daily: pd.DataFrame) -> dict[str, float] | None:
+    """Rough heuristic for what monthly budget would cover the observed pace.
+
+    Uses the higher of the whole-history daily average and the last-7-days average
+    (so an accelerating pace isn't masked by a slow start), projects it to a 30-day
+    month, and adds a 20% buffer. Needs at least 3 days of data to mean anything.
+    """
+    if daily.empty or len(daily) < 3:
+        return None
+    span_days = (daily["date"].max() - daily["date"].min()).days + 1
+    if span_days <= 0:
+        return None
+    total_spend = float(daily["day_spend"].sum())
+    avg_daily = total_spend / span_days
+    recent = daily.tail(7)
+    recent_avg = float(recent["day_spend"].mean()) if not recent.empty else avg_daily
+    pace = max(avg_daily, recent_avg)
+    projected_30d = pace * 30
+    suggested = math.ceil(projected_30d * 1.2 / 25) * 25
+    return {
+        "avg_daily": avg_daily,
+        "recent_avg": recent_avg,
+        "projected_30d": projected_30d,
+        "suggested": float(suggested),
+        "span_days": float(span_days),
+    }
+
+
+def _render_budget_donut(spend: float, budget: float, color: str) -> None:
+    """Ring only — no text inside the SVG. Vega text marks use a hardcoded fill and
+    don't pick up the app's dark-mode text color, so the value/percent are rendered
+    as normal HTML next to the chart instead, where dark mode already applies."""
     used = max(min(spend, budget), 0.0)
     remaining = max(budget - spend, 0.0)
     donut_df = pd.DataFrame({"category": ["Used", "Remaining"], "value": [used, remaining]})
-    arc = alt.Chart(donut_df).mark_arc(innerRadius=52, outerRadius=80, cornerRadius=2).encode(
+    arc = alt.Chart(donut_df).mark_arc(innerRadius=30, outerRadius=45).encode(
         theta=alt.Theta("value:Q", stack=True, sort=None),
         color=alt.Color(
             "category:N",
@@ -260,26 +292,18 @@ def _render_budget_donut(spend: float, budget: float, percent: float | None, col
         ),
         tooltip=[alt.Tooltip("category:N", title="Status"), alt.Tooltip("value:Q", title="Amount", format="$.2f")],
     )
-    center_value = alt.Chart(pd.DataFrame({"text": [_money(spend)]})).mark_text(
-        fontSize=20, fontWeight=800, color="#111827", dy=-6,
-    ).encode(text="text:N")
-    center_label_text = f"{percent:.0f}% used" if percent is not None else "spent"
-    center_label = alt.Chart(pd.DataFrame({"text": [center_label_text]})).mark_text(
-        fontSize=10, color="#6B7280", dy=14,
-    ).encode(text="text:N")
-    chart = (
-        alt.layer(arc, center_value, center_label)
-        .properties(width=170, height=170)
-        .configure_view(strokeWidth=0)
-    )
+    chart = arc.properties(width=96, height=96).configure_view(strokeWidth=0)
     st.altair_chart(chart, use_container_width=False)
 
 
 _CHART_AXIS_KW = dict(
     grid=True,
-    gridColor="#F3F4F6",
-    domainColor="#E5E7EB",
-    tickColor="#E5E7EB",
+    # Low-alpha gray instead of a solid hex: a light-mode-tuned solid color (e.g. #F3F4F6)
+    # reads as a near-white line on Streamlit's dark background. Opacity keeps it subtle
+    # against either surface without needing to detect the active theme.
+    gridColor="rgba(148,163,184,0.14)",
+    domainColor="rgba(148,163,184,0.35)",
+    tickColor="rgba(148,163,184,0.35)",
     labelColor="#6B7280",
     labelFontSize=10,
     titleColor="#6B7280",
@@ -384,6 +408,17 @@ def _as_float(value: Any) -> float | None:
         return None
 
 
+def _fmt_checked_at(value: Any) -> str:
+    """Compact timestamp for the checks table — the raw ISO string (with microseconds
+    and UTC offset) is what made that table read so wide."""
+    if not value:
+        return "Not provided"
+    try:
+        return datetime.fromisoformat(str(value)).strftime("%b %d, %H:%M")
+    except ValueError:
+        return html.escape(str(value))
+
+
 def render() -> None:
     st.subheader("AI Usage")
     st.markdown(_STAT_GRID_CSS, unsafe_allow_html=True)
@@ -451,6 +486,7 @@ def render() -> None:
 
     snapshot = st.session_state.get("ai_usage_snapshot")
     history = _load_history()
+    daily = _daily_spend(history)
     if snapshot is None and history:
         snapshot = history[-1]
 
@@ -504,8 +540,21 @@ def render() -> None:
             st.markdown(f'<div class="cc-sl">{html.escape(label)}</div>', unsafe_allow_html=True)
             spend_f = _as_float(spend) or 0.0
             budget_f = _as_float(max_budget) or MONTHLY_BUDGET
-            _render_budget_donut(spend_f, budget_f, percent, donut_color)
-            caption_bits = [f"{_money(spend)} of {_money(max_budget)}", f"{remaining} remaining"]
+            _sp1, _sp2, _sp3 = st.columns([1, 2, 1])
+            with _sp2:
+                _render_budget_donut(spend_f, budget_f, donut_color)
+            percent_text = f"{percent:.0f}% used" if percent is not None else "—"
+            st.markdown(
+                stat_grid(
+                    [{"label": percent_text, "value": _money(spend), "vstyle": "font-size:1.6rem;font-weight:800"}],
+                    columns=1,
+                ),
+                unsafe_allow_html=True,
+            )
+            caption_bits = [
+                f"{_money(spend)} of {_money(max_budget)}".replace("$", "\\$"),
+                f"{remaining} remaining".replace("$", "\\$"),
+            ]
             if budget_is_estimated:
                 caption_bits.append("figure informed by NBS, not returned by the gateway")
             st.caption("  ·  ".join(caption_bits))
@@ -553,6 +602,54 @@ def render() -> None:
                     else "Negligible consumption over the observed period."
                 )
                 st.caption(note)
+
+    suggestion = _suggest_monthly_limit(daily)
+    if suggestion is not None:
+        current_budget = _as_float(max_budget) or MONTHLY_BUDGET
+        st.markdown('<div class="cc-sl" style="margin-top:.6rem">Suggested monthly limit</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            st.markdown(
+                stat_grid(
+                    [
+                        ("Current budget", _money(current_budget)),
+                        ("Suggested for your pace", _money(suggestion["suggested"])),
+                    ],
+                    columns=2,
+                ),
+                unsafe_allow_html=True,
+            )
+            if suggestion["suggested"] > current_budget:
+                card_label, card_color = "Opportunity", "#6366F1"
+                action_text = (
+                    f'Your pace projects to about {html.escape(_money(suggestion["projected_30d"]))} over a '
+                    f'30-day month. Consider asking NBS for a {html.escape(_money(suggestion["suggested"]))} '
+                    "limit so you don't get blocked mid-month."
+                )
+            else:
+                card_label, card_color = "On track", "#059669"
+                action_text = (
+                    f'Your current budget already covers your pace '
+                    f'({html.escape(_money(suggestion["projected_30d"]))} projected over 30 days) with room to spare.'
+                )
+            st.markdown(
+                f'<div style="margin:.4rem 0 0;padding:.5rem .75rem;border-radius:6px;'
+                f'border-left:3px solid {card_color};background:rgba(0,0,0,.03)">'
+                f'<span style="font-size:.7rem;color:{card_color};font-weight:700;'
+                f'text-transform:uppercase;letter-spacing:.04em">{card_label}</span><br>'
+                f'<span style="font-size:.78rem;color:#6B7280">{action_text}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<p style="font-size:.7rem;color:#9CA3AF;margin:.4rem 0 0">'
+                f'Based on {suggestion["span_days"]:.0f} days observed: '
+                f'{html.escape(_money(suggestion["avg_daily"]))}/day average, '
+                f'{html.escape(_money(suggestion["recent_avg"]))}/day over the last 7 days · '
+                "30-day projection with a 20% buffer, rounded to the nearest $25. "
+                "Rough heuristic on a small sample — revisit as more history accumulates."
+                "</p>",
+                unsafe_allow_html=True,
+            )
 
     with st.expander("Gateway limits & budget reset", expanded=False):
         rpm_limit = snapshot.get("rpm_limit")
@@ -606,7 +703,6 @@ def render() -> None:
             )
 
     chart_budget = _as_float(max_budget) or MONTHLY_BUDGET
-    daily = _daily_spend(history)
     month_df = _current_month_series(daily)
 
     st.subheader("Spend this month")
@@ -631,20 +727,22 @@ def render() -> None:
         for i in range(1, len(recent)):
             deltas.append(spends[i] - spends[i - 1] if spends[i] is not None and spends[i - 1] is not None else None)
 
-        _h0, _h1, _h2 = st.columns([3, 2, 3])
-        _h0.caption("Checked at")
-        _h1.caption("Spent")
-        _h2.caption("Since previous check")
-        for entry, delta in reversed(list(zip(recent, deltas))):
-            _c0, _c1, _c2 = st.columns([3, 2, 3])
-            _c0.markdown(
-                f'<span style="font-size:.78rem;color:#6B7280">{_value(entry.get("checked_at"))}</span>',
-                unsafe_allow_html=True,
-            )
-            _c1.markdown(f'<span style="font-size:.78rem">{_money(entry.get("spend"))}</span>', unsafe_allow_html=True)
-            if delta is None:
-                _c2.markdown('<span style="font-size:.78rem;color:#9CA3AF">—</span>', unsafe_allow_html=True)
-            elif delta > 0:
-                _c2.markdown(f'<span style="font-size:.78rem;color:#EF4444">+{_money(delta)}</span>', unsafe_allow_html=True)
-            else:
-                _c2.markdown(f'<span style="font-size:.78rem;color:#9CA3AF">{_money(0)}</span>', unsafe_allow_html=True)
+        _table_col, _ = st.columns([2, 1])
+        with _table_col:
+            _h0, _h1, _h2 = st.columns([2, 1, 2])
+            _h0.caption("Checked at")
+            _h1.caption("Spent")
+            _h2.caption("Since previous check")
+            for entry, delta in reversed(list(zip(recent, deltas))):
+                _c0, _c1, _c2 = st.columns([2, 1, 2])
+                _c0.markdown(
+                    f'<span style="font-size:.78rem;color:#6B7280">{_fmt_checked_at(entry.get("checked_at"))}</span>',
+                    unsafe_allow_html=True,
+                )
+                _c1.markdown(f'<span style="font-size:.78rem">{_money(entry.get("spend"))}</span>', unsafe_allow_html=True)
+                if delta is None:
+                    _c2.markdown('<span style="font-size:.78rem;color:#9CA3AF">—</span>', unsafe_allow_html=True)
+                elif delta > 0:
+                    _c2.markdown(f'<span style="font-size:.78rem;color:#EF4444">+{_money(delta)}</span>', unsafe_allow_html=True)
+                else:
+                    _c2.markdown(f'<span style="font-size:.78rem;color:#9CA3AF">{_money(0)}</span>', unsafe_allow_html=True)
