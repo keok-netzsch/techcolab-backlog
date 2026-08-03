@@ -41,8 +41,10 @@ GATEWAY_RPM_LIMIT = 100
 GATEWAY_TPM_LIMIT = 500_000
 
 # How far back the local snapshot history is kept and read for the charts.
-# Calendar-month cycles are an approximation: the gateway never returns
-# budget_reset_at, so there is no confirmed reset day to align to.
+# Calendar-month cycles align with the actual reset: confirmed with NBS (Patrick
+# Palarz, 2026-08-03) that the budget resets on the 1st of each month. The gateway
+# itself never returns budget_reset_at, so this alignment is not API-verified, but
+# it is a confirmed fact from the platform team, not a guess.
 HISTORY_RETENTION_DAYS = 90
 PROJECTION_WINDOW_DAYS = 3
 
@@ -363,7 +365,7 @@ def _render_monthly_history_chart(monthly: pd.DataFrame, budget: float) -> None:
         f'<p style="font-size:.72rem;color:#6B7280;margin:.2rem 0 0">'
         f'<span style="color:#02B793">■</span> Spend per calendar month  ·  '
         f'<span style="color:#9CA3AF">- - -</span> Budget ({_money(budget)})  ·  '
-        'approximate — the gateway does not report the real reset day</p>',
+        'resets 1st of month, confirmed with NBS</p>',
         unsafe_allow_html=True,
     )
 
@@ -642,28 +644,37 @@ def render() -> None:
             st.caption("Fixed limits from the AI Gateway Developer Handbook — the API doesn't return them.")
 
         if reset_is_local_note:
-            st.caption("Budget reset")
-            note_input = st.text_input(
-                "Reset note",
-                value=_load_reset_note(),
-                placeholder="e.g. every 1st of the month, or 2026-08-15",
-                label_visibility="collapsed",
+            saved_note = _load_reset_note()
+            st.markdown(
+                stat_grid(
+                    [{"label": "Budget reset", "value": saved_note or "1st of every calendar month", "vstyle": "font-size:1.4rem"}],
+                    columns=1,
+                ),
+                unsafe_allow_html=True,
             )
-            if st.button("Save", key="save_reset_note"):
-                try:
-                    _save_reset_note(note_input.strip())
-                    st.rerun()
-                except OSError as error:
-                    st.markdown(
-                        '<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
-                        'border-left:3px solid #F59E0B;background:rgba(245,158,11,.05)">'
-                        f'Could not save the note: {html.escape(str(error))}</div>',
-                        unsafe_allow_html=True,
-                    )
             st.caption(
-                'Handbook: resets "generally every 30 days", exact day not given per key — '
-                "confirm with NBS if it matters. Stored on this machine only."
+                "Confirmed with NBS (Patrick Palarz, 2026-08-03): resets on the 1st of each calendar "
+                "month. Not returned by the API (budget_reset_at is always null) — this is a "
+                "manually confirmed fact, not a guess."
             )
+            with st.expander("Different for your key? Override here", expanded=False):
+                note_input = st.text_input(
+                    "Reset note",
+                    value=saved_note,
+                    placeholder="e.g. 2026-08-15",
+                    label_visibility="collapsed",
+                )
+                if st.button("Save", key="save_reset_note"):
+                    try:
+                        _save_reset_note(note_input.strip())
+                        st.rerun()
+                    except OSError as error:
+                        st.markdown(
+                            '<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
+                            'border-left:3px solid #F59E0B;background:rgba(245,158,11,.05)">'
+                            f'Could not save the note: {html.escape(str(error))}</div>',
+                            unsafe_allow_html=True,
+                        )
         else:
             st.markdown(
                 stat_grid([{"label": "Budget reset", "value": _value(reset_at), "vstyle": "font-size:1.4rem"}], columns=1),
