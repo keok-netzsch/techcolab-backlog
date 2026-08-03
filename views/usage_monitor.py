@@ -155,8 +155,49 @@ def _save_reset_note(note: str) -> None:
     _RESET_NOTE_FILE.write_text(note, encoding="utf-8")
 
 
-def _burn_rate(history: list[dict[str, Any]]) -> tuple[float | None, float | None]:
-    """Spend/day and estimated days left before MONTHLY_BUDGET is reached."""
+def _period_baseline(daily: pd.DataFrame) -> float:
+    """Last recorded spend before the 1st of the current calendar month.
+
+    The gateway's "spend" is a lifetime counter that never resets on its own
+    (budget_duration/budget_reset_at are always null - confirmed 2026-08-03).
+    The monthly reset (1st of each month, confirmed with NBS/Patrick Palarz) is
+    a process outside the gateway, so "spend this month" is derived locally:
+    current spend minus whatever had already accumulated by the end of last
+    month. Recomputes itself every month from history - nothing to maintain.
+    """
+    if daily.empty:
+        return 0.0
+    period_start = datetime.now().astimezone().date().replace(day=1)
+    before = daily[daily["date"] < period_start]
+    if before.empty:
+        return 0.0
+    return float(before.iloc[-1]["spend"])
+
+
+def _this_period_only(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Snapshots from the 1st of the current calendar month onward, so burn-rate
+    pace reflects this month's activity rather than being dragged by last month."""
+    period_start = datetime.now().astimezone().date().replace(day=1)
+    kept = []
+    for entry in history:
+        try:
+            if datetime.fromisoformat(entry["checked_at"]).date() >= period_start:
+                kept.append(entry)
+        except (KeyError, TypeError, ValueError):
+            continue
+    return kept
+
+
+def _burn_rate(
+    history: list[dict[str, Any]], baseline: float = 0.0, budget: float = MONTHLY_BUDGET
+) -> tuple[float | None, float | None]:
+    """Spend/day and estimated days left before `budget` is reached this period.
+
+    `history` entries carry the raw (lifetime) gateway spend; `baseline` converts
+    the *last* one to a period-relative remaining balance. The daily pace itself
+    doesn't need adjusting - a delta between two raw cumulative values already
+    equals the period delta, baseline cancels out.
+    """
     if len(history) < 2:
         return None, None
     first, last = history[0], history[-1]
@@ -172,7 +213,8 @@ def _burn_rate(history: list[dict[str, Any]]) -> tuple[float | None, float | Non
     if days < 0.5 or spend_delta <= 0:
         return None, None
     per_day = spend_delta / days
-    remaining = max(0.0, MONTHLY_BUDGET - spend1)
+    period_spend1 = max(0.0, spend1 - baseline)
+    remaining = max(0.0, budget - period_spend1)
     days_left = remaining / per_day if per_day > 0 else None
     return per_day, days_left
 
@@ -490,23 +532,26 @@ def render() -> None:
     if budget_is_estimated:
         max_budget = MONTHLY_BUDGET
 
+    baseline = _period_baseline(daily)
+    period_spend = max(0.0, (_as_float(spend) or 0.0) - baseline)
+
     percent = None
     try:
         if float(max_budget) > 0:
-            percent = min(100, max(0, float(spend) / float(max_budget) * 100))
+            percent = min(100, max(0, period_spend / float(max_budget) * 100))
     except (TypeError, ValueError):
         pass
 
     remaining = "Not provided"
     try:
-        remaining = _money(float(max_budget) - float(spend))
+        remaining = _money(float(max_budget) - period_spend)
     except (TypeError, ValueError):
         pass
 
     reset_at = snapshot.get("budget_reset_at")
     reset_is_local_note = reset_at is None
 
-    per_day, days_left = _burn_rate(history)
+    per_day, days_left = _burn_rate(_this_period_only(history), baseline, float(max_budget))
     opus_price = _load_opus_price_estimate()
     computed_at = _value(opus_price.get("computed_at"))[:10]
     current_budget = _as_float(max_budget) or MONTHLY_BUDGET
@@ -523,7 +568,7 @@ def render() -> None:
             percent_text = f"{percent:.0f}% used" if percent is not None else "—"
             st.markdown(
                 stat_grid(
-                    [{"label": percent_text, "value": _money(spend), "vstyle": "font-size:1.6rem;font-weight:800"}],
+                    [{"label": percent_text, "value": _money(period_spend), "vstyle": "font-size:1.6rem;font-weight:800"}],
                     columns=1,
                 ),
                 unsafe_allow_html=True,
