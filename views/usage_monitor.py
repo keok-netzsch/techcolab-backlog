@@ -155,23 +155,29 @@ def _save_reset_note(note: str) -> None:
     _RESET_NOTE_FILE.write_text(note, encoding="utf-8")
 
 
-def _period_baseline(daily: pd.DataFrame) -> float:
-    """Last recorded spend before the 1st of the current calendar month.
+def _baseline_before(daily: pd.DataFrame, period_start: date) -> float:
+    """Last recorded spend before `period_start` - the calendar-month starting
+    balance for whichever month `period_start` falls in.
 
     The gateway's "spend" is a lifetime counter that never resets on its own
     (budget_duration/budget_reset_at are always null - confirmed 2026-08-03).
     The monthly reset (1st of each month, confirmed with NBS/Patrick Palarz) is
     a process outside the gateway, so "spend this month" is derived locally:
-    current spend minus whatever had already accumulated by the end of last
-    month. Recomputes itself every month from history - nothing to maintain.
+    spend minus whatever had already accumulated by the end of the prior month.
+    Recomputes itself every month from history - nothing to maintain.
     """
     if daily.empty:
         return 0.0
-    period_start = datetime.now().astimezone().date().replace(day=1)
     before = daily[daily["date"] < period_start]
     if before.empty:
         return 0.0
     return float(before.iloc[-1]["spend"])
+
+
+def _period_baseline(daily: pd.DataFrame) -> float:
+    """Baseline for the current calendar month (see `_baseline_before`)."""
+    period_start = datetime.now().astimezone().date().replace(day=1)
+    return _baseline_before(daily, period_start)
 
 
 def _this_period_only(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -342,7 +348,11 @@ def _render_month_chart(month_df: pd.DataFrame, projected_df: pd.DataFrame | Non
         opacity=0.16,
         interpolate="monotone",
     ).encode(
-        x=alt.X("date:T", title=None),
+        # Without an explicit tickCount, Vega-Lite picks hourly sub-ticks for a
+        # date range this narrow even though the underlying data is one point
+        # per day - reads as "Aug 03, 06 AM, 12 PM, 06 PM, ...", which is noise
+        # for data that never has more than one value per day.
+        x=alt.X("date:T", title=None, axis=alt.Axis(format="%b %d", tickCount={"interval": "day", "step": 1})),
         y=alt.Y("spend:Q", title="Spend (USD)", scale=alt.Scale(zero=True)),
         tooltip=[alt.Tooltip("date:T", title="Date"), alt.Tooltip("spend:Q", title="Spend", format="$.2f")],
     )
@@ -758,19 +768,36 @@ def render() -> None:
         for i in range(1, len(recent)):
             deltas.append(spends[i] - spends[i - 1] if spends[i] is not None and spends[i - 1] is not None else None)
 
+        # "Spent" shows the same period-adjusted number as the rest of the page
+        # (each row uses the baseline for *its own* month, so a row from last
+        # month is adjusted against last month's starting balance, not this
+        # month's) - raw lifetime spend isn't shown anywhere here anymore.
+        period_spends: list[float | None] = []
+        for entry in recent:
+            raw = _as_float(entry.get("spend"))
+            if raw is None:
+                period_spends.append(None)
+                continue
+            try:
+                entry_period_start = datetime.fromisoformat(entry["checked_at"]).date().replace(day=1)
+            except (KeyError, TypeError, ValueError):
+                period_spends.append(raw)
+                continue
+            period_spends.append(max(0.0, raw - _baseline_before(daily, entry_period_start)))
+
         _table_col, _ = st.columns([2, 1])
         with _table_col:
             _h0, _h1, _h2 = st.columns([2, 1, 2])
             _h0.caption("Checked at")
-            _h1.caption("Spent")
+            _h1.caption("Spent this period")
             _h2.caption("Since previous check")
-            for entry, delta in reversed(list(zip(recent, deltas))):
+            for entry, period_spend_row, delta in reversed(list(zip(recent, period_spends, deltas))):
                 _c0, _c1, _c2 = st.columns([2, 1, 2])
                 _c0.markdown(
                     f'<span style="font-size:.78rem;color:#6B7280">{_fmt_checked_at(entry.get("checked_at"))}</span>',
                     unsafe_allow_html=True,
                 )
-                _c1.markdown(f'<span style="font-size:.78rem">{_money(entry.get("spend"))}</span>', unsafe_allow_html=True)
+                _c1.markdown(f'<span style="font-size:.78rem">{_money(period_spend_row)}</span>', unsafe_allow_html=True)
                 if delta is None:
                     _c2.markdown('<span style="font-size:.78rem;color:#9CA3AF">—</span>', unsafe_allow_html=True)
                 elif delta > 0:
