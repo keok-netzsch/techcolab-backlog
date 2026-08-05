@@ -728,6 +728,13 @@ def render() -> None:
 
     chart_budget = _as_float(max_budget) or MONTHLY_BUDGET
     month_df = _current_month_series(daily)
+    if not month_df.empty:
+        # daily["spend"] is the raw lifetime counter (same one the headline stat
+        # adjusts) - the chart needs the same baseline subtraction, or it plots
+        # last month's leftover balance as a flat line instead of this month's
+        # actual spend starting near zero.
+        month_df = month_df.copy()
+        month_df["spend"] = (month_df["spend"] - baseline).clip(lower=0)
 
     st.subheader("Spend this month")
     if month_df.empty:
