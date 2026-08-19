@@ -446,15 +446,28 @@ def _update_claude_pro_report() -> bool:
 # ── Notification ──────────────────────────────────────────────────────────────
 
 def _notify(title: str, message: str):
-    """Send a Windows toast notification via PowerShell."""
+    """
+    Notify Kelvin via a blocking, TopMost MessageBox (not a toast).
+
+    A balloon-tip/toast notification was used here originally, but the
+    scripts/send-morning-reminder.ps1 and scripts/send-evening-push.ps1
+    incident (2026-08-11) showed toast is silently suppressed by Focus
+    Assist while still reporting success from the API — so this daily
+    agent notification was almost certainly never actually seen. Switched
+    to the same MessageBox pattern that fixed those two scripts: not
+    subject to Focus Assist, stays on screen until dismissed.
+    """
+    esc_title = title.replace("'", "''")
+    esc_message = message.replace("'", "''")
     script = (
         f"Add-Type -AssemblyName System.Windows.Forms; "
-        f"$n = New-Object System.Windows.Forms.NotifyIcon; "
-        f"$n.Icon = [System.Drawing.SystemIcons]::Information; "
-        f"$n.Visible = $true; "
-        f"$n.ShowBalloonTip(8000, '{title}', '{message}', "
-        f"[System.Windows.Forms.ToolTipIcon]::Info); "
-        f"Start-Sleep -Seconds 9; $n.Dispose()"
+        f"$form = New-Object System.Windows.Forms.Form; "
+        f"$form.TopMost = $true; $form.Opacity = 0; $form.ShowInTaskbar = $false; "
+        f"$form.StartPosition = 'CenterScreen'; "
+        f"$form.Size = New-Object System.Drawing.Size(0, 0); $form.Show(); "
+        f"[System.Windows.Forms.MessageBox]::Show($form, '{esc_message}', '{esc_title}', "
+        f"[System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null; "
+        f"$form.Close()"
     )
     subprocess.Popen(["powershell", "-NonInteractive", "-Command", script],
                      creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
