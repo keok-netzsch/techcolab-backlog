@@ -138,6 +138,39 @@ When the user opens a Claude Code session via `execute_agent.bat` and says
 
 ---
 
+## Capturing a new idea — never hand-write the frontmatter
+
+Ideas are born in a chat, not inside the app. When any conversation produces something
+worth keeping in the backlog, file it with the CLI — **do not write `idea-NNN.md` by hand**,
+which is how schema drift and duplicate IDs get in:
+
+```bash
+python ~/techcolab-backlog/agent/create_idea.py --title "..." --description "..." --todo "Primeiro passo"
+```
+
+It works from **any** working directory and under **both** CLI accounts (`claude` / Pro OAuth
+and `claude-api` / NETZSCH gateway) — it is plain Python over `BacklogStore`, with no LLM
+call and no auth-dependent behaviour. Paths come from `__file__` and `TECHCOLAB_VAULT`, and
+`~` expands in both bash and PowerShell, so the same line works from either shell.
+
+| Flag | Notes |
+|---|---|
+| `--title` | Required, single line. Duplicate titles are rejected (exit 2) unless `--allow-duplicate` |
+| `--description`, `--notes` | Free text |
+| `--todo` | Repeatable. Accepts the store's own suffixes: `@YYYY-MM-DD` (due), `{auto}`, `{bug}` |
+| `--area`, `--priority`, `--status`, `--impacto`, `--esforco` | Validated against `backlog/schema.py`; invalid values are refused, never silently written |
+| `--origin` | Vault-relative path of the source note — set this whenever the idea came from one |
+| `--due-date`, `--okr-ref`, `--sprint`, `--blocked-by`, `--bug`, `--auto`, `--id` | Optional |
+| `--json <file>` / `--json -` | **Preferred for PT-BR text.** Whole payload as JSON, avoids shell quoting on accents, quotes and line breaks |
+| `--dry-run` | Validates and prints, writes nothing |
+
+The ID is assigned automatically (`_next_id()` scans recursively, so archived ideas never
+get their number reused). Exit codes: `0` created, `1` validation error, `2` duplicate title.
+
+> Prefer `--json` when the text is long or has accents. Flags are fine for short one-liners.
+
+---
+
 ## Design System — mandatory for new pages
 
 Before creating any new Streamlit page or adding a new section to an existing page,
