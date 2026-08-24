@@ -13,8 +13,9 @@ from typing import Any
 
 from openai import OpenAI
 
-from config import EXTRACTION_MODEL, OLLAMA_BASE_URL
+from config import EXTRACTION_MODEL
 from ingestion.parser import RawNote
+from llm_client import build_client  # noqa: F401 — re-exported for `from ingestion.extractor import build_client`
 
 _SYSTEM_PROMPT = """
 Você é um assistente de gestão de produto e inovação.
@@ -180,7 +181,3 @@ def suggest_claude_tips(title: str, description: str, client: OpenAI) -> list[st
         return [str(t).strip() for t in result if str(t).strip()]
     except json.JSONDecodeError:
         return []
-
-
-def build_client() -> OpenAI:
-    return OpenAI(base_url=OLLAMA_BASE_URL, api_key="ollama")

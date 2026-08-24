@@ -16,41 +16,29 @@ Usage:
 import json
 import re
 import sys
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import ANALYSIS_WORKERS, EXTRACTION_MODEL, OLLAMA_BASE_URL
-
+from config import ANALYSIS_MODEL, ANALYSIS_WORKERS
+from llm_client import build_client
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _ollama_base() -> str:
-    url = OLLAMA_BASE_URL.rstrip("/")
-    return url[:-3] if url.endswith("/v1") else url
-
-
-def _call_ollama(prompt: str, model: str, timeout: int = 90) -> str | None:
-    payload = json.dumps({
-        "model": model,
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-        "options": {"temperature": 0.2},
-    }).encode()
+def _call_llm(prompt: str, model: str, timeout: int = 90) -> str | None:
     try:
-        req = urllib.request.Request(
-            f"{_ollama_base()}/api/generate",
-            data=payload,
-            headers={"Content-Type": "application/json"},
+        client = build_client()
+        resp = client.chat.completions.create(
+            model=model,
+            temperature=0.2,
+            timeout=timeout,
+            messages=[{"role": "user", "content": prompt}],
         )
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return json.loads(resp.read()).get("response", "")
+        return resp.choices[0].message.content
     except Exception as exc:
-        print(f"[analysis_agent] Ollama error: {exc}")
+        print(f"[analysis_agent] LLM error: {exc}")
         return None
 
 
@@ -78,7 +66,7 @@ def analyze_idea(idea, model: str | None = None) -> dict:
     Returns a result dict with keys: idea_id, title, decision, reasoning,
     suggested_todos, raw_ok (bool).
     """
-    model = model or EXTRACTION_MODEL
+    model = model or ANALYSIS_MODEL
 
     todos_text = "\n".join(
         f"  - {'[x]' if t.get('done') else '[ ]'} {t['text']}"
@@ -103,7 +91,7 @@ def analyze_idea(idea, model: str | None = None) -> dict:
         '{"decision": "...", "reasoning": "...", "suggested_todos": ["...", "..."]}'
     )
 
-    raw = _call_ollama(prompt, model)
+    raw = _call_llm(prompt, model)
     result = _extract_json(raw) if raw else None
 
     if result and result.get("decision") in ("approve", "reject", "adjust"):
@@ -120,7 +108,7 @@ def analyze_idea(idea, model: str | None = None) -> dict:
         "idea_id":        idea.id,
         "title":          idea.title,
         "decision":       "unknown",
-        "reasoning":      "Ollama did not return a valid analysis.",
+        "reasoning":      "Model did not return a valid analysis.",
         "suggested_todos": [],
         "raw_ok":         False,
     }

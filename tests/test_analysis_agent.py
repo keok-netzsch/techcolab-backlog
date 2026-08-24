@@ -42,7 +42,7 @@ def test_extract_json_none_on_garbage():
 def test_analyze_idea_approve():
     idea = _make_idea()
     mock_response = '{"decision": "approve", "reasoning": "High value.", "suggested_todos": ["Build it"]}'
-    with patch("agent.analysis_agent._call_ollama", return_value=mock_response):
+    with patch("agent.analysis_agent._call_llm", return_value=mock_response):
         result = analyze_idea(idea)
     assert result["decision"] == "approve"
     assert result["raw_ok"] is True
@@ -53,7 +53,7 @@ def test_analyze_idea_approve():
 def test_analyze_idea_reject():
     idea = _make_idea(id="idea-002")
     mock_response = '{"decision": "reject", "reasoning": "Low ROI.", "suggested_todos": []}'
-    with patch("agent.analysis_agent._call_ollama", return_value=mock_response):
+    with patch("agent.analysis_agent._call_llm", return_value=mock_response):
         result = analyze_idea(idea)
     assert result["decision"] == "reject"
     assert result["suggested_todos"] == []
@@ -62,14 +62,14 @@ def test_analyze_idea_reject():
 def test_analyze_idea_adjust():
     idea = _make_idea(id="idea-003")
     mock_response = '{"decision": "adjust", "reasoning": "Needs scoping.", "suggested_todos": ["Define scope"]}'
-    with patch("agent.analysis_agent._call_ollama", return_value=mock_response):
+    with patch("agent.analysis_agent._call_llm", return_value=mock_response):
         result = analyze_idea(idea)
     assert result["decision"] == "adjust"
 
 
 def test_analyze_idea_ollama_failure_returns_unknown():
     idea = _make_idea()
-    with patch("agent.analysis_agent._call_ollama", return_value=None):
+    with patch("agent.analysis_agent._call_llm", return_value=None):
         result = analyze_idea(idea)
     assert result["decision"] == "unknown"
     assert result["raw_ok"] is False
@@ -78,7 +78,7 @@ def test_analyze_idea_ollama_failure_returns_unknown():
 def test_analyze_idea_invalid_decision_returns_unknown():
     idea = _make_idea()
     mock_response = '{"decision": "maybe", "reasoning": "Hmm.", "suggested_todos": []}'
-    with patch("agent.analysis_agent._call_ollama", return_value=mock_response):
+    with patch("agent.analysis_agent._call_llm", return_value=mock_response):
         result = analyze_idea(idea)
     assert result["decision"] == "unknown"
 
@@ -92,7 +92,7 @@ def test_analyze_all_only_processes_em_analise():
         _make_idea(id="idea-003", status="concluído"),
     ]
     mock_response = '{"decision": "approve", "reasoning": "OK.", "suggested_todos": []}'
-    with patch("agent.analysis_agent._call_ollama", return_value=mock_response):
+    with patch("agent.analysis_agent._call_llm", return_value=mock_response):
         results = analyze_all(ideas)
     assert len(results) == 1
     assert results[0]["idea_id"] == "idea-001"
@@ -111,7 +111,7 @@ def test_analyze_all_parallel_preserves_order():
         for i in range(1, 6)
     ]
     mock_response = '{"decision": "approve", "reasoning": "OK.", "suggested_todos": []}'
-    with patch("agent.analysis_agent._call_ollama", return_value=mock_response):
+    with patch("agent.analysis_agent._call_llm", return_value=mock_response):
         results = analyze_all(ideas, max_workers=3)
     assert [r["idea_id"] for r in results] == [f"idea-{i:03d}" for i in range(1, 6)]
 
@@ -132,7 +132,7 @@ def test_analyze_all_worker_error_returns_unknown_for_that_idea():
             raise RuntimeError("Simulated Ollama crash")
         return good
 
-    with patch("agent.analysis_agent._call_ollama", side_effect=_mock_ollama):
+    with patch("agent.analysis_agent._call_llm", side_effect=_mock_ollama):
         results = analyze_all(ideas, max_workers=1)
 
     assert len(results) == 2
@@ -145,7 +145,7 @@ def test_analyze_all_single_worker_matches_sequential():
     """max_workers=1 should produce identical results to sequential execution."""
     ideas = [_make_idea(id=f"idea-{i}", status="em análise") for i in range(3)]
     mock_response = '{"decision": "adjust", "reasoning": "Needs work.", "suggested_todos": ["Fix X"]}'
-    with patch("agent.analysis_agent._call_ollama", return_value=mock_response):
+    with patch("agent.analysis_agent._call_llm", return_value=mock_response):
         results = analyze_all(ideas, max_workers=1)
     assert all(r["decision"] == "adjust" for r in results)
     assert len(results) == 3

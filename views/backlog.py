@@ -5,7 +5,6 @@ from datetime import date
 from difflib import SequenceMatcher
 from pathlib import Path
 
-import requests
 import streamlit as st
 
 from backlog.cache import get_store, load_ideas, rebuild_index
@@ -31,7 +30,7 @@ from components.ui import (
     pbadge,
     sdot,
 )
-from config import BACKLOG_ARCHIVE_DIR, EXTRACTION_MODEL, OLLAMA_BASE_URL, VAULT_ROOT
+from config import BACKLOG_ARCHIVE_DIR, EXTRACTION_MODEL, VAULT_ROOT
 
 
 def _render_legend() -> None:
@@ -162,7 +161,7 @@ def render() -> None:
                                     {"role": "user", "content": prompt},
                                 ],
                             )
-                            suggested_prio = resp.choices[0].message.content.strip().lower()
+                            suggested_prio = (resp.choices[0].message.content or "").strip().lower()
                             if suggested_prio in VALID_PRIORITIES:
                                 st.session_state["ni_priority"] = suggested_prio
                                 st.session_state["ni_suggested_prio"] = suggested_prio
@@ -496,14 +495,18 @@ def render() -> None:
                         )
                         with st.spinner("Translating..."):
                             try:
-                                _ollama_host = OLLAMA_BASE_URL.split("/v1")[0].split("/api")[0]
-                                _tr_r = requests.post(
-                                    f"{_ollama_host}/api/generate",
-                                    json={"model": "llama3.2:3b", "prompt": _tr_prompt, "stream": False, "format": "json"},
+                                from ingestion.extractor import build_client
+                                _tr_resp = build_client().chat.completions.create(
+                                    model=EXTRACTION_MODEL,
+                                    max_tokens=2048,
                                     timeout=60,
+                                    messages=[{"role": "user", "content": _tr_prompt}],
                                 )
-                                _tr_r.raise_for_status()
-                                _tr_data = json.loads(_tr_r.json()["response"])
+                                _tr_raw = (_tr_resp.choices[0].message.content or "").strip()
+                                if _tr_raw.startswith("```"):
+                                    _tr_raw = _tr_raw.split("\n", 1)[1] if "\n" in _tr_raw else _tr_raw
+                                    _tr_raw = _tr_raw.rsplit("```", 1)[0].strip()
+                                _tr_data = json.loads(_tr_raw)
                                 st.session_state[f"title_{idea.id}"]  = _tr_data.get("title", idea.title)
                                 st.session_state[f"desc_{idea.id}"]   = _tr_data.get("description", "")
                                 for _i, _orig_idx in enumerate(_active_idx):

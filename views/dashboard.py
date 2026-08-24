@@ -21,7 +21,7 @@ from components.ui import (
     sdot,
     stat_grid,
 )
-from config import EXTRACTION_MODEL, OLLAMA_BASE_URL, VAULT_ROOT
+from config import ANALYSIS_MODEL, LLM_PROVIDER, VAULT_ROOT
 
 # ── Claude Code stats loader ──────────────────────────────────────────────────
 
@@ -509,7 +509,7 @@ def render() -> None:
                         f"Cache: {_cache_pct_diag}% | "
                         f"Projects: {', '.join(list(_cc_projects.keys())[:3])}"
                     )
-                    if st.button("Run Ollama analysis", key="cc_ollama_btn", type="primary"):
+                    if st.button("Run usage analysis", key="cc_ollama_btn", type="primary"):
                         _prompt = (
                             "You are an AI productivity consultant. "
                             "Analyze the Claude Code usage pattern below and provide actionable insights.\n\n"
@@ -519,18 +519,19 @@ def render() -> None:
                             "Be specific and practical. Maximum 200 words total. Respond in English."
                         )
                         try:
-                            from openai import OpenAI as _OAI
-                            _client = _OAI(base_url=OLLAMA_BASE_URL, api_key="ollama")
-                            with st.spinner("Ollama analyzing..."):
+                            from llm_client import build_client
+                            _client = build_client()
+                            with st.spinner("Analyzing..."):
                                 _resp = _client.chat.completions.create(
-                                    model=EXTRACTION_MODEL,
+                                    model=ANALYSIS_MODEL,
                                     messages=[{"role": "user", "content": _prompt}],
                                     temperature=0.4,
                                     max_tokens=350,
                                 )
                             st.markdown(_resp.choices[0].message.content)
-                        except Exception:
-                            st.warning(f"Ollama not available (`{OLLAMA_BASE_URL}`). Start the service with `ollama serve` to use this analysis.")
+                        except Exception as _e:
+                            _hint = "Start the service with `ollama serve`." if LLM_PROVIDER == "ollama" else "Check NETZSCH_GATEWAY_KEY and gateway connectivity."
+                            st.warning(f"LLM backend not available ({_e}). {_hint}")
 
     # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     # SECTION 2 — Backlog summary

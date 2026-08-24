@@ -23,7 +23,7 @@ sys.path.insert(0, str(ROOT))
 
 from backlog.schema import VALID_STATUSES
 from backlog.store import BacklogStore
-from config import BACKLOG_DIR, EXTRACTION_MODEL, VAULT_ROOT
+from config import ANALYSIS_MODEL, BACKLOG_DIR, VAULT_ROOT
 
 TODAY = date.today()
 REPORTS_DIR = VAULT_ROOT / "agent-reports"
@@ -526,14 +526,7 @@ def _auto_discover_projects(data: dict) -> bool:
         return False
 
 
-# ── Narrative generation via Ollama ──────────────────────────────────────────
-
-def _ollama_base_url() -> str:
-    """Return native Ollama base (strip /v1 suffix if present)."""
-    from config import OLLAMA_BASE_URL
-    url = OLLAMA_BASE_URL.rstrip("/")
-    return url[:-3] if url.endswith("/v1") else url
-
+# ── Narrative generation via LLM ─────────────────────────────────────────────
 
 def _generate_narrative_with_ollama(
     initiative: dict,
@@ -541,11 +534,12 @@ def _generate_narrative_with_ollama(
     model: str,
 ) -> dict | None:
     """
-    Ask Ollama to generate boss/advance/body/bullets for an initiative.
+    Ask the configured LLM (Ollama or the NETZSCH gateway — see llm_client.py) to
+    generate boss/advance/body/bullets for an initiative.
     Uses the last 8 sessions (titles + first user message) as context.
     Returns a dict with the four fields, or None on any failure.
     """
-    import urllib.request
+    from llm_client import build_client
 
     if not sessions:
         return None
@@ -596,20 +590,14 @@ def _generate_narrative_with_ollama(
     )
 
     try:
-        payload = json.dumps({
-            "model": model,
-            "prompt": prompt,
-            "stream": False,
-            "options": {"temperature": 0.3},
-        }).encode()
-        base = _ollama_base_url()
-        req = urllib.request.Request(
-            f"{base}/api/generate",
-            data=payload,
-            headers={"Content-Type": "application/json"},
+        client = build_client()
+        resp = client.chat.completions.create(
+            model=model,
+            temperature=0.3,
+            timeout=120,
+            messages=[{"role": "user", "content": prompt}],
         )
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            raw = json.loads(resp.read()).get("response", "")
+        raw = resp.choices[0].message.content or ""
 
         # Extract JSON block from response (model may wrap it in markdown)
         match = re.search(r'\{.*\}', raw, re.DOTALL)
@@ -629,7 +617,7 @@ def _generate_narrative_with_ollama(
         return result
 
     except Exception as exc:
-        print(f"[agent] Ollama narrative failed for '{init_title}': {exc}")
+        print(f"[agent] Narrative generation failed for '{init_title}': {exc}")
         return None
 
 
@@ -642,7 +630,7 @@ def _auto_update_narratives(data: dict) -> bool:
     """
     from agent.scrape_sessions import get_recent_sessions
 
-    model   = EXTRACTION_MODEL
+    model   = ANALYSIS_MODEL
     changed = False
 
     # Build session index keyed by project_folder

@@ -54,9 +54,28 @@ BACKLOG_INDEX = VAULT_ROOT / "_index.md"
 # ── Consolidated claude.md ──────────────────────────────────────────────────────
 CLAUDE_MD = VAULT_ROOT / "claude.md"
 
-# ── Ollama (local LLM) ─────────────────────────────────────────────────────────
+# ── LLM backend — Ollama (local, default) or NETZSCH gateway ───────────────────
+# LLM_PROVIDER = "ollama" (default, unchanged behavior) or "gateway" (routes
+# through the NETZSCH LiteLLM gateway — same infra the `claude-api` CLI entry
+# point uses). Flip back to "ollama" any time with no code changes.
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "ollama")
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434/v1")
-EXTRACTION_MODEL = os.environ.get("EXTRACTION_MODEL", "llama3.2:3b")
+GATEWAY_BASE_URL = os.environ.get("GATEWAY_BASE_URL", "https://litellm.chatbot.netzsch.com")
+GATEWAY_API_KEY = os.environ.get("NETZSCH_GATEWAY_KEY", "")
+
+# Extraction/classification tasks (backlog ingestion, to-dos, tips, priority,
+# translation) — high volume, low reasoning need.
+EXTRACTION_MODEL = os.environ.get(
+    "EXTRACTION_MODEL",
+    "claude-haiku-4-5" if LLM_PROVIDER == "gateway" else "llama3.2:3b",
+)
+# Heavier-reasoning tasks (idea approve/reject decisions, dashboard narrative
+# synthesis, Claude Code usage analysis) — separate so it can be tuned without
+# touching the extraction model.
+ANALYSIS_MODEL = os.environ.get(
+    "ANALYSIS_MODEL",
+    "claude-sonnet-5" if LLM_PROVIDER == "gateway" else EXTRACTION_MODEL,
+)
 
 # ── Claude Pro Report ─────────────────────────────────────────────────────────
 # Rendered natively as a Streamlit page — no HTML file or external URL needed.
