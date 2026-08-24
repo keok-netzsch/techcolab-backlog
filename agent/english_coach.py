@@ -41,6 +41,8 @@ SCAN_DIRS_ABS = [
     TEAM_DIR,                        # Team/*/1on1/*.md
     _VAULT_BASE / "Stakeholders",    # Stakeholders/*/1on1/*.md
     EC_DIR / "sessions",             # Areas/English-Learning/sessions/*.md (vault v2)
+    _VAULT_BASE / "Inbox",           # Inbox/*.md — recordings classified as "nota-avulsa" land here
+                                      # and were previously invisible to the coach even when lang: en
 ]
 
 MAX_CHARS_PER_SESSION = 1500   # cap per transcript to stay within 3B context
