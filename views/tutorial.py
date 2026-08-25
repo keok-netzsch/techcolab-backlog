@@ -230,7 +230,7 @@ Scripts live in `%USERPROFILE%\\techcolab-backlog\\call-recorder\\` and are regi
 
 ## Daily agent
 
-The agent runs every morning at 08:00, analyses the backlog, and proposes actions.
+The agent runs every morning at 07:00, analyses the backlog, and proposes actions.
 You interact with it in two steps:
 
 ### Step 1 — Review the report (Obsidian)
@@ -240,6 +240,10 @@ Open `agent-reports/report-YYYY-MM-DD.md` in the vault.
 The **Proposed actions** section lists specific to-dos from your backlog, grouped by idea.
 Check the boxes (`- [x]`) next to every to-do you want the agent to implement.
 Leave unchecked what you don't approve.
+
+The **Ideas under review** section holds the Phase 2 analysis. If it opens with a
+`Phase 2 DEGRADED` callout, the local model analysis crashed for the ideas listed there —
+those recommendations are missing, not empty. Check `logs/agent-last.log` for the cause.
 
 ### Step 2 — Execute approved items (Claude Code)
 
@@ -259,6 +263,7 @@ Trigger **Executar Agente**. The command is copied to clipboard automatically �
 | Issue | Solution |
 |---|---|
 | Connection error when suggesting to-dos | Start Ollama (tray icon) |
+| Report shows "Phase 2 DEGRADED" | The analysis workers crashed — read `logs/agent-last.log`, then rerun `run_agent.bat` |
 | App shows stale data | Click **🔄** in the top navigation bar |
 | Port 8501 in use | `streamlit run app.py --server.port 8502` |
 | "python not recognized" | Reinstall Python with "Add to PATH" checked |

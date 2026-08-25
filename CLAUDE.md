@@ -112,7 +112,12 @@ After updating the app pages, also check if `README.md` needs updating.
 - **Python:** 3.13 (system) — no venv needed for running Claude Code tools
 - **Streamlit:** runs inside `.venv` via `start_app.bat`
 - **Vault env var:** `TECHCOLAB_VAULT` — set as a permanent user env var on this machine
-- **Agent schedule:** Windows Task Scheduler, daily at 08:00, runs `run_agent.bat`
+- **Agent schedule:** Windows Task Scheduler task **"TechColab Backlog Agent"**, daily at 07:00,
+  runs `run_agent_silent.vbs` -> `run_agent.bat` (hidden window). The VBS waits for the agent and
+  returns its exit code, so a non-zero "Last Run Result" means a real failure -- keep the task's
+  execution time limit at 2h and do not revert the VBS to a non-blocking `WShell.Run`.
+  There must be exactly **one** task pointing at `run_agent.bat`: two of them race on
+  `logsgent-last.log` and one ends up permanently red, masking real failures.
 - **Tests:** 40 tests in `tests/`, all must pass before committing
 
 ## Agent Phase 2 — Executing approved actions

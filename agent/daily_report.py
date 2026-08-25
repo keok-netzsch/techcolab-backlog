@@ -21,9 +21,14 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
+from agent.agent_io import force_utf8_stdio, safe_print
 from backlog.schema import VALID_STATUSES
 from backlog.store import BacklogStore
 from config import ANALYSIS_MODEL, BACKLOG_DIR, VAULT_ROOT
+
+# stdout is redirected to logs/agent-last.log by run_agent.bat, so Python picks
+# the ANSI code page (cp1252) instead of UTF-8. See agent/agent_io.py.
+force_utf8_stdio()
 
 TODAY = date.today()
 REPORTS_DIR = VAULT_ROOT / "agent-reports"
@@ -56,6 +61,7 @@ def _run_tests() -> dict:
     result = subprocess.run(
         [sys.executable, "-m", "pytest", str(ROOT / "tests"), "-q", "--tb=no"],
         capture_output=True, text=True, cwd=str(ROOT),
+        encoding="utf-8", errors="replace",
     )
     lines = result.stdout.strip().splitlines()
     summary = lines[-1] if lines else "no output"
@@ -380,7 +386,7 @@ def _update_claude_pro_report() -> bool:
             try:
                 entries = json.loads(json_path.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, ValueError):
-                print("[agent] Claude Pro timeline: JSON malformed, starting fresh")
+                safe_print("[agent] Claude Pro timeline: JSON malformed, starting fresh")
                 entries = []
 
         existing_dates: set[str] = {e.get("date") for e in entries}
@@ -399,7 +405,7 @@ def _update_claude_pro_report() -> bool:
                     "detail": detail,
                 })
                 existing_dates.add(today_iso)  # prevent double-add via scraping
-                print(f"[agent] Claude Pro timeline: commit entry '{title}'")
+                safe_print(f"[agent] Claude Pro timeline: commit entry '{title}'")
 
         # ── Source 2: JSONL session scraping (today + backfill last 7 days) ──
         try:
@@ -409,12 +415,12 @@ def _update_claude_pro_report() -> bool:
             if candidates:
                 for c in candidates:
                     new_entries.append(c)
-                    print(f"[agent] Claude Pro timeline: session entry '{c['title']}' ({c['date']})")
+                    safe_print(f"[agent] Claude Pro timeline: session entry '{c['title']}' ({c['date']})")
         except Exception as _scrape_err:
-            print(f"[agent] Claude Pro timeline: scraping failed ({_scrape_err})")
+            safe_print(f"[agent] Claude Pro timeline: scraping failed ({_scrape_err})")
 
         if not new_entries:
-            print("[agent] Claude Pro timeline: nothing new to add")
+            safe_print("[agent] Claude Pro timeline: nothing new to add")
             return False
 
         # Merge and sort newest first
@@ -424,7 +430,7 @@ def _update_claude_pro_report() -> bool:
             json.dumps(all_entries, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        print(f"[agent] Claude Pro timeline: {len(new_entries)} new entry/entries added")
+        safe_print(f"[agent] Claude Pro timeline: {len(new_entries)} new entry/entries added")
 
         subprocess.run(["git", "add", str(json_path)], cwd=str(project_root), check=True)
         diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(project_root))
@@ -434,12 +440,12 @@ def _update_claude_pro_report() -> bool:
                 cwd=str(project_root), check=True,
             )
             subprocess.run(["git", "push"], cwd=str(project_root), check=True)
-            print(f"[agent] Claude Pro timeline pushed ({today_iso})")
+            safe_print(f"[agent] Claude Pro timeline pushed ({today_iso})")
 
         return True
 
     except Exception as exc:
-        print(f"[agent] Claude Pro timeline update failed: {exc}")
+        safe_print(f"[agent] Claude Pro timeline update failed: {exc}")
         return False
 
 
@@ -518,11 +524,11 @@ def _auto_discover_projects(data: dict) -> bool:
                 "bullets": [],
                 "auto_narrative": True,
             })
-            print(f"[agent] Auto-discovered project: {title} ({folder})")
+            safe_print(f"[agent] Auto-discovered project: {title} ({folder})")
             added = True
         return added
     except Exception as exc:
-        print(f"[agent] Auto-discovery failed: {exc}")
+        safe_print(f"[agent] Auto-discovery failed: {exc}")
         return False
 
 
@@ -617,7 +623,7 @@ def _generate_narrative_with_ollama(
         return result
 
     except Exception as exc:
-        print(f"[agent] Narrative generation failed for '{init_title}': {exc}")
+        safe_print(f"[agent] Narrative generation failed for '{init_title}': {exc}")
         return None
 
 
@@ -647,20 +653,20 @@ def _auto_update_narratives(data: dict) -> bool:
         sessions = sessions_by_folder.get(folder, [])
 
         if not sessions:
-            print(f"[agent] Narrative: no sessions found for '{init.get('title')}' ({folder})")
+            safe_print(f"[agent] Narrative: no sessions found for '{init.get('title')}' ({folder})")
             continue
 
         is_draft   = init.get("status") == "draft"
         has_manual = bool(init.get("boss", "").strip())
         # Don't overwrite a manually-written narrative unless it's still a draft
         if has_manual and not is_draft:
-            print(f"[agent] Narrative: skipping '{init.get('title')}' (manual narrative preserved)")
+            safe_print(f"[agent] Narrative: skipping '{init.get('title')}' (manual narrative preserved)")
             continue
 
-        print(f"[agent] Generating narrative for '{init.get('title')}' ({len(sessions)} sessions)...")
+        safe_print(f"[agent] Generating narrative for '{init.get('title')}' ({len(sessions)} sessions)...")
         result = _generate_narrative_with_ollama(init, sessions, model)
         if not result:
-            print(f"[agent] Narrative generation failed for '{init.get('title')}'")
+            safe_print(f"[agent] Narrative generation failed for '{init.get('title')}'")
             continue
 
         # Update only fields that actually changed
@@ -676,13 +682,13 @@ def _auto_update_narratives(data: dict) -> bool:
         # Promote draft → active when narrative is generated
         if updated and init.get("status") == "draft":
             del init["status"]
-            print(f"[agent] Draft promoted to active: '{init.get('title')}'")
+            safe_print(f"[agent] Draft promoted to active: '{init.get('title')}'")
 
         if updated:
             changed = True
-            print(f"[agent] Narrative updated for '{init.get('title')}'")
+            safe_print(f"[agent] Narrative updated for '{init.get('title')}'")
         else:
-            print(f"[agent] Narrative unchanged for '{init.get('title')}'")
+            safe_print(f"[agent] Narrative unchanged for '{init.get('title')}'")
 
     return changed
 
@@ -697,7 +703,7 @@ def _update_claude_pro_data(ideas: list) -> None:
     """
     data_path = ROOT / "reports" / "claude-pro-data.json"
     if not data_path.exists():
-        print("[agent] claude-pro-data.json not found — skipping data auto-update")
+        safe_print("[agent] claude-pro-data.json not found — skipping data auto-update")
         return
 
     try:
@@ -730,7 +736,7 @@ def _update_claude_pro_data(ideas: list) -> None:
                 json.dumps(data, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
-            print(f"[agent] claude-pro-data.json updated (backlog: {total_ideas} items, {active_ideas} active)")
+            safe_print(f"[agent] claude-pro-data.json updated (backlog: {total_ideas} items, {active_ideas} active)")
             subprocess.run(["git", "add", str(data_path)], cwd=str(ROOT), check=True)
             diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(ROOT))
             if diff.returncode != 0:
@@ -739,29 +745,30 @@ def _update_claude_pro_data(ideas: list) -> None:
                     cwd=str(ROOT), check=True,
                 )
                 subprocess.run(["git", "push"], cwd=str(ROOT), check=True)
-                print("[agent] claude-pro-data.json pushed")
+                safe_print("[agent] claude-pro-data.json pushed")
         else:
-            print("[agent] claude-pro-data.json: nothing changed")
+            safe_print("[agent] claude-pro-data.json: nothing changed")
 
     except Exception as exc:
-        print(f"[agent] claude-pro-data update failed: {exc}")
+        safe_print(f"[agent] claude-pro-data update failed: {exc}")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def main():
-    print(f"[agent] Running daily report for {TODAY}")
+def main() -> int:
+    """Run the daily report. Returns a process exit code (0 = healthy)."""
+    safe_print(f"[agent] Running daily report for {TODAY}")
 
     # Health: tests
-    print("[agent] Running tests...")
+    safe_print("[agent] Running tests...")
     tests = _run_tests()
-    print(f"[agent] Tests: {tests['summary']}")
+    safe_print(f"[agent] Tests: {tests['summary']}")
 
     # Load backlog
-    print("[agent] Loading backlog...")
+    safe_print("[agent] Loading backlog...")
     store = BacklogStore(BACKLOG_DIR)
     ideas = store.load_all()
-    print(f"[agent] {len(ideas)} ideas loaded")
+    safe_print(f"[agent] {len(ideas)} ideas loaded")
 
     # Analyze
     data = analyze(ideas)
@@ -771,37 +778,56 @@ def main():
 
     # Phase 2: analyze ideas under review via Ollama
     under_review = [i for i in ideas if i.status == "em análise"]
+    phase2_error: str | None = None
     if under_review:
-        print(f"[agent] Phase 2: analyzing {len(under_review)} idea(s) under review...")
+        safe_print(f"[agent] Phase 2: analyzing {len(under_review)} idea(s) under review...")
         try:
             from agent.analysis_agent import analyze_all, build_report_section
             analyses = analyze_all(ideas)
+            crashed = [a for a in analyses if a.get("worker_error")]
+            if crashed:
+                phase2_error = (
+                    f"{len(crashed)}/{len(analyses)} worker(s) crashed "
+                    f"({crashed[0]['worker_error']})"
+                )
             analysis_section = build_report_section(analyses)
             if analysis_section:
                 report_md = report_md.replace("<!-- ANALYSIS_SECTION -->", analysis_section)
         except Exception as _ae:
-            print(f"[agent] Phase 2 analysis failed: {_ae}")
-            report_md = report_md.replace("<!-- ANALYSIS_SECTION -->", "")
+            phase2_error = f"{type(_ae).__name__}: {_ae}"
+            safe_print(f"[agent] Phase 2 analysis failed: {phase2_error}")
+            # Never swallow the whole section — leave a flag in the report so a
+            # dead analysis phase is visible in Obsidian, not just in the log.
+            report_md = report_md.replace(
+                "<!-- ANALYSIS_SECTION -->",
+                "## Ideas under review\n\n"
+                f"> [!failure] Phase 2 did not run — {phase2_error}\n"
+                f"> {len(under_review)} idea(s) under review were left unanalysed. "
+                "See `logs/agent-last.log`.\n",
+            )
     else:
         report_md = report_md.replace("<!-- ANALYSIS_SECTION -->", "")
+
+    if phase2_error:
+        safe_print(f"[agent] PHASE 2 FAILED: {phase2_error}")
 
     # Write report
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = REPORTS_DIR / f"report-{TODAY}.md"
     report_path.write_text(report_md, encoding="utf-8")
-    print(f"[agent] Report written: {report_path}")
+    safe_print(f"[agent] Report written: {report_path}")
 
     # Update Claude Pro Report timeline (commits for today + session backfill for last 7 days)
-    print("[agent] Updating Claude Pro Report timeline...")
+    safe_print("[agent] Updating Claude Pro Report timeline...")
     _update_claude_pro_report()
 
     # Auto-patch claude-pro-data.json (backlog count, open bugs)
-    print("[agent] Updating Claude Pro data (backlog stats)...")
+    safe_print("[agent] Updating Claude Pro data (backlog stats)...")
     _update_claude_pro_data(ideas)
 
     # Process queued recordings (decoupled recorder) + reprocess failed ones.
     # Heavy Whisper+LLM work runs here, off the user's working hours.
-    print("[agent] Processing queued recordings + sweeping failed ones...")
+    safe_print("[agent] Processing queued recordings + sweeping failed ones...")
     try:
         import sys as _sys
         _cr = str(Path(__file__).parent.parent / "call-recorder")
@@ -810,34 +836,34 @@ def main():
         import process as _proc
         _q = _proc.cmd_queue()
         if _q["processed"]:
-            print(f"[agent] Queue: processed {len(_q['processed'])} recording(s)")
+            safe_print(f"[agent] Queue: processed {len(_q['processed'])} recording(s)")
         _sw = _proc.cmd_sweep()
         if _sw["reprocessed"]:
-            print(f"[agent] Reprocessed {len(_sw['reprocessed'])} call(s): {_sw['reprocessed']}")
+            safe_print(f"[agent] Reprocessed {len(_sw['reprocessed'])} call(s): {_sw['reprocessed']}")
     except Exception as _e:
-        print(f"[agent] Call queue/sweep skipped: {_e}")
+        safe_print(f"[agent] Call queue/sweep skipped: {_e}")
 
     # Log hygiene: truncate streamlit.log if it grew large (it is not rotated).
     try:
         _log = Path(__file__).parent.parent / "streamlit.log"
         if _log.exists() and _log.stat().st_size > 20 * 1024 * 1024:  # > 20 MB
             _log.write_text("", encoding="utf-8")
-            print("[agent] Truncated streamlit.log (>20MB)")
+            safe_print("[agent] Truncated streamlit.log (>20MB)")
     except Exception:
         pass
 
     # Pre-generate 1:1 agendas for the Team tab (graceful if Ollama is down)
-    print("[agent] Generating 1:1 agendas...")
+    safe_print("[agent] Generating 1:1 agendas...")
     try:
         from team_agenda import generate_all
         _ag = generate_all()
-        print(f"[agent] Agendas: {len(_ag['ok'])} ok, {len(_ag['failed'])} skipped")
+        safe_print(f"[agent] Agendas: {len(_ag['ok'])} ok, {len(_ag['failed'])} skipped")
     except Exception as _e:
-        print(f"[agent] Agenda generation skipped: {_e}")
+        safe_print(f"[agent] Agenda generation skipped: {_e}")
 
     # Action Dashboard: consolidate open action items into Action-Dashboard.md (idea-031).
     # Personal output only — a local vault note + the toast below (no team channel yet).
-    print("[agent] Generating Action Dashboard...")
+    safe_print("[agent] Generating Action Dashboard...")
     _dash = None
     try:
         import sys as _sys
@@ -846,20 +872,26 @@ def main():
             _sys.path.insert(0, _crd)
         import process as _procd
         _dash = _procd.cmd_dashboard()
-        print(f"[agent] Dashboard: {_dash['total']} open actions ({_dash['overdue']} overdue)")
+        safe_print(f"[agent] Dashboard: {_dash['total']} open actions ({_dash['overdue']} overdue)")
     except Exception as _e:
-        print(f"[agent] Dashboard generation skipped: {_e}")
+        safe_print(f"[agent] Dashboard generation skipped: {_e}")
 
     # Notify (Windows toast — local, only the current user sees it)
-    all_good = tests["ok"] and not data["overdue"]
+    all_good = tests["ok"] and not data["overdue"] and not phase2_error
     status_label = "All good" if all_good else "Action needed"
     status_emoji = "OK" if all_good else "WARN"
     msg = f"{data['active']} active items, {data['pending_todos']} pending to-dos, {len(data['candidates'])} tasks proposed"
     if _dash:
         msg += f" | actions: {_dash['overdue']} overdue, {_dash['today']} today"
+    if phase2_error:
+        msg = f"PHASE 2 FAILED: {phase2_error} | " + msg
     _notify(f"TechColab Agent - {status_label}", msg)
-    print(f"[agent] Done. [{status_emoji}] {status_label}")
+    safe_print(f"[agent] Done. [{status_emoji}] {status_label}")
+
+    # Non-zero exit so Task Scheduler's "Last Run Result" flags a broken
+    # analysis phase instead of reporting a green 0x0 over a no-op run.
+    return 1 if phase2_error else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
