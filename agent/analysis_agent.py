@@ -22,8 +22,13 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
+from agent.agent_io import force_utf8_stdio, safe_print
 from config import ANALYSIS_MODEL, ANALYSIS_WORKERS
 from llm_client import build_client
+
+# Redirected stdout (run_agent.bat -> logs/agent-last.log) is cp1252 on Windows,
+# so any non-ASCII print would raise inside a worker. See agent/agent_io.py.
+force_utf8_stdio()
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -38,7 +43,7 @@ def _call_llm(prompt: str, model: str, timeout: int = 90) -> str | None:
         )
         return resp.choices[0].message.content
     except Exception as exc:
-        print(f"[analysis_agent] LLM error: {exc}")
+        safe_print(f"[analysis_agent] LLM error: {exc}")
         return None
 
 
@@ -131,17 +136,17 @@ def analyze_all(ideas: list, model: str | None = None, max_workers: int | None =
     workers = max_workers if max_workers is not None else ANALYSIS_WORKERS
     workers = max(1, workers)
 
-    print(f"[analysis_agent] Orchestrating {len(under_review)} analysis task(s) "
-          f"with {workers} worker(s)...")
+    safe_print(f"[analysis_agent] Orchestrating {len(under_review)} analysis task(s) "
+               f"with {workers} worker(s)...")
 
     # Map future → original index so we can restore order
     results: list[dict | None] = [None] * len(under_review)
 
     def _task(idx: int, idea):
-        print(f"[analysis_agent] [{idx+1}/{len(under_review)}] {idea.id}: {idea.title[:50]}...")
+        safe_print(f"[analysis_agent] [{idx+1}/{len(under_review)}] {idea.id}: {idea.title[:50]}...")
         r = analyze_idea(idea, model)
         icon = {"approve": "✅", "reject": "❌", "adjust": "🔄"}.get(r["decision"], "❓")
-        print(f"[analysis_agent]   → {icon} {r['decision']} ({idea.id})")
+        safe_print(f"[analysis_agent]   → {icon} {r['decision']} ({idea.id})")
         return idx, r
 
     with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -153,17 +158,31 @@ def analyze_all(ideas: list, model: str | None = None, max_workers: int | None =
             except Exception as exc:
                 idx = futures[future]
                 idea = under_review[idx]
-                print(f"[analysis_agent] Worker error for {idea.id}: {exc}")
+                detail = f"{type(exc).__name__}: {exc}"
+                safe_print(f"[analysis_agent] Worker error for {idea.id}: {detail}")
                 results[idx] = {
                     "idea_id":        idea.id,
                     "title":          idea.title,
                     "decision":       "unknown",
-                    "reasoning":      f"Worker error: {exc}",
+                    "reasoning":      f"Worker error: {detail}",
                     "suggested_todos": [],
                     "raw_ok":         False,
+                    "worker_error":   detail,
                 }
 
-    return [r for r in results if r is not None]
+    out = [r for r in results if r is not None]
+
+    # Make a broken analysis phase impossible to miss in the log. The caller
+    # (daily_report.main) turns this into a flagged report section and a
+    # non-zero exit status.
+    crashed = [r for r in out if r.get("worker_error")]
+    if crashed:
+        safe_print(
+            f"[analysis_agent] FAILED: {len(crashed)}/{len(out)} worker(s) crashed - "
+            f"{', '.join(r['idea_id'] for r in crashed)}"
+        )
+
+    return out
 
 
 # ── Report section builder ────────────────────────────────────────────────────
@@ -195,6 +214,17 @@ def build_report_section(analyses: list[dict]) -> str:
         "> For 'Adjust' items, to-dos are suggestions — edit before accepting.",
         "",
     ]
+
+    # A crashed worker means the idea was never analysed. Say so loudly, at the
+    # top of the section, instead of quietly rendering "Analysis unavailable".
+    crashed = [r for r in analyses if r.get("worker_error")]
+    if crashed:
+        lines += [
+            f"> [!failure] Phase 2 DEGRADED — {len(crashed)} of {len(analyses)} "
+            "worker(s) crashed; those ideas were **not** analysed.",
+        ]
+        lines += [f"> - `{r['idea_id']}` — {r['worker_error']}" for r in crashed]
+        lines += ["> See `logs/agent-last.log` for the full context.", ""]
 
     for r in analyses:
         label = _DECISION_LABEL.get(r["decision"], "❓ Unknown")
@@ -234,18 +264,22 @@ def main():
     from backlog.store import BacklogStore
     from config import BACKLOG_DIR
 
-    print("[analysis_agent] Loading backlog...")
+    safe_print("[analysis_agent] Loading backlog...")
     store = BacklogStore(BACKLOG_DIR)
     ideas = store.load_all()
 
     analyses = analyze_all(ideas)
     if not analyses:
-        print("[analysis_agent] No ideas in 'em análise' status.")
-        return
+        safe_print("[analysis_agent] No ideas in 'em análise' status.")
+        return 0
 
     section = build_report_section(analyses)
-    print("\n" + section)
+    safe_print("\n" + section)
+
+    # Non-zero exit when a worker died, so a broken Phase 2 is visible to
+    # whatever launched us (Task Scheduler, a shell, CI).
+    return 1 if any(r.get("worker_error") for r in analyses) else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

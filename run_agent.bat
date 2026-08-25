@@ -4,6 +4,12 @@
 
 cd /d "%~dp0"
 
+:: stdout is redirected to the log file below, so Python would fall
+:: back to the ANSI code page (cp1252) and raise UnicodeEncodeError on any
+:: non-ASCII print. Force UTF-8 for this process and every child it spawns.
+set "PYTHONIOENCODING=utf-8"
+set "PYTHONUTF8=1"
+
 :: Activate venv if it exists; otherwise use system Python (the expected default here)
 if exist ".venv\Scripts\activate.bat" (
     call .venv\Scripts\activate.bat
