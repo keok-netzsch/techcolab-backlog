@@ -230,7 +230,7 @@ Scripts live in `%USERPROFILE%\\techcolab-backlog\\call-recorder\\` and are regi
 
 ## Daily agent
 
-The agent runs every morning at 08:00, analyses the backlog, and proposes actions.
+The agent runs every morning at 07:00, analyses the backlog, and proposes actions.
 You interact with it in two steps:
 
 ### Step 1 — Review the report (Obsidian)
