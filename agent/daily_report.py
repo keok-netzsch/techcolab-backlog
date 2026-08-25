@@ -432,16 +432,10 @@ def _update_claude_pro_report() -> bool:
         )
         safe_print(f"[agent] Claude Pro timeline: {len(new_entries)} new entry/entries added")
 
-        subprocess.run(["git", "add", str(json_path)], cwd=str(project_root), check=True)
-        diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(project_root))
-        if diff.returncode != 0:
-            subprocess.run(
-                ["git", "commit", "-m", f"chore: auto-update claude pro timeline to {TODAY}"],
-                cwd=str(project_root), check=True,
-            )
-            subprocess.run(["git", "push"], cwd=str(project_root), check=True)
-            safe_print(f"[agent] Claude Pro timeline pushed ({today_iso})")
-
+        # No git add/commit/push here: reports/*.json is generated data and has
+        # been gitignored on purpose since 91c4411 (2026-06-02, "untrack
+        # personal/generated data"). The auto-commit was left behind and failed
+        # on every run for months, printing a scary traceback over a healthy run.
         return True
 
     except Exception as exc:
@@ -737,15 +731,7 @@ def _update_claude_pro_data(ideas: list) -> None:
                 encoding="utf-8",
             )
             safe_print(f"[agent] claude-pro-data.json updated (backlog: {total_ideas} items, {active_ideas} active)")
-            subprocess.run(["git", "add", str(data_path)], cwd=str(ROOT), check=True)
-            diff = subprocess.run(["git", "diff", "--cached", "--quiet"], cwd=str(ROOT))
-            if diff.returncode != 0:
-                subprocess.run(
-                    ["git", "commit", "-m", f"chore: auto-update claude-pro-data to {TODAY}"],
-                    cwd=str(ROOT), check=True,
-                )
-                subprocess.run(["git", "push"], cwd=str(ROOT), check=True)
-                safe_print("[agent] claude-pro-data.json pushed")
+            # Gitignored generated data — see the note in _update_claude_pro_report.
         else:
             safe_print("[agent] claude-pro-data.json: nothing changed")
 

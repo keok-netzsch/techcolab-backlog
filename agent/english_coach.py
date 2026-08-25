@@ -28,7 +28,10 @@ sys.path.insert(0, str(ROOT))
 
 import requests
 
+from agent.agent_io import force_utf8_stdio
 from config import EC_DIR, TEAM_DIR, VAULT_ROOT
+
+force_utf8_stdio()
 
 REPORTS_DIR = VAULT_ROOT / "agent-reports"
 
