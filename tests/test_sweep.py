@@ -141,3 +141,52 @@ def test_strip_removes_all_duplicate_sections(tmp_path):
     t = p.read_text(encoding="utf-8")
     assert t.count("## 2026-06-03") == 0   # both duplicates gone
     assert "## 2026-05-27" in t
+
+
+# ── language sidecar (regression: English 1:1 stamped as lang: pt) ────────────
+
+def _sweep_note(tdir, monkeypatch, name, sidecar_lang=None, sweep_lang="pt"):
+    """Run cmd_sweep over a single note transcript, capturing the lang it passes."""
+    t = tdir / name
+    t.write_text("In Brazil as well, yes, in Curitiba.", encoding="utf-8")
+    _age(t, days=1)
+    if sidecar_lang is not None:
+        (tdir / (name + ".lang")).write_text(sidecar_lang, encoding="utf-8")
+
+    seen = {}
+
+    def _fake_note(path, date, lang="pt", time_str=None):
+        seen["lang"] = lang
+
+    monkeypatch.setattr(process, "cmd_note", _fake_note)
+    monkeypatch.setattr(process.requests, "get", lambda *a, **k: None)
+    process.cmd_sweep(str(tdir), min_age_min=0, lang=sweep_lang)
+    return seen.get("lang")
+
+
+def test_sweep_uses_lang_sidecar_over_its_default(tmp_path, monkeypatch):
+    """The .lang written by Whisper must win over the sweep's blanket default.
+
+    Regression for 2026-08-10: an English recording was transcribed with
+    `lang: auto`, Whisper detected `en` and wrote it to the sidecar, but the
+    sweep recreated the note with its default `pt`. The English Coach filters on
+    `lang: en`, so 36 KB of English conversation was invisible to it.
+    """
+    tdir = _vault(tmp_path, monkeypatch)
+    got = _sweep_note(tdir, monkeypatch, "2026-08-10_10-01_nota-avulsa.txt",
+                      sidecar_lang="en", sweep_lang="pt")
+    assert got == "en"
+
+
+def test_sweep_falls_back_to_default_without_sidecar(tmp_path, monkeypatch):
+    tdir = _vault(tmp_path, monkeypatch)
+    got = _sweep_note(tdir, monkeypatch, "2026-08-12_09-00_nota-avulsa.txt",
+                      sidecar_lang=None, sweep_lang="pt")
+    assert got == "pt"
+
+
+def test_sweep_ignores_empty_sidecar(tmp_path, monkeypatch):
+    tdir = _vault(tmp_path, monkeypatch)
+    got = _sweep_note(tdir, monkeypatch, "2026-08-13_09-00_nota-avulsa.txt",
+                      sidecar_lang="   ", sweep_lang="pt")
+    assert got == "pt"

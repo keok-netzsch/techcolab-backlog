@@ -1569,15 +1569,29 @@ def cmd_sweep(transcripts_dir: str = None, min_age_min: int = 5,
             result["skipped"].append(f.name); continue  # too old — leave alone
         if dry_run:
             result["reprocessed"].append(f.name); continue
+        # Language: prefer the per-transcript sidecar written by record.py at
+        # transcription time (<name>.txt.lang) over this sweep's blanket default.
+        # Without it the sweep stamped `lang: pt` on every note it recreated, even
+        # when Whisper had detected English -- which is how the 2026-08-10 English
+        # 1:1 ended up invisible to agent/english_coach.py (it filters `lang: en`).
+        file_lang = lang
+        sidecar = f.parent / (f.name + ".lang")
+        try:
+            if sidecar.exists():
+                detected = sidecar.read_text(encoding="utf-8").strip().lower()
+                if detected:
+                    file_lang = detected
+        except OSError:
+            pass
         try:
             if kind == "person":
-                cmd_transcript(target, str(f), d, structured=False, lang=lang)
+                cmd_transcript(target, str(f), d, structured=False, lang=file_lang)
             elif kind == "manager":
-                cmd_manager(target, str(f), d, lang=lang)
+                cmd_manager(target, str(f), d, lang=file_lang)
             elif kind == "note":
-                cmd_note(str(f), d, lang=lang, time_str=t)
+                cmd_note(str(f), d, lang=file_lang, time_str=t)
             elif kind in CAPTURE_MODES:
-                cmd_capture(kind, str(f), d, lang=lang, time_str=t)
+                cmd_capture(kind, str(f), d, lang=file_lang, time_str=t)
             result["reprocessed"].append(f.name)
         except SystemExit:
             result["failed"].append(f.name)
