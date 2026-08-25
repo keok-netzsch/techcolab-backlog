@@ -829,6 +829,28 @@ def main() -> int:
     except Exception as _e:
         safe_print(f"[agent] Call queue/sweep skipped: {_e}")
 
+    # Audio retention: enforce RECORDINGS_RETENTION_DAYS every day.
+    # record.prune_old_recordings() was only ever called from record.py, i.e. only
+    # when a NEW recording was made. After the last recording on 2026-08-11 the
+    # policy simply stopped running and 1.08 GB of already-transcribed .wav piled
+    # up, 3x past its own 7-day window. Cleanup must not depend on the user
+    # happening to record something.
+    safe_print("[agent] Pruning old recordings...")
+    try:
+        import sys as _sys
+        _crr = str(Path(__file__).parent.parent / "call-recorder")
+        if _crr not in _sys.path:
+            _sys.path.insert(0, _crr)
+        import record as _record
+        _rec_dir = Path(__file__).parent.parent / "call-recorder" / "recordings"
+        _n = _record.prune_old_recordings(str(_rec_dir), _record.RECORDINGS_RETENTION_DAYS)
+        safe_print(
+            f"[agent] Recordings: {_n} file(s) older than "
+            f"{_record.RECORDINGS_RETENTION_DAYS} days removed"
+        )
+    except Exception as _e:
+        safe_print(f"[agent] Recording prune skipped: {_e}")
+
     # Log hygiene: truncate streamlit.log if it grew large (it is not rotated).
     try:
         _log = Path(__file__).parent.parent / "streamlit.log"
