@@ -104,7 +104,20 @@ def _check_ollama():
 
 
 def _ensure_english(ev: dict) -> dict:
-    """Post-process evaluation dict: translate any PT text fields to English via a fast Ollama call."""
+    """Post-process evaluation dict: translate any PT text fields to English via a fast Ollama call.
+
+    Skipped entirely when the gateway produced the evaluation: a frontier model
+    already honours the "answer in English" instruction, and this pass otherwise
+    costs an extra Ollama round-trip (up to 120 s) on every single run for nothing.
+    It stays for the local fallback path, where the 7B model does drift into PT.
+    """
+    try:
+        import coach_llm
+        if coach_llm.active_provider("coach") == "gateway" and not coach_llm.last_run_degraded():
+            return ev
+    except Exception:
+        pass
+
     # Collect fields that may have been returned in Portuguese
     fields: dict[str, str] = {}
     if ev.get("summary"):
@@ -294,79 +307,79 @@ def _evaluate(transcript: str, topic: str, topic_type: str = "") -> dict:
         "Register: most reliable score — be confident even on short samples."
     )
 
-    prompt = f"""You are an expert English language coach evaluating a non-native speaker (B1–C1 range, Brazilian Portuguese L1) in a professional context.
-Your goal is ACCURATE, FAIR evaluation — neither inflated nor artificially harsh.
-IMPORTANT: All text fields in your JSON response (summary, explanation, tip, example, strengths, alternatives, corrected) MUST be written in English only. Never respond in Portuguese.
+    # Deterministic hits go INTO the prompt: the model should spend its effort on
+    # nuance, not on re-finding "informations", which a regex already caught with
+    # certainty. It is also told not to repeat them, so the report has no duplicates.
+    import coach_patterns as patterns
+    det = patterns.detect(transcript)
+    known = chr(10).join(f'- "{h["quote"]}" -> {h["fix"]} ({h["label"]})'
+                         for h in det["certain"][:15])
+    known_block = (
+        "ALREADY DETECTED deterministically (do NOT repeat these, they are "
+        "already reported to the user):" + chr(10) + known + chr(10)
+    ) if known else ""
+
+    prompt = f"""You are an English coach for a Brazilian professional whose English is
+already strong: solid C1 business English, Team Lead at a German multinational,
+speaking in project meetings with German and international colleagues.
+
+He does NOT make beginner mistakes and does not need basic grammar correction.
+Telling him his English is "good" is useless. What actually limits him is a small
+set of persistent Portuguese-shaped habits, imprecise word choice, and pragmatic
+calibration with senior stakeholders.
+
+CRITICAL RULES
+1. Every quoted span MUST appear VERBATIM in the transcript. Never paraphrase a
+   quote. If you cannot quote it exactly, do not report it.
+2. Separate two different things, and never mix them:
+   - "errors": objectively WRONG in professional English. If a competent native
+     speaker could say it, it is NOT an error.
+   - "refinements": correct, but a sharper or better-calibrated choice exists.
+     Register, precision, collocation. These are choices, not mistakes.
+   When in doubt, it is a refinement, not an error.
+3. Do not invent grammar rules. Do not "fix" correct English.
+4. Never report backchannel ("yeah", "mm-hmm", "right", "got it", "I see").
+5. This transcript comes from automatic speech recognition, which silently repairs
+   disfluency and normalises grammar. Therefore: do NOT assess pronunciation, and
+   treat basic grammar as LOW signal. Weight vocabulary, collocation, register and
+   discourse structure instead.
 
 {session_header}
 
 {context_block}
 
-{f"CONTEXT-SPECIFIC CALIBRATION:\\n{type_guidance}" if type_guidance else ""}
-
-{rubric}
-
-Transcript sample:
+{known_block}
+Transcript:
 ---
 {excerpt}
 ---
 
-Return this exact JSON structure (all fields required):
+Return this exact JSON:
 {{
-  "scores": {{
-    "grammar": <integer 0-10>,
-    "vocabulary": <integer 0-10>,
-    "fluency": <integer 0-10>,
-    "structure": <integer 0-10>,
-    "register": <integer 0-10>
-  }},
-  "overall": <number 0-10, weighted average — for meetings weight grammar/register more; for presentations weight structure/fluency more>,
+  "scores": {{"grammar": <0-10>, "vocabulary": <0-10>, "fluency": <0-10>,
+              "structure": <0-10>, "register": <0-10>}},
+  "overall": <0-10>,
   "level": "<A1|A2|B1|B2|C1|C2>",
   "level_confidence": "<low|medium|high>",
-  "summary": "<2-3 sentences: overall assessment, strongest point, key growth area>",
-  "errors": [
-    {{
-      "type": "<grammar|vocabulary|fluency|structure|register>",
-      "original": "<exact phrase from transcript>",
-      "corrected": "<corrected version>",
-      "explanation": "<why it is wrong and how to fix it>"
-    }}
-  ],
-  "strengths": ["<strength 1>", "<strength 2>"],
-  "improvement_tips": [
-    {{
-      "dimension": "<grammar|vocabulary|fluency|structure|register>",
-      "tip": "<concrete, actionable tip specific to what was seen in the transcript>",
-      "example": "<example showing the improvement>"
-    }}
-  ],
-  "vocabulary_suggestions": [
-    {{
-      "used": "<word or phrase the speaker used>",
-      "alternatives": ["<more precise or natural alternative>", "<another option>"]
-    }}
-  ]
+  "summary": "<2-3 sentences. No generic praise. Name the single highest-leverage change.>",
+  "errors": [{{"type": "<category>", "original": "<verbatim quote>",
+               "corrected": "<fix>", "explanation": "<why it is wrong>"}}],
+  "refinements": [{{"original": "<verbatim quote>", "better": "<sharper version>",
+                    "why": "<what it buys him>"}}],
+  "strengths": ["<verbatim quote that genuinely works well>"],
+  "improvement_tips": [{{"dimension": "<category>", "tip": "<concrete>",
+                         "example": "<example>"}}],
+  "vocabulary_suggestions": [{{"used": "<what he said>",
+                               "alternatives": ["<sharper>", "<sharper>"]}}]
 }}
 
-Rules:
-- Report only PATTERNS, not isolated one-off slips.
-- If fewer than 2 clear errors of a type exist, do not list that error type.
-- errors list: max 5 items, most impactful first.
-- improvement_tips: max 3 items, one per dimension, highest leverage first.
-- vocabulary_suggestions: max 4 items."""
+Limits: errors max 6, refinements max 6, strengths max 3, improvement_tips max 3,
+vocabulary_suggestions max 4. Order each by impact."""
 
-    payload = {
-        "model":  OLLAMA_MODEL,
-        "system": "You are an English language coach. You must respond exclusively in English. Never write in Portuguese or any other language, even when the transcript is in Portuguese.",
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-    }
-    r = requests.post(OLLAMA_URL, json=payload, timeout=1200)  # warm ~14min; cold start adds ~5min
-    r.raise_for_status()
-    raw = r.json()["response"].strip()
-
-    return _ensure_english(json.loads(raw))
+    import coach_llm
+    ev = coach_llm.generate_json(prompt, purpose="coach", max_tokens=8000)
+    ev.setdefault("refinements", [])
+    return _ensure_english(ev)
 
 
 def _score_bar(score) -> str:
@@ -437,6 +450,20 @@ def _render_session(ev: dict, transcript: str, topic: str, session_dt: datetime,
                 lines.append(f"→ **{corrected}**")
             if explanation:
                 lines.append(f"  {explanation}")
+            lines.append("")
+
+    # Refinements are NOT errors and must never be rendered as if they were. For a
+    # C1 speaker, mixing "this is wrong" with "this is a sharper choice" is what
+    # turns the report into noise he stops reading.
+    if ev.get("refinements"):
+        lines += ["## Refinements — correct, but sharper options exist", ""]
+        for r in ev["refinements"]:
+            if r.get("original"):
+                lines.append(f"_{r['original']}_")
+            if r.get("better"):
+                lines.append(f"→ **{r['better']}**")
+            if r.get("why"):
+                lines.append(f"  {r['why']}")
             lines.append("")
 
     if ev.get("improvement_tips"):
@@ -604,6 +631,7 @@ def main():
     # sessions were Portuguese scored as English, one scored B1 on a transcript
     # that is 3 words long once artifacts are removed.
     import coach_guards as guards
+    import coach_llm
 
     if "Kelvin:" in transcript:          # dual-channel capture: keep only our side
         own = [ln for ln in transcript.splitlines() if "Kelvin:" in ln]
@@ -673,6 +701,18 @@ def main():
     if guards.summary_contradicts_score(ev.get("summary", ""), float(ev.get("overall", 0))):
         print("[coach] AVISO: resumo contradiz a nota — marcando confianca baixa.")
         ev["level_confidence"] = "low"
+
+    # A degraded run means the 7B local model answered. In the benchmark it
+    # returned level=None on a transcript the gateway rated C1 — writing that into
+    # progress.md would poison the very history the anchoring now depends on.
+    if coach_llm.last_run_degraded():
+        if not ev.get("level") or ev.get("level") not in guards.CEFR:
+            print("[coach] Fallback local devolveu avaliacao invalida "
+                  f"(level={ev.get('level')!r}). NADA sera gravado.")
+            sys.exit(0)
+        print("[coach] Sessao avaliada pelo modelo LOCAL - marcando confianca baixa.")
+        ev["level_confidence"] = "low"
+        ev["degraded"] = True
 
     prev_level = _last_level()
     ev["level"], capped = guards.clamp_level(ev.get("level", ""), prev_level)

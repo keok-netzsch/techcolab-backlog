@@ -70,6 +70,8 @@ def _generate_gateway(prompt: str, expect_json: bool, max_tokens: int,
     keep in sync, and the gateway may front Anthropic, OpenAI or Google models
     behind one contract."""
     import json as _json
+    import time as _time
+    import urllib.error
     import urllib.request
 
     model = os.environ.get("COACH_MODEL", DEFAULT_REMOTE_MODEL)
@@ -78,14 +80,54 @@ def _generate_gateway(prompt: str, expect_json: bool, max_tokens: int,
     if expect_json:
         payload["response_format"] = {"type": "json_object"}
 
-    req = urllib.request.Request(
-        f"{GATEWAY_URL}/chat/completions",
-        data=_json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {_api_key()}",
-                 "Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        data = _json.load(resp)
-    return data["choices"][0]["message"]["content"]
+    # Truncation is NOT an outage, and must not be treated as one. With
+    # response_format=json_object the gateway discards the partial answer and
+    # returns content=None, so a long transcript looked exactly like a dead API
+    # and silently demoted every evaluation to the local model. Retry once with
+    # more room before giving up.
+    for attempt, budget in enumerate((max_tokens, min(max_tokens * 3, 32000))):
+        payload["max_tokens"] = budget
+        req = urllib.request.Request(
+            f"{GATEWAY_URL}/chat/completions",
+            data=_json.dumps(payload).encode("utf-8"),
+            headers={"Authorization": f"Bearer {_api_key()}",
+                     "Content-Type": "application/json"})
+
+        # A 5xx or a dropped connection is transient — the benchmark hit one 504
+        # on a long transcript and fell straight through to the local model, which
+        # answered with level=None. Retrying costs seconds; demoting the model
+        # costs the whole evaluation.
+        data = None
+        for backoff in (0, 5, 20):
+            if backoff:
+                _time.sleep(backoff)
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    data = _json.load(resp)
+                break
+            except urllib.error.HTTPError as e:
+                if e.code < 500:
+                    raise                       # 401/429 are not worth retrying here
+                print(f"[coach-llm] gateway HTTP {e.code} - nova tentativa em "
+                      f"{20 if backoff else 5}s.")
+            except (TimeoutError, OSError) as e:
+                print(f"[coach-llm] gateway {type(e).__name__} - nova tentativa.")
+        if data is None:
+            raise ProviderError("gateway falhou em 3 tentativas (5xx/timeout)")
+
+        choice = data["choices"][0]
+        content = choice.get("message", {}).get("content")
+        finish = choice.get("finish_reason")
+
+        if content and finish != "length":
+            return content
+        if attempt == 0:
+            print(f"[coach-llm] resposta truncada em {budget} tokens "
+                  f"(finish={finish}) - repetindo com mais espaco.")
+
+    raise ProviderError(
+        f"resposta truncada mesmo com {budget} tokens - reduza o transcript "
+        f"ou peca menos itens")
 
 
 def _generate_ollama(prompt: str, expect_json: bool, timeout: int) -> str:
@@ -99,7 +141,7 @@ def _generate_ollama(prompt: str, expect_json: bool, timeout: int) -> str:
 
 
 def generate(prompt: str, purpose: str = "coach", expect_json: bool = True,
-             max_tokens: int = 4096, timeout: int = 1200) -> str:
+             max_tokens: int = 8000, timeout: int = 1200) -> str:
     """Run `prompt` on the best backend allowed for `purpose`.
 
     Raises ProviderError for a purpose that is not remote-allowed but was asked to
