@@ -54,6 +54,88 @@ def callback(indata, frames, time, status):
     chunks.append(indata.copy())
 
 
+def _log(msg: str) -> None:
+    """Diagnostico que sobrevive ao pythonw.
+
+    Sob pythonw sys.stdout e None: `print` nao levanta excecao, apenas descarta
+    a mensagem. Foi por isso que a falha de 2026-08-27 registrou so "captura
+    falhou" sem causa — todo o detalhe estava em prints invisiveis.
+    """
+    line = f"{datetime.now():%Y-%m-%d %H:%M:%S}  [record] {msg}"
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               "record.log"), "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
+    try:
+        print(line, flush=True)
+    except Exception:
+        pass
+
+
+def _probe_input(device, seconds=2.0):
+    """Classifica uma entrada em 'live' | 'dead' | 'floating' por uma amostra curta.
+
+    - dead     : silencio digital (dispositivo desligado). Ex.: o Microphone
+                 Array deste notebook entrega -96,7 dBFS com 0,5 dB de faixa.
+    - floating : nivel alto e CONSTANTE, sem a intermitencia da fala. Assinatura
+                 de entrada de jack sem nada conectado, captando zumbido. Foi o
+                 que gravou 11,8 min de chiado numa call de 2026-08-27.
+    - live     : varia como audio de verdade.
+    """
+    import numpy as np
+    import sounddevice as sd
+    try:
+        a = sd.rec(int(seconds * SAMPLE_RATE), samplerate=SAMPLE_RATE,
+                   channels=1, dtype="float32", device=device)
+        sd.wait()
+    except Exception as e:
+        return "error", f"{e}"
+    x = a[:, 0]
+    win = SAMPLE_RATE // 10
+    k = len(x) // win
+    if k == 0:
+        return "error", "amostra curta demais"
+    rms = np.sqrt((x[:k * win].reshape(k, win).astype(np.float64) ** 2).mean(axis=1))
+    db = lambda v: 20 * np.log10(v + 1e-12)   # noqa: E731
+    mean_db, floor_db, peak_db = db(rms.mean()), db(np.percentile(rms, 10)), db(np.percentile(rms, 95))
+    dyn = peak_db - floor_db
+    detail = f"medio {mean_db:.1f} dBFS, dinamica {dyn:.1f} dB"
+    if mean_db < -80:
+        return "dead", detail
+    if dyn < 6 and mean_db > -45:
+        return "floating", detail
+    return "live", detail
+
+
+def pick_input_device():
+    """Devolve (device_index, nome, motivo) de uma entrada que parece viva.
+
+    O dispositivo padrao do Windows nao e confiavel: ele muda sozinho quando um
+    fone e plugado, e pode apontar para um jack vazio. Gravar 12 minutos de
+    zumbido e pior que gastar 2 segundos conferindo.
+    """
+    import sounddevice as sd
+    default = sd.default.device[0]
+    verdict, detail = _probe_input(default)
+    name = sd.query_devices(default)["name"]
+    if verdict == "live":
+        return default, name, f"padrao, {detail}"
+
+    skip = ("Mix", "Mapper", "Primary", "PC Speaker")
+    for i, d in enumerate(sd.query_devices()):
+        if i == default or d["max_input_channels"] <= 0:
+            continue
+        if any(s in d["name"] for s in skip):
+            continue
+        v2, d2 = _probe_input(i)
+        if v2 == "live":
+            return i, d["name"], f"padrao '{name}' estava {verdict} ({detail}); trocado, {d2}"
+    # Nada vivo: fica no padrao e registra, para nao perder a gravacao inteira.
+    return default, name, f"NENHUMA entrada viva; mantido o padrao ({verdict}, {detail})"
+
+
 def capture_dual(stop_flag):
     """Record the mic and the system output concurrently until `stop_flag()` is true.
 
@@ -80,9 +162,21 @@ def capture_dual(stop_flag):
         print(f"[WARN] loopback indisponivel ({e}) - gravando apenas o microfone.")
         return None
 
-    print("[INFO] Captura dupla ativa:")
-    print(f"       canal 0 (voce)  <- microfone padrao [sounddevice]")
-    print(f"       canal 1 (outro) <- {speaker.name} [loopback]")
+    # Nomear os dois endpoints, nao so o do loopback: o dispositivo padrao muda
+    # sozinho quando um fone e plugado (2026-08-27: o mic padrao passou de
+    # "Microphone Array" para o mic do jack entre uma call e outra). Sem esse
+    # registro nao da para dizer, depois, se um canal mudo foi mute do usuario
+    # ou endpoint errado.
+    # Só registra qual e o dispositivo padrao. NAO sonda e NAO escolhe: sondar
+    # abre o dispositivo, e abrir o dispositivo antes de gravar foi o que
+    # quebrou a captura. Diagnostico nao pode custar a gravacao.
+    try:
+        _mic_name = sd.query_devices(sd.default.device[0])["name"]
+    except Exception as e:
+        _mic_name = f"? ({e})"
+    _log("captura dupla iniciando")
+    _log(f"  canal 0 (voce)  <- {_mic_name} [padrao do sistema]")
+    _log(f"  canal 1 (outro) <- {speaker.name} [loopback]")
 
     out = {}
 
@@ -91,13 +185,18 @@ def capture_dual(stop_flag):
         # returns digital silence, while the MME path sounddevice uses is the one
         # already proven to capture in production. Never risk losing our own side.
         buf = []
+        # device=None DE PROPOSITO: deixa o PortAudio resolver o padrao, que e o
+        # que funcionou em producao. Passar um indice explicito vindo de sondagem
+        # quebrou a captura de uma call de 50 min em 2026-08-27 — o Teams tomou o
+        # dispositivo entre a sondagem e a abertura do stream. A sondagem agora
+        # so informa (ver _mic_note); ela nao escolhe mais.
         try:
             with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype=DTYPE,
                                 callback=lambda d, f, t, s: buf.append(d.copy())):
                 while not stop_flag():
                     sd.sleep(200)
         except Exception as e:
-            print(f"[WARN] captura do microfone interrompida: {e}")
+            _log(f"microfone: falha ao abrir: {e}")
         out["mic"] = np.concatenate(buf) if buf else np.zeros((0, 1), dtype="float32")
 
     def pump_sys():
@@ -118,33 +217,126 @@ def capture_dual(stop_flag):
         t.join()
 
     a, b = out.get("mic"), out.get("sys")
-    if a is None or b is None or len(a) == 0:
-        return None
+    empty = np.zeros((0, 1), dtype="float32")
+    a = empty if a is None else a
+    b = empty if b is None else b
 
-    n = min(len(a), len(b)) if len(b) else len(a)
+    # NUNCA descartar tudo porque um lado falhou. A versao anterior retornava
+    # None quando o mic vinha vazio, e isso jogou fora 50 min de uma call em
+    # 2026-08-27 — o loopback estava intacto e foi perdido junto. Meia gravacao
+    # e infinitamente melhor que nenhuma.
+    if len(a) == 0 and len(b) == 0:
+        _log("captura vazia nos dois canais - nada a salvar")
+        return None
+    if len(a) == 0:
+        _log(f"!! canal 0 (mic) VAZIO. Salvando so o canal 1 "
+             f"({len(b)/SAMPLE_RATE/60:.1f} min de loopback).")
+        return np.zeros((len(b), 1), dtype="float32"), b
     if len(b) == 0:
-        b = np.zeros((n, 1), dtype="float32")
+        _log(f"!! canal 1 (loopback) VAZIO. Salvando so o canal 0 "
+             f"({len(a)/SAMPLE_RATE/60:.1f} min de microfone).")
+        return a, np.zeros((len(a), 1), dtype="float32")
+
+    n = min(len(a), len(b))
     return a[:n], b[:n]
 
 
+MIN_TRANSCRIPT_BYTES = 200   # below this, treat the transcript as a failure
+
+
+def _recording_state(wav_path: str):
+    """Classify a recording as ('done'|'pending'|'failed'|'orphan', detail).
+
+    The old policy deleted by mtime alone, so a recording whose transcription had
+    been failing for a week was destroyed exactly like one that succeeded. Two
+    live cases made that concrete: the queue was killed mid-run twice on
+    2026-08-26, and `autocapture.py` writes `.pending.json` sidecars that nothing
+    consumes yet (`classify.py` is not built), so every auto-captured call was on
+    a 7-day path to silent deletion.
+
+    The clock now starts at SUCCESS, not at capture.
+    """
+    import json as _json
+
+    base = os.path.splitext(wav_path)[0]
+
+    # Awaiting classification (autocapture) or awaiting transcription (queue):
+    # unprocessed work, regardless of age.
+    for sidecar, why in ((base + ".pending.json", "aguarda classificacao"),
+                         (base + ".job.json", "na fila de transcricao")):
+        if os.path.exists(sidecar):
+            return "pending", why
+
+    done = base + ".job.json.done"
+    if not os.path.exists(done):
+        return "orphan", "sem sidecar"
+
+    try:
+        meta = _json.loads(open(done, encoding="utf-8").read())
+        tpath = meta.get("transcript", "")
+    except (OSError, ValueError) as e:
+        return "failed", f"sidecar ilegivel: {e}"
+
+    if not tpath or not os.path.exists(tpath):
+        return "failed", "job concluido mas transcript nao existe"
+    try:
+        if os.path.getsize(tpath) < MIN_TRANSCRIPT_BYTES:
+            return "failed", f"transcript com {os.path.getsize(tpath)} bytes"
+    except OSError as e:
+        return "failed", f"transcript ilegivel: {e}"
+
+    return "done", os.path.basename(tpath)
+
+
 def prune_old_recordings(directory: str, days: int = RECORDINGS_RETENTION_DAYS) -> int:
-    """Delete .wav files in `directory` older than `days`. Returns count removed.
-    Keeps recent audio for re-transcription while preventing unbounded growth."""
+    """Delete recordings that were SUCCESSFULLY transcribed and are older than `days`.
+
+    Returns the count deleted. Audio that never produced a usable transcript is
+    quarantined into `failed/` instead of being removed — losing a recording is
+    unrecoverable, while keeping one costs disk.
+    """
     cutoff = datetime.now().timestamp() - days * 86400
     removed = 0
+    quarantine = os.path.join(directory, "failed")
     try:
-        for name in os.listdir(directory):
-            if not name.lower().endswith(".wav"):
-                continue
-            path = os.path.join(directory, name)
-            try:
-                if os.path.getmtime(path) < cutoff:
-                    os.remove(path)
-                    removed += 1
-            except OSError:
-                pass
+        names = os.listdir(directory)
     except OSError:
-        pass
+        return 0
+
+    for name in names:
+        if not name.lower().endswith(".wav"):
+            continue
+        path = os.path.join(directory, name)
+        try:
+            if os.path.getmtime(path) >= cutoff:
+                continue
+        except OSError:
+            continue
+
+        state, detail = _recording_state(path)
+        if state == "pending":
+            _log(f"retencao: {name} mantido - {detail}")
+            continue
+        if state == "failed":
+            try:
+                os.makedirs(quarantine, exist_ok=True)
+                os.replace(path, os.path.join(quarantine, name))
+                for ext in (".job.json.done", ".pending.json", ".job.json"):
+                    side = os.path.splitext(path)[0] + ext
+                    if os.path.exists(side):
+                        os.replace(side, os.path.join(quarantine,
+                                                      os.path.basename(side)))
+                _log(f"retencao: {name} MOVIDO para failed/ - {detail}")
+            except OSError as e:
+                _log(f"retencao: falha ao quarentenar {name}: {e}")
+            continue
+
+        # 'done' (transcrito com sucesso) e 'orphan' (nada referencia este wav)
+        try:
+            os.remove(path)
+            removed += 1
+        except OSError:
+            pass
     return removed
 
 

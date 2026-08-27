@@ -38,3 +38,61 @@ def test_missing_directory_is_safe(tmp_path):
 
 def test_default_retention_is_seven_days():
     assert record.RECORDINGS_RETENTION_DAYS == 7
+
+
+# ── Retention is driven by successful transcription, not by age (2026-08-27) ──
+# The old policy deleted by mtime alone: a recording whose transcription had been
+# failing all week was destroyed exactly like one that succeeded. Worse,
+# autocapture writes `.pending.json` sidecars that nothing consumes yet, so every
+# auto-captured call was on a silent 7-day path to deletion.
+
+import json
+
+
+def _wav_with_job(tmp_path, stem, *, transcript_bytes=None, done=True,
+                  age_days=10, pending=False):
+    wav = tmp_path / f"{stem}.wav"
+    _touch(wav, age_days=age_days)
+    if pending:
+        (tmp_path / f"{stem}.pending.json").write_text("{}", encoding="utf-8")
+        return wav
+    tpath = tmp_path / f"{stem}.txt"
+    if transcript_bytes is not None:
+        tpath.write_text("x" * transcript_bytes, encoding="utf-8")
+    meta = {"wav": wav.name, "transcript": str(tpath)}
+    suffix = ".job.json.done" if done else ".job.json"
+    (tmp_path / f"{stem}{suffix}").write_text(json.dumps(meta), encoding="utf-8")
+    return wav
+
+
+def test_deletes_only_when_transcript_succeeded(tmp_path):
+    wav = _wav_with_job(tmp_path, "ok", transcript_bytes=5000)
+    assert record.prune_old_recordings(str(tmp_path), days=7) == 1
+    assert not wav.exists()
+
+
+def test_failed_transcription_is_quarantined_not_deleted(tmp_path):
+    wav = _wav_with_job(tmp_path, "broke", transcript_bytes=None)
+    assert record.prune_old_recordings(str(tmp_path), days=7) == 0
+    assert not wav.exists()                                   # saiu de recordings/
+    assert (tmp_path / "failed" / "broke.wav").exists()       # mas nao foi apagado
+
+
+def test_degenerate_transcript_counts_as_failure(tmp_path):
+    """Whisper collapsing to '.' produced a tiny file the old code called success."""
+    _wav_with_job(tmp_path, "sparse", transcript_bytes=3)
+    assert record.prune_old_recordings(str(tmp_path), days=7) == 0
+    assert (tmp_path / "failed" / "sparse.wav").exists()
+
+
+def test_queued_recording_is_never_deleted_by_age(tmp_path):
+    wav = _wav_with_job(tmp_path, "queued", transcript_bytes=None, done=False)
+    assert record.prune_old_recordings(str(tmp_path), days=7) == 0
+    assert wav.exists()
+
+
+def test_autocapture_pending_is_never_deleted_by_age(tmp_path):
+    """classify.py does not exist yet; these must survive until it does."""
+    wav = _wav_with_job(tmp_path, "auto", pending=True)
+    assert record.prune_old_recordings(str(tmp_path), days=7) == 0
+    assert wav.exists()
