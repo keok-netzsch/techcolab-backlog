@@ -718,7 +718,6 @@ def main():
     ev["level"], capped = guards.clamp_level(ev.get("level", ""), prev_level)
     if capped:
         print(f"[coach] {capped}")
-    ev["level"] = guards.rolling_level(_level_history(), ev["level"])
 
     # Print summary to terminal
     print(f"\n{'='*60}")

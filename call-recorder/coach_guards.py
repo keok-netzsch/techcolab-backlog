@@ -213,15 +213,36 @@ def clamp_level(proposed: str, previous: str | None, max_step: int = 1) -> tuple
     return capped, f"nivel {proposed} limitado a {capped} (anterior {previous})"
 
 
-def rolling_level(history: list[str], proposed: str, window: int = 5) -> str:
-    """CEFR is a slow-moving estimate, not a per-session output: take the mode of
-    the recent window (ties resolve downward — conservative)."""
+def rolling_level(history: list[str], proposed: str, window: int = 5,
+                  min_history: int = 3) -> str:
+    """Smooth the level over recent sessions — but never fight clamp_level().
+
+    The first version took the mode with ties resolving downward, and combined
+    with the clamp it built a downward ratchet: the clamp allowed B1->B2, the mode
+    saw {B1, B2}, broke the tie downward, and handed back B1. Six consecutive
+    sessions the model rated C1 were written as B1 that way.
+
+    ADVISORY ONLY — deliberately NOT applied to the level that gets written.
+    clamp_level() already bounds movement to one sub-level per session, which is
+    the damping; running a mode on top of it was a second mechanism doing the same
+    job in the opposite direction, and it meant a consistent B1 history could never
+    record progress no matter what the model saw. Use this for trend display.
+    """
     from collections import Counter
-    sample = [l for l in ([*history, proposed])[-window:] if l in CEFR]
-    if not sample:
+    prior = [l for l in history if l in CEFR]
+    if proposed not in CEFR or len(prior) < min_history:
         return proposed
-    top = max(Counter(sample).values())
-    return min((l for l in sample if Counter(sample)[l] == top), key=CEFR.index)
+
+    sample = ([*prior, proposed])[-window:]
+    counts = Counter(sample)
+    top = max(counts.values())
+    # Ties now resolve UPWARD: a tie means the newer reading is holding, and the
+    # old behaviour of resolving down is what produced the ratchet.
+    mode = max((l for l in sample if counts[l] == top), key=CEFR.index)
+    if mode == proposed:
+        return proposed
+    step = -1 if CEFR.index(mode) < CEFR.index(proposed) else 1
+    return CEFR[CEFR.index(proposed) + step]
 
 
 def summary_contradicts_score(summary: str, overall: float) -> bool:
@@ -280,8 +301,14 @@ if __name__ == "__main__":
     check("B1->C1 limitado a B2", clamp_level("C1", "B1")[0] == "B2")
     check("B1->B2 permitido", clamp_level("B2", "B1")[0] == "B2")
     check("primeira sessao passa", clamp_level("C1", None)[0] == "C1")
-    check("moda da janela (B2 domina o outlier C1)",
+    check("moda da janela puxa outlier em 1 passo",
           rolling_level(["B2", "B2", "B2", "B2"], "C1") == "B2")
+    check("historico curto NAO e suavizado (a catraca de 26/08)",
+          rolling_level(["B1"], "B2") == "B2")
+    check("consultivo: moda puxa 1 passo, mas nao e usado na escrita",
+          rolling_level(["B1", "B1", "B1"], "B2") == "B1")
+    check("empate resolve para cima",
+          rolling_level(["B1", "B1", "C1"], "C1") == "C1")
     check("resumo negativo com 7/10 rejeitado",
           summary_contradicts_score("The speaker exhibited low fluency and structure", 7.0))
 

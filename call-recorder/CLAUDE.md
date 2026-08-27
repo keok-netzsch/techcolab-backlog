@@ -22,8 +22,9 @@ Two assumptions from 1.x are **dead**. Do not reason from them, and do not
 **Why it changed.** The mic-only design silently lost the other half of every
 call: on a headset the other party never reaches the mic at all. Measured on the
 2026-08-26 1:1s, the share of audio that was pure gap — the other person talking,
-unrecorded — was 44% (Pedro Hennig), 52% (Ana Leite), 18% (Lucas Shizuno). The
-recordings were, in practice, a log of Kelvin talking to himself.
+unrecorded — was 44% (Pedro Hennig), 52% (Ana Leite), 53% (Pedro Klein), 18%
+(Lucas Shizuno). The recordings were, in practice, a log of Kelvin talking to
+himself.
 
 **What this means for anything that consumes a transcript:** a 2-channel file
 transcribes to `[012.4s] Kelvin: ...` / `[021.7s] Interlocutor: ...`. Parsers that
@@ -108,10 +109,34 @@ back to Ollama** instead of aborting, logs the distinguishable reason, and sets
 `last_run_degraded()` so the session can be stamped as lower quality. A scheduled run
 must never die because of billing.
 
+### Model choice — decided 2026-08-26, with numbers
+
+`claude-sonnet-5` is the default. **This was measured, do not change it casually.**
+
+Both models were run through the production prompt on two real transcripts:
+
+| | 2026-06-30 (946 w) | 2026-07-08 (4016 w) |
+|---|---|---|
+| `claude-sonnet-5` | ok | **42 s**, C1/7, quotes 3/3 grounded |
+| `claude-opus-5` | 204 s after 2x HTTP 504 | **1466 s, 3x 504, then failed** |
+
+Opus is genuinely better where it matters — it reaches pragmatic calibration that
+Sonnet does not (`"do you think it's necessary for us to record the call?"` ->
+`"are you okay if I record the call?"`), and grounded 6/6 errors and 6/6
+refinements. But through this gateway it times out on long transcripts. On the
+second session it exhausted its retries and fell through to Ollama, which then
+produced an **ungrammatical** "correction" (`"they don't have a top player for
+years"` -> `"There haven't been a top player for years"`).
+
+For a weekly scheduled job, a model that takes 24 minutes and then degrades is
+worse than a good one that answers in 42 seconds. Revisit if gateway latency for
+Opus improves.
+
 ```powershell
 # NETZSCH_LLM_API_KEY is already a user env var on this machine
-setx COACH_MODEL "claude-opus-5"   # optional, default claude-sonnet-5
-setx COACH_LLM   "ollama"          # optional, forces the coach local again
+setx COACH_MODEL "claude-opus-5"   # opt-in for one deep pass on a SHORT transcript
+setx COACH_MODEL "claude-sonnet-5" # back to the default
+setx COACH_LLM   "ollama"          # forces the coach local again
 ```
 
 Never hardcode a key — this repo is PUBLIC. `python coach_llm.py` prints the active
