@@ -21,3 +21,6 @@ autocapture.paused
 
 # Sidecars de gravacoes automaticas ainda nao classificadas
 recordings/*.pending.json
+stefan-chain.*
+fidelidade-daniel.*
+stefan-redo.*

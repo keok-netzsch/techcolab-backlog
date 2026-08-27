@@ -148,10 +148,46 @@ def prune_old_recordings(directory: str, days: int = RECORDINGS_RETENTION_DAYS) 
     return removed
 
 
+class TranscriptionTooSparse(RuntimeError):
+    """Whisper returned far less speech than the audio duration implies.
+
+    Guards the failure seen 2026-08-26 on a 43-min call: Whisper transcribed
+    the first ~30s, entered a degenerate state, and emitted "." for the rest.
+    The queue reported `processed=1 failed=0`, the vault note was written, and
+    only the English coach's own word-count gate noticed anything was wrong.
+    A Portuguese recording (no coach in the path) would have failed silently.
+    """
+
+
+# Healthy 1:1s on this machine run 79-160 words per minute of audio, even
+# mic-only with half the conversation missing. The degenerate run scored 2.
+# 25 leaves a wide margin either way.
+MIN_WORDS_PER_MINUTE = 25
+SANITY_MIN_MINUTES = 5          # short clips are too noisy to judge
+
+
+def _sanity_check(lines: list, audio_seconds: float) -> None:
+    minutes = audio_seconds / 60
+    if minutes < SANITY_MIN_MINUTES:
+        return
+    words = sum(len(l.split("] ", 1)[-1].split()) for l in lines
+                if len(l.split("] ", 1)[-1].strip(" .")) > 3)
+    wpm = words / minutes if minutes else 0
+    if wpm < MIN_WORDS_PER_MINUTE:
+        raise TranscriptionTooSparse(
+            f"{words} palavras em {minutes:.1f} min ({wpm:.1f}/min, minimo "
+            f"{MIN_WORDS_PER_MINUTE}). O audio provavelmente esta bom e a "
+            f"transcricao degenerou - reprocessar antes de confiar no texto."
+        )
+
+
 def transcribe(audio_path: str, language: str | None = LANGUAGE) -> tuple[str, str]:
     """Transcribe audio and return (text, detected_language).
 
     Pass language=None to let Whisper auto-detect the language.
+
+    Raises TranscriptionTooSparse when the output is implausibly thin for the
+    audio length, so the caller can fail loudly instead of storing garbage.
     """
     from faster_whisper import WhisperModel
     print(f"[INFO] Carregando modelo Whisper ({MODEL_SIZE})...")
@@ -171,12 +207,22 @@ def transcribe(audio_path: str, language: str | None = LANGUAGE) -> tuple[str, s
         return _transcribe_dual(model, audio_path, language)
 
     print("[INFO] Transcrevendo...")
-    segments, info = model.transcribe(audio_path, language=language)
+    # vad_filter cortando os silencios evita que o modelo carregue um estado
+    # degenerado por 40 minutos — foi a diferenca entre os 1:1s do time (bons)
+    # e a call do Stefan (98% de "."), gravados no mesmo dia.
+    segments, info = model.transcribe(
+        audio_path, language=language,
+        vad_filter=True, vad_parameters={"min_silence_duration_ms": 700},
+    )
     lines = []
     for seg in segments:
         ts = f"[{seg.start:05.1f}s]"
         lines.append(f"{ts} {seg.text.strip()}")
     detected = getattr(info, "language", None) or (language or "pt")
+
+    import soundfile as sf2
+    info_wav = sf2.info(audio_path)
+    _sanity_check(lines, info_wav.frames / info_wav.samplerate)
     return "\n".join(lines), detected
 
 
@@ -201,6 +247,10 @@ def _transcribe_dual(model, audio_path: str, language: str | None):
 
     rows.sort(key=lambda r: r[0])
     lines = [f"[{t:05.1f}s] {label}: {text}" for t, label, text in rows]
+    # Mesma guarda do caminho de 1 canal: com 2 canais o volume esperado e ainda
+    # maior (os dois lados da conversa), entao um resultado esparso aqui e mais
+    # suspeito, nao menos.
+    _sanity_check(lines, len(data) / sr)
     return "\n".join(lines), detected or (language or "pt")
 
 

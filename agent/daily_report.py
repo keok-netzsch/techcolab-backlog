@@ -818,6 +818,16 @@ def main() -> int:
         _q = _proc.cmd_queue()
         if _q["processed"]:
             safe_print(f"[agent] Queue: processed {len(_q['processed'])} recording(s)")
+        # Failures used to be dropped on the floor here: only "processed" was
+        # ever printed. On 2026-08-26 a 43-min call transcribed to 98% dots and
+        # the run still reported success, because nothing read this list.
+        if _q["failed"]:
+            safe_print(f"[agent] !! Queue: {len(_q['failed'])} recording(s) FAILED "
+                       f"- job kept in recordings/ for retry:")
+            for _f in _q["failed"]:
+                safe_print(f"[agent]    {_f}")
+        if _q["skipped"]:
+            safe_print(f"[agent] Queue: {len(_q['skipped'])} orphan job(s) dropped")
         _sw = _proc.cmd_sweep()
         if _sw["reprocessed"]:
             safe_print(f"[agent] Reprocessed {len(_sw['reprocessed'])} call(s): {_sw['reprocessed']}")
