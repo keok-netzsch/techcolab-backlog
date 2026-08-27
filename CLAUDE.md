@@ -236,7 +236,15 @@ must stay in `brand.css` (always loaded, both light and dark) — do not remove 
 ## What NOT to do
 
 - **NEVER commit vault data into this PUBLIC repo** — no `Team/`, `Stakeholders/`, `PDI.md`, `OKR.md`, `Overview.md`, `Performance/`, `1on1/`, `backlog items/`, `agent-reports/`, or any HR/compensation content. The vault is a separate local-only repo (OneDrive); this repo only runs *against* it via `TECHCOLAB_VAULT`. See `SECURITY.md`. A `.githooks/pre-commit` guard enforces this (`git config core.hooksPath .githooks`).
-- Do not use `ANTHROPIC_API_KEY` — this project uses Ollama (local LLM) only
+- **Ollama is the default, and the only option for anything touching people data.**
+  `process.py` (1:1s, `manager`, `note`, `capture`, agendas, team reports) handles HR
+  content and must stay local — see `SECURITY.md`. The one exception, approved by Kelvin
+  on 2026-08-26, is the **English Coach**: it evaluates Kelvin's own speech in project
+  calls, and a 7B local model was demonstrably not good enough for it (see
+  `Areas/English-Learning/COACH-REWORK-PLAN.md`). Route every LLM call through
+  `call-recorder/coach_llm.py`, which allows remote providers **only** for the
+  `coach` / `coach-probe` purposes and forces Ollama for everything else.
+  Never hardcode a key — read `ANTHROPIC_API_KEY` from the environment; this repo is PUBLIC.
 - Do not hardcode the vault path — always read from `TECHCOLAB_VAULT` env var or `config.py`
 - Do not use `%USERPROFILE%\Desktop` for shortcuts — use `GetFolderPath("Desktop")`
 - Do not commit `__pycache__/`, `.venv/`, or `.pyc` files — they are in `.gitignore`

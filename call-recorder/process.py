@@ -1592,6 +1592,7 @@ def cmd_sweep(transcripts_dir: str = None, min_age_min: int = 5,
                 cmd_note(str(f), d, lang=file_lang, time_str=t)
             elif kind in CAPTURE_MODES:
                 cmd_capture(kind, str(f), d, lang=file_lang, time_str=t)
+            maybe_run_coach(f, file_lang)   # sweep used to skip the coach entirely
             result["reprocessed"].append(f.name)
         except SystemExit:
             result["failed"].append(f.name)
@@ -1601,6 +1602,25 @@ def cmd_sweep(transcripts_dir: str = None, min_age_min: int = 5,
     print(f"[sweep] reprocessed={len(result['reprocessed'])} ok={len(result['ok'])} "
           f"failed={len(result['failed'])} skipped={len(result['skipped'])}")
     return result
+
+
+def maybe_run_coach(transcript_path, effective_lang: str, forced: bool = False) -> bool:
+    """Single entry point for firing the English Coach. Returns True if it ran.
+
+    Exists because the coach used to be invoked from exactly one place (cmd_queue).
+    Every other route into the vault — cmd_sweep above all — silently skipped it,
+    and a genuine 36 KB English session on 2026-08-10 was lost that way: it got its
+    vault note, was never coached, and by the time the weekly scanner was repaired
+    it had aged out of that scanner's 7-day window. Any new processing path must
+    call THIS, not re-implement the check.
+    """
+    if not (forced or effective_lang == "en"):
+        return False
+    coach_py = str(Path(__file__).parent / "coach.py")
+    print(f"[coach] disparando para {Path(transcript_path).name} (lang={effective_lang})")
+    subprocess.run([sys.executable, coach_py, "--transcript", str(transcript_path)],
+                   check=False)
+    return True
 
 
 def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
@@ -1658,11 +1678,7 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
             elif kind in CAPTURE_MODES:
                 cmd_capture(kind, str(tpath), date, lang=effective_lang, time_str=job.get("time"))
 
-            # Run coach if: explicit coach flag OR auto-detected English
-            run_coach = job.get("coach") or (lang == "auto" and effective_lang == "en")
-            if run_coach:
-                coach_py = str(Path(__file__).parent / "coach.py")
-                subprocess.run([sys.executable, coach_py, "--transcript", str(tpath)], check=False)
+            maybe_run_coach(tpath, effective_lang, forced=bool(job.get("coach")))
 
             jf.unlink()
             result["processed"].append(jf.name)

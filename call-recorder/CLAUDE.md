@@ -49,12 +49,36 @@ english-coach.ps1 [-Topic "..."]
 
 ---
 
-## No API key
+## LLM providers (changed 2026-08-26)
 
-- `coach.py` uses Ollama (`http://localhost:11434`) — no `ANTHROPIC_API_KEY`
-- `english-coach.ps1` no longer checks for API key (fixed 2026-05-28)
-- Ollama must be running: `ollama serve`
-- Model required: `qwen2.5-coder:latest`
+All LLM calls go through `coach_llm.py`, which routes **by purpose**:
+
+| Purpose | Provider | Why |
+|---|---|---|
+| `coach`, `coach-probe` | Anthropic API when `ANTHROPIC_API_KEY` is set, else Ollama | Kelvin's own speech in project calls. A 7B *code* model judging English produced invented grammar rules and graded one identical transcript B2 four times and C1 once |
+| everything else (`transcript`, `manager`, `note`, `capture`, agendas) | **Ollama, always** | 1:1s, PDI, OKR — HR content that never leaves the machine |
+
+`REMOTE_ALLOWED` in `coach_llm.py` is the allowlist; a purpose outside it cannot reach
+a remote API even if the env says otherwise. Adding to it must be deliberate.
+
+```powershell
+setx ANTHROPIC_API_KEY "sk-ant-..."   # then reopen the terminal
+setx COACH_MODEL "claude-sonnet-5"    # optional, default claude-sonnet-5
+setx COACH_LLM "ollama"               # optional, forces the coach local again
+```
+
+Never hardcode a key — this repo is PUBLIC. `python coach_llm.py` prints the active
+routing without revealing the key.
+
+- Ollama must be running for the local path: `ollama serve`
+- Local model: `qwen2.5-coder:latest`
+
+## Guard modules (added 2026-08-26)
+
+| File | Purpose |
+|---|---|
+| `coach_guards.py` | Input/output integrity: text-based language gate (Whisper's own `.lang` said `en` for Portuguese calls), artifact filter by repetition coverage, quote-grounding for **errors and strengths**, prompt-echo guard, backchannel allowlist, CEFR one-step clamp + rolling window. `python coach_guards.py` self-tests |
+| `coach_patterns.py` | Personal error inventory: deterministic PT-L1 interference rules (certain) + narrow yes/no probes for false friends (`actually`, `realize`, `support`, `until`). Reframes the task from open-ended grading to grounded detection. `python coach_patterns.py` self-tests |
 
 ---
 

@@ -26,6 +26,16 @@ LANGUAGE = "pt"            # default; overridden by --language CLI arg
 CHUNK_SECONDS = 30         # tamanho do buffer de gravação em memória
 RECORDINGS_RETENTION_DAYS = 7   # áudios em recordings/ mais antigos que isto são apagados
 
+# Dual capture: the mic alone only ever records Kelvin. In a call with a headset
+# the other party never reaches the mic at all, so ~half of every 1:1 was lost
+# (measured: 44% of one recording was gaps where the other person was speaking).
+# WASAPI loopback grabs what the system is *playing* — i.e. the other party.
+# The two sources are kept as separate channels, never mixed: channel 0 is always
+# Kelvin and channel 1 is always the interlocutor, which makes speaker attribution
+# exact instead of something an LLM has to guess from the text afterwards.
+CAPTURE_SYSTEM_AUDIO = os.environ.get("CAPTURE_SYSTEM_AUDIO", "1") != "0"
+SPEAKER_LABELS = ("Kelvin", "Interlocutor")
+
 # --------------------
 
 chunks = []
@@ -42,6 +52,79 @@ def callback(indata, frames, time, status):
     if status:
         print(f"[WARN] {status}", file=sys.stderr)
     chunks.append(indata.copy())
+
+
+def capture_dual(stop_flag):
+    """Record the mic and the system output concurrently until `stop_flag()` is true.
+
+    Returns (mic, system) as float32 mono arrays of equal length, or None when
+    loopback is unavailable (no `soundcard`, no loopback endpoint) so the caller
+    can fall back to the mic-only path.
+    """
+    try:
+        import soundcard as sc
+    except ImportError:
+        print("[WARN] soundcard nao instalado - gravando apenas o microfone.")
+        print("       pip install soundcard  (habilita a captura do outro lado)")
+        return None
+
+    import threading
+    import numpy as np
+
+    import sounddevice as sd
+
+    try:
+        speaker = sc.default_speaker()
+        loop = sc.get_microphone(speaker.name, include_loopback=True)
+    except Exception as e:
+        print(f"[WARN] loopback indisponivel ({e}) - gravando apenas o microfone.")
+        return None
+
+    print("[INFO] Captura dupla ativa:")
+    print(f"       canal 0 (voce)  <- microfone padrao [sounddevice]")
+    print(f"       canal 1 (outro) <- {speaker.name} [loopback]")
+
+    out = {}
+
+    def pump_mic():
+        # Deliberately sounddevice, not soundcard: the WASAPI path to this mic
+        # returns digital silence, while the MME path sounddevice uses is the one
+        # already proven to capture in production. Never risk losing our own side.
+        buf = []
+        try:
+            with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype=DTYPE,
+                                callback=lambda d, f, t, s: buf.append(d.copy())):
+                while not stop_flag():
+                    sd.sleep(200)
+        except Exception as e:
+            print(f"[WARN] captura do microfone interrompida: {e}")
+        out["mic"] = np.concatenate(buf) if buf else np.zeros((0, 1), dtype="float32")
+
+    def pump_sys():
+        buf = []
+        try:
+            with loop.recorder(samplerate=SAMPLE_RATE, channels=1) as rec:
+                while not stop_flag():
+                    buf.append(rec.record(numframes=SAMPLE_RATE // 2))
+        except Exception as e:                        # one side failing must not
+            print(f"[WARN] captura do loopback interrompida: {e}")   # kill the other
+        out["sys"] = np.concatenate(buf) if buf else np.zeros((0, 1), dtype="float32")
+
+    threads = [threading.Thread(target=pump_mic, daemon=True),
+               threading.Thread(target=pump_sys, daemon=True)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    a, b = out.get("mic"), out.get("sys")
+    if a is None or b is None or len(a) == 0:
+        return None
+
+    n = min(len(a), len(b)) if len(b) else len(a)
+    if len(b) == 0:
+        b = np.zeros((n, 1), dtype="float32")
+    return a[:n], b[:n]
 
 
 def prune_old_recordings(directory: str, days: int = RECORDINGS_RETENTION_DAYS) -> int:
@@ -79,6 +162,14 @@ def transcribe(audio_path: str, language: str | None = LANGUAGE) -> tuple[str, s
     else:
         model_src = MODEL_SIZE
     model = WhisperModel(model_src, device="cpu", compute_type="int8")
+
+    # A 2-channel file comes from capture_dual(): channel 0 is the mic, channel 1
+    # is the system loopback. Transcribing each separately and interleaving by
+    # timestamp yields exact speaker labels — no diarization guesswork.
+    import soundfile as sf
+    if sf.info(audio_path).channels == 2:
+        return _transcribe_dual(model, audio_path, language)
+
     print("[INFO] Transcrevendo...")
     segments, info = model.transcribe(audio_path, language=language)
     lines = []
@@ -87,6 +178,30 @@ def transcribe(audio_path: str, language: str | None = LANGUAGE) -> tuple[str, s
         lines.append(f"{ts} {seg.text.strip()}")
     detected = getattr(info, "language", None) or (language or "pt")
     return "\n".join(lines), detected
+
+
+def _transcribe_dual(model, audio_path: str, language: str | None):
+    """Transcribe each channel of a dual-capture file and merge chronologically."""
+    import numpy as np
+    import soundfile as sf
+
+    data, sr = sf.read(audio_path, dtype="float32")
+    rows, detected = [], None
+
+    for idx, label in enumerate(SPEAKER_LABELS):
+        track = np.ascontiguousarray(data[:, idx])
+        if float(np.sqrt(np.mean(track.astype(np.float64) ** 2))) < 1e-5:
+            print(f"[WARN] canal {idx} ({label}) esta mudo - pulando.")
+            continue
+        print(f"[INFO] Transcrevendo canal {idx} ({label})...")
+        segments, info = model.transcribe(track, language=language)
+        for seg in segments:
+            rows.append((seg.start, label, seg.text.strip()))
+        detected = detected or getattr(info, "language", None)
+
+    rows.sort(key=lambda r: r[0])
+    lines = [f"[{t:05.1f}s] {label}: {text}" for t, label, text in rows]
+    return "\n".join(lines), detected or (language or "pt")
 
 
 # File Processing (idea-031): accept an existing audio/video file as input instead
@@ -120,13 +235,18 @@ def transcribe_file(input_path: str, output_path: str | None = None,
             f"Supported: {', '.join(sorted(SUPPORTED_MEDIA_EXTS))}"
         )
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
     if output_path:
         out_path = output_path
     else:
+        # Next to the INPUT, not next to this script. Writing into the install
+        # directory meant the unit test that exercises this branch dropped a
+        # `transcript_reuniao_diretoria_*.txt` into the repo on every run — 76 of
+        # them accumulated between 29/07 and 26/08 and were mistaken for a broken
+        # recurring-meeting pipeline. A transcript belongs with its source file.
         stem = os.path.splitext(os.path.basename(input_path))[0]
         ts = datetime.now().strftime("%Y-%m-%d_%H-%M")
-        out_path = os.path.join(script_dir, f"transcript_{stem}_{ts}.txt")
+        out_path = os.path.join(os.path.dirname(os.path.abspath(input_path)),
+                                f"transcript_{stem}_{ts}.txt")
 
     lang_eff = None if language == "auto" else language
     transcript, detected = transcribe(input_path, language=lang_eff)
@@ -170,19 +290,28 @@ def main():
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    print("[INFO] Gravando microfone (Ctrl+C para encerrar)...")
+    print("[INFO] Gravando (Ctrl+C para encerrar)...")
     print(f"[INFO] Idioma: {LANGUAGE_EFFECTIVE} | Modelo: {MODEL_SIZE} | CPU int8\n")
 
-    with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS,
-                        dtype=DTYPE, callback=callback):
-        while recording:
-            sd.sleep(500)
+    audio = None
+    if CAPTURE_SYSTEM_AUDIO:
+        dual = capture_dual(lambda: not recording)
+        if dual is not None:
+            mic_track, sys_track = dual
+            audio = np.concatenate([mic_track, sys_track], axis=1)  # ch0 mic, ch1 sys
+            print(f"[INFO] Capturados 2 canais ({len(audio)/SAMPLE_RATE:.1f}s cada).")
 
-    if not chunks:
-        print("[ERROR] Nenhum áudio capturado.")
-        sys.exit(1)
+    if audio is None:
+        with sd.InputStream(samplerate=SAMPLE_RATE, channels=CHANNELS,
+                            dtype=DTYPE, callback=callback):
+            while recording:
+                sd.sleep(500)
 
-    audio = np.concatenate(chunks, axis=0)
+        if not chunks:
+            print("[ERROR] Nenhum áudio capturado.")
+            sys.exit(1)
+
+        audio = np.concatenate(chunks, axis=0)
     duration = len(audio) / SAMPLE_RATE
     print(f"[INFO] Áudio capturado: {duration:.1f}s")
 

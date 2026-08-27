@@ -26,6 +26,34 @@ COACH_DIR = Path(VAULT) / "Areas" / "English-Learning"
 SESSIONS_DIR = COACH_DIR / "sessions"
 PROGRESS_FILE = COACH_DIR / "progress.md"
 
+
+def _level_history(limit: int = 8) -> list:
+    """CEFR levels of recent VALID sessions, oldest first.
+
+    Until 26/08/2026 nothing read prior sessions at all, so the model re-guessed
+    the level from scratch every run — which is why it went B1 -> C1 -> B1.
+    Sessions marked assessment_valid: false are skipped so the audited garbage
+    cannot anchor anything.
+    """
+    import re as _re
+    levels = []
+    for f in sorted(SESSIONS_DIR.glob("*_english-coach.md"))[-limit:]:
+        try:
+            head = f.read_text(encoding="utf-8", errors="replace")[:600]
+        except OSError:
+            continue
+        if _re.search(r"^assessment_valid:\s*false", head, _re.M):
+            continue
+        m = _re.search(r"^level:\s*([ABC][12])", head, _re.M)
+        if m:
+            levels.append(m.group(1))
+    return levels
+
+
+def _last_level():
+    hist = _level_history()
+    return hist[-1] if hist else None
+
 OLLAMA_URL   = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5-coder:latest"  # better structured/JSON output than llama3.2:3b
 
@@ -570,11 +598,35 @@ def main():
         print("[ERROR] Transcript is empty.")
         sys.exit(1)
 
+    # ── Input integrity (coach_guards) ───────────────────────────────────────
+    # Order matters: isolate the speaker, strip transcription artifacts, and only
+    # then decide whether this is even scoreable. The 26/08 audit found 8 of 15
+    # sessions were Portuguese scored as English, one scored B1 on a transcript
+    # that is 3 words long once artifacts are removed.
+    import coach_guards as guards
+
+    if "Kelvin:" in transcript:          # dual-channel capture: keep only our side
+        own = [ln for ln in transcript.splitlines() if "Kelvin:" in ln]
+        print(f"[coach] Dual-channel transcript: evaluating {len(own)} of "
+              f"{len(transcript.splitlines())} lines (Kelvin only).")
+        transcript = "\n".join(own)
+
     original_lines = len(transcript.splitlines())
-    transcript = _clean_transcript(transcript)
-    cleaned_lines = len(transcript.splitlines())
-    if cleaned_lines < original_lines:
-        print(f"[coach] Removed {original_lines - cleaned_lines} hallucination lines from transcript.")
+    transcript, dropped = guards.clean_transcript(transcript)
+    if dropped:
+        print(f"[coach] Removed {len(dropped)} transcription artifacts "
+              f"(of {original_lines} lines).")
+
+    sidecar = Path(str(transcript_path) + ".lang")
+    whisper_lang = sidecar.read_text(encoding="utf-8").strip() if sidecar.exists() else None
+
+    scoreable, gate_reason = guards.language_gate(transcript, whisper_lang)
+    print(f"[coach] Portao de idioma: {gate_reason}")
+    if not scoreable:
+        # Refusing must never look like a bad score — that is exactly how
+        # Portuguese calls ended up recorded as B1/B2 in progress.md.
+        print("[coach] Sessao NAO avaliada. Nenhuma nota ou nivel sera gravado.")
+        sys.exit(0)
 
     now = datetime.now()
     if args.date:
@@ -602,6 +654,31 @@ def main():
     except json.JSONDecodeError as e:
         print(f"[ERROR] Ollama returned invalid JSON: {e}")
         sys.exit(1)
+
+    # ── Output guards (coach_guards) ─────────────────────────────────────────
+    # The model invents. Audited examples: a grammar rule that does not exist
+    # ("'I don't know the details' is incorrect"), a strength quoted verbatim out
+    # of this file's own rubric, and the same transcript graded B2 four times and
+    # C1 once. Everything it claims is checked against the transcript before it
+    # reaches the vault.
+    ev["errors"], rejected_e = guards.filter_findings(
+        ev.get("errors", []), transcript, quote_key="original")
+    ev["strengths"], rejected_s = guards.filter_findings(
+        [{"original": s} for s in ev.get("strengths", [])], transcript,
+        quote_key="original")
+    ev["strengths"] = [s["original"] for s in ev["strengths"]]
+    for r in rejected_e + rejected_s:
+        print(f"[coach] descartado - {r}")
+
+    if guards.summary_contradicts_score(ev.get("summary", ""), float(ev.get("overall", 0))):
+        print("[coach] AVISO: resumo contradiz a nota — marcando confianca baixa.")
+        ev["level_confidence"] = "low"
+
+    prev_level = _last_level()
+    ev["level"], capped = guards.clamp_level(ev.get("level", ""), prev_level)
+    if capped:
+        print(f"[coach] {capped}")
+    ev["level"] = guards.rolling_level(_level_history(), ev["level"])
 
     # Print summary to terminal
     print(f"\n{'='*60}")

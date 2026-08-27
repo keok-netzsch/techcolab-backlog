@@ -87,12 +87,43 @@ def _extract_transcript_section(body: str) -> str:
     return body.strip()
 
 
+
+LEDGER_FILE = _VAULT_BASE / "Areas" / "English-Learning" / ".coached-sources"
+
+
+def _coached_ledger() -> set:
+    """Absolute paths of sources already evaluated.
+
+    Replaces the age window as the de-duplication mechanism, so a scanner that
+    was offline for three months still catches up instead of skipping forward.
+    """
+    try:
+        return {ln.strip() for ln in
+                LEDGER_FILE.read_text(encoding="utf-8").splitlines() if ln.strip()}
+    except OSError:
+        return set()
+
+
+def _mark_coached(paths) -> None:
+    LEDGER_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with LEDGER_FILE.open("a", encoding="utf-8") as fh:
+        for p in paths:
+            fh.write(str(Path(p).resolve()) + "\n")
+
+
 def find_english_sessions(days: int) -> list[dict]:
     """
     Walk the vault and return sessions with lang: en within the last `days` days.
     Each item: {date, type, person, path, text}
     """
-    cutoff = date.today() - timedelta(days=days)
+    # days <= 0 means "no age limit": catch up on everything not yet coached.
+    # A fixed look-back window silently loses sessions whenever the scanner is
+    # down. That is not hypothetical — the scheduled task was broken from
+    # 2026-05-27 to 2026-08-24, and by the time it was repaired the only English
+    # session in that period (2026-08-10) was 14 days old and fell outside the
+    # 7-day window. It was never evaluated and never will be by age-based scan.
+    cutoff = date.today() - timedelta(days=days) if days > 0 else date.min
+    already = _coached_ledger()
     sessions = []
 
     for base in SCAN_DIRS_ABS:
@@ -120,6 +151,9 @@ def find_english_sessions(days: int) -> list[dict]:
                 continue
 
             if session_date < cutoff:
+                continue
+
+            if str(md.resolve()) in already:   # idempotent: never coach twice
                 continue
 
             body = _extract_body(raw)
@@ -304,8 +338,8 @@ def main():
     parser = argparse.ArgumentParser(
         description="Weekly English Coach — vault scanner + Ollama report generator"
     )
-    parser.add_argument("--days",    type=int, default=7,
-                        help="Look-back window in days (default: 7)")
+    parser.add_argument("--days",    type=int, default=0,
+                        help="Look-back window in days (0 = sem limite, recupera atrasados)")
     parser.add_argument("--dry-run", action="store_true",
                         help="List sessions found without calling Ollama")
     args = parser.parse_args()
@@ -350,8 +384,13 @@ def main():
     out_path = REPORTS_DIR / f"english-coach-{iso_week_str}.md"
     out_path.write_text(md, encoding="utf-8")
 
+    # Only after the report is safely on disk: if anything above failed, the
+    # sources stay unmarked and the next run retries them instead of losing them.
+    _mark_coached(s["path"] for s in sessions)
+
     print(f"\n[english-coach] Report saved: {out_path}")
     print(f"[english-coach] Level estimate: {report.get('level_estimate', '?')}")
+    print(f"[english-coach] {len(sessions)} fonte(s) marcada(s) no ledger.")
     print("[english-coach] Done.")
 
 
