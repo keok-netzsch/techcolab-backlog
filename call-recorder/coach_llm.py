@@ -13,10 +13,15 @@ The coach handles Kelvin's own speech in project calls. So going remote is opt-i
 PER PURPOSE: only "coach" may leave the machine, and anything else raises rather
 than silently uploading HR data because someone set an env var.
 
+Remote here means the **NETZSCH LiteLLM gateway**, not a personal Anthropic
+account: Kelvin has no direct Anthropic key. That is the better arrangement for
+this use anyway — traffic stays inside the company's contracted boundary, which
+is what the 13/08 assessment required before any non-local processing.
+
 Configuration (never hardcode a key, this repo is public):
-    setx ANTHROPIC_API_KEY "sk-ant-..."     # then reopen the terminal
-    setx COACH_MODEL       "claude-sonnet-5"    # optional
-    setx COACH_LLM         "ollama"             # optional, forces local
+    NETZSCH_LLM_API_KEY is already a user env var on this machine.
+    setx COACH_MODEL "claude-sonnet-5"   # optional; gateway also serves opus-5, haiku-4-5
+    setx COACH_LLM   "ollama"            # optional, forces local
 """
 from __future__ import annotations
 
@@ -27,6 +32,8 @@ import os
 # allowlist so adding a caller is a deliberate act, not an accident.
 REMOTE_ALLOWED = {"coach", "coach-probe"}
 
+GATEWAY_URL = os.environ.get(
+    "NETZSCH_LLM_BASE_URL", "https://litellm.chatbot.netzsch.com/v1")
 DEFAULT_REMOTE_MODEL = "claude-sonnet-5"
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:latest")
@@ -41,8 +48,11 @@ _STATE: dict = {"degraded": False}
 
 
 def _api_key() -> str | None:
-    key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")
-    return key.strip() if key else None
+    for name in ("NETZSCH_LLM_API_KEY", "NETZSCH_GATEWAY_KEY", "ANTHROPIC_API_KEY"):
+        v = os.environ.get(name)
+        if v and v.strip():
+            return v.strip()
+    return None
 
 
 def active_provider(purpose: str) -> str:
@@ -51,27 +61,31 @@ def active_provider(purpose: str) -> str:
         return "ollama"
     if os.environ.get("COACH_LLM", "").lower() == "ollama":
         return "ollama"
-    return "anthropic" if _api_key() else "ollama"
+    return "gateway" if _api_key() else "ollama"
 
 
-def _generate_anthropic(prompt: str, expect_json: bool, max_tokens: int) -> str:
-    try:
-        import anthropic
-    except ImportError as e:                        # pragma: no cover
-        raise ProviderError("pacote 'anthropic' nao instalado: pip install anthropic") from e
+def _generate_gateway(prompt: str, expect_json: bool, max_tokens: int,
+                      timeout: int) -> str:
+    """LiteLLM proxy, OpenAI-compatible schema. Plain urllib on purpose: no SDK to
+    keep in sync, and the gateway may front Anthropic, OpenAI or Google models
+    behind one contract."""
+    import json as _json
+    import urllib.request
 
-    client = anthropic.Anthropic(api_key=_api_key())
     model = os.environ.get("COACH_MODEL", DEFAULT_REMOTE_MODEL)
-
-    # Prefilling '{' is what makes JSON reliable without a coder-tuned model:
-    # the reply cannot start with prose, so no fence-stripping heuristics.
     messages = [{"role": "user", "content": prompt}]
+    payload = {"model": model, "max_tokens": max_tokens, "messages": messages}
     if expect_json:
-        messages.append({"role": "assistant", "content": "{"})
+        payload["response_format"] = {"type": "json_object"}
 
-    resp = client.messages.create(model=model, max_tokens=max_tokens, messages=messages)
-    text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text")
-    return ("{" + text) if expect_json else text
+    req = urllib.request.Request(
+        f"{GATEWAY_URL}/chat/completions",
+        data=_json.dumps(payload).encode("utf-8"),
+        headers={"Authorization": f"Bearer {_api_key()}",
+                 "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        data = _json.load(resp)
+    return data["choices"][0]["message"]["content"]
 
 
 def _generate_ollama(prompt: str, expect_json: bool, timeout: int) -> str:
@@ -93,13 +107,13 @@ def generate(prompt: str, purpose: str = "coach", expect_json: bool = True,
     """
     provider = active_provider(purpose)
 
-    if provider == "anthropic":
+    if provider == "gateway":
         if purpose not in REMOTE_ALLOWED:           # defensive: unreachable via
             raise ProviderError(                    # active_provider, kept so a
                 f"purpose '{purpose}' nao pode usar API remota")  # future edit trips
         _STATE["degraded"] = False
         try:
-            return _generate_anthropic(prompt, expect_json, max_tokens)
+            return _generate_gateway(prompt, expect_json, max_tokens, timeout)
         except Exception as e:
             # Running out of credit, an expired key, a rate limit or a dropped
             # connection must never stop a scheduled run. The local model is worse
@@ -153,12 +167,13 @@ def describe() -> str:
     """One line for logs. Must never reveal the key itself."""
     key = _api_key()
     if not key:
-        return f"provider=ollama modelo={OLLAMA_MODEL} (sem ANTHROPIC_API_KEY no ambiente)"
+        return (f"provider=ollama modelo={OLLAMA_MODEL} "
+                f"(sem NETZSCH_LLM_API_KEY no ambiente)")
     model = os.environ.get("COACH_MODEL", DEFAULT_REMOTE_MODEL)
     forced = os.environ.get("COACH_LLM", "").lower() == "ollama"
     if forced:
         return f"provider=ollama modelo={OLLAMA_MODEL} (COACH_LLM=ollama força local)"
-    return f"provider=anthropic modelo={model} (chave presente, ...{key[-4:]})"
+    return f"provider=gateway ({GATEWAY_URL}) modelo={model} (chave ...{key[-4:]})"
 
 
 if __name__ == "__main__":
@@ -171,7 +186,7 @@ if __name__ == "__main__":
 
     print("roteamento por proposito")
     check("coach pode ir remoto quando ha chave",
-          active_provider("coach") == ("anthropic" if _api_key() else "ollama"))
+          active_provider("coach") == ("gateway" if _api_key() else "ollama"))
     check("1:1 NUNCA vai remoto", active_provider("transcript") == "ollama")
     check("PDI/OKR NUNCA vai remoto", active_provider("manager") == "ollama")
 
