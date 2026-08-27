@@ -14,3 +14,10 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
+
+# Runtime log do autocapture (ruidoso, local)
+autocapture.log
+autocapture.paused
+
+# Sidecars de gravacoes automaticas ainda nao classificadas
+recordings/*.pending.json

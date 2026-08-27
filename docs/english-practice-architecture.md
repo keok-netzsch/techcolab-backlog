@@ -24,7 +24,7 @@ This feature extends it with a **conversational practice loop** — a dedicated 
 | Layer | Component | Detail |
 |---|---|---|
 | UI | Streamlit (existing) | New page added to `app.py` |
-| Audio capture | `sounddevice` (existing) | System mic via Python, same as `record.py` |
+| Audio capture | `sounddevice` (existing) | Mic only — deliberately *not* `record.py`'s 2.0 dual capture. A practice session is one person speaking on purpose; the system-loopback channel would only pick up the app's own playback. See `call-recorder/CLAUDE.md` for why calls are 2-channel and practice is not. |
 | STT | `faster-whisper` medium (existing) | CPU, int8, `~1.4 GB` model already on disk |
 | LLM conversation | Ollama `qwen2.5-coder:latest` (existing) | `http://localhost:11434` |
 | TTS | `edge-tts` (new dependency) | Microsoft neural voices, free, no API key |
