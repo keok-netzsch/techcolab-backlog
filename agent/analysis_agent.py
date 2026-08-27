@@ -210,8 +210,9 @@ def build_report_section(analyses: list[dict]) -> str:
         "## Ideas under review",
         "",
         "> Phase 2 analysis — Ollama reviewed each idea and suggested a decision.",
-        "> Check the boxes to apply the suggested status change.",
-        "> For 'Adjust' items, to-dos are suggestions — edit before accepting.",
+        "> These are **suggestions to read**, not a queue to approve: since the",
+        "> Toolkit 2.0 change (idea-066) nothing in this report is actioned by",
+        "> ticking a box. If you want one applied, say so in conversation.",
         "",
     ]
 
@@ -240,19 +241,20 @@ def build_report_section(analyses: list[dict]) -> str:
         if r["suggested_todos"]:
             lines.append("**Suggested next steps:**")
             for todo in r["suggested_todos"]:
-                lines.append(f"- [ ] {todo}")
+                # Plain bullets, not checkboxes: a checkbox in this report is a
+                # promise that ticking it does something, and nothing reads them.
+                lines.append(f"- {todo}")
             lines.append("")
 
-        # Action checkbox (apply decision)
+        # State the suggested move as a sentence — applying it is a conversation.
         target_status = _DECISION_STATUS.get(r["decision"])
         if target_status and r["decision"] != "unknown":
-            lines.append(
-                f"- [ ] Apply: move `{r['idea_id']}` → status `{target_status}`"
+            hint = (
+                f"**Suggested move:** `{r['idea_id']}` → status `{target_status}`"
             )
             if r["suggested_todos"] and r["decision"] in ("approve", "adjust"):
-                lines.append(
-                    f"- [ ] Add suggested to-dos to `{r['idea_id']}`"
-                )
+                hint += ", adding the steps above"
+            lines.append(hint + ".")
         lines.append("")
 
     return "\n".join(lines)

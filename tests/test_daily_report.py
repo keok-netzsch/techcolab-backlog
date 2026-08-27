@@ -90,3 +90,25 @@ def test_build_report_has_no_action_checkboxes():
     assert "- [ ]" not in report
     assert "- [x]" not in report
     assert "Proposed actions" not in report
+
+
+def test_analysis_section_has_no_checkboxes():
+    """Toolkit 2.0 (idea-066): the Phase 2 section suggests, it does not queue.
+
+    This was the second source of the dead approval loop — daily_report's own
+    "Proposed actions" was removed first, while analysis_agent kept injecting
+    "- [ ] Apply: move idea-NNN -> status" lines into the same report.
+    """
+    from agent.analysis_agent import build_report_section
+    analyses = [{
+        "idea_id": "idea-011", "title": "T", "decision": "approve",
+        "reasoning": "R", "suggested_todos": ["passo a", "passo b"],
+        "worker_error": None,
+    }]
+    section = build_report_section(analyses)
+    assert "- [ ]" not in section
+    assert "- [x]" not in section
+    assert "Check the boxes" not in section
+    # the suggestion itself must survive — we removed the checkbox, not the signal
+    assert "passo a" in section
+    assert "análise - aprovado" in section
