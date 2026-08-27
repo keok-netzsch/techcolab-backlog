@@ -138,6 +138,28 @@ def record_call() -> None:
         log(f"descartado: {seconds:.0f}s (< {MIN_SECONDS}s)")
         return
 
+    # Diagnostico por canal, gravado no log e no sidecar. Um canal plano pode
+    # ser mute do usuario (legitimo) ou endpoint errado (bug), e depois do fato
+    # nao da para distinguir sem isto. Fala tem faixa dinamica alta e e
+    # intermitente; mute/chiado e continuo e plano.
+    def _profile(track):
+        win = record.SAMPLE_RATE // 2
+        k = len(track) // win
+        if k == 0:
+            return {"active_pct": 0.0, "dynamic_db": 0.0}
+        rms = np.sqrt((track[:k * win].reshape(k, win).astype(np.float64) ** 2).mean(axis=1))
+        floor = float(np.percentile(rms, 10))
+        peak = float(np.percentile(rms, 95))
+        dyn = 20 * np.log10(peak + 1e-12) - 20 * np.log10(floor + 1e-12)
+        active = float((rms > max(floor * 4, 10 ** (-60 / 20))).mean())
+        return {"active_pct": round(100 * active, 1), "dynamic_db": round(dyn, 1)}
+
+    prof = [_profile(mic[:, 0]), _profile(sysa[:, 0])]
+    for idx, (label, pf) in enumerate(zip(record.SPEAKER_LABELS, prof)):
+        flag = "" if pf["active_pct"] >= 2 and pf["dynamic_db"] >= 6 else "  <-- SEM FALA"
+        log(f"  canal {idx} ({label}): fala {pf['active_pct']}%, "
+            f"dinamica {pf['dynamic_db']} dB{flag}")
+
     RECORDINGS.mkdir(exist_ok=True)
     base = f"{started:%Y-%m-%d_%H-%M}_auto"
     wav = RECORDINGS / f"{base}.wav"
@@ -151,12 +173,36 @@ def record_call() -> None:
         "duration_s": round(seconds),
         "window_title": title,
         "channels": list(record.SPEAKER_LABELS),
+        "channel_profile": {l: pf for l, pf in zip(record.SPEAKER_LABELS, prof)},
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
     log(f"salvo: {wav.name}  ({seconds/60:.1f} min) - aguardando classificacao")
 
 
+def _acquire_single_instance():
+    """Refuse to start if another watcher is already running.
+
+    The task is registered "at logon", and a manual launch during debugging is
+    the obvious way to end up with two. Two watchers means two capture_dual()
+    calls fighting for the same microphone endpoint, and a call recorded twice
+    or half in each file. A named mutex is the cheap Windows answer; the handle
+    is returned so it stays alive for the process lifetime.
+    """
+    import ctypes
+
+    k32 = ctypes.windll.kernel32
+    handle = k32.CreateMutexW(None, False, "Local\\CallRecorderAutoCaptureSingleton")
+    if k32.GetLastError() == 183:      # ERROR_ALREADY_EXISTS
+        return None
+    return handle
+
+
 def main() -> None:
+    _mutex = _acquire_single_instance()
+    if _mutex is None:
+        log("[ERRO] outra instancia do autocapture ja esta rodando - encerrando.")
+        return
+
     log(f"autocapture iniciado (poll {POLL_SECONDS}s, minimo {MIN_SECONDS}s)")
     log(f"para pausar, crie: {PAUSE_FILE}")
     was_active = False

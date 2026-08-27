@@ -389,7 +389,13 @@ def transcribe(audio_path: str, language: str | None = LANGUAGE) -> tuple[str, s
         model_src = os.path.join(os.path.dirname(os.path.abspath(__file__)), "model")
     else:
         model_src = MODEL_SIZE
-    model = WhisperModel(model_src, device="cpu", compute_type="int8")
+    # local_files_only when the model is the bundled directory: it turns "runs
+    # offline" from an expectation into a guarantee. Without it a missing/corrupt
+    # model/ silently reaches out to HuggingFace mid-transcription — which on a
+    # corporate network fails slowly instead of failing clearly. Not applied to
+    # named sizes (WHISPER_MODEL=small), which are meant to download once.
+    model = WhisperModel(model_src, device="cpu", compute_type="int8",
+                         local_files_only=(MODEL_SIZE == "medium"))
 
     # A 2-channel file comes from capture_dual(): channel 0 is the mic, channel 1
     # is the system loopback. Transcribing each separately and interleaving by

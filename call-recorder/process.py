@@ -1604,6 +1604,31 @@ def cmd_sweep(transcripts_dir: str = None, min_age_min: int = 5,
     return result
 
 
+MAX_JOB_RETRIES = 3
+
+
+def _bump_retry(job_file, error: str) -> int:
+    """Record one failed attempt in the job sidecar and return the new count.
+
+    Borrowed from the retry queue Daniel Lima built for his Teams recorder, with
+    one deliberate difference: his discards the .wav once attempts run out. Here
+    the audio is never destroyed by this path — retention quarantines it into
+    failed/ instead. Losing a 1:1 recording is unrecoverable.
+    """
+    try:
+        job = json.loads(job_file.read_text(encoding="utf-8"))
+    except Exception:
+        return MAX_JOB_RETRIES + 1          # unreadable sidecar: do not loop on it
+    job["retry_count"] = int(job.get("retry_count", 0)) + 1
+    job["last_error"] = error[:300]
+    job["last_attempt"] = datetime.now().isoformat(timespec="seconds")
+    try:
+        job_file.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+    return job["retry_count"]
+
+
 def maybe_run_coach(transcript_path, effective_lang: str, forced: bool = False) -> bool:
     """Single entry point for firing the English Coach. Returns True if it ran.
 
@@ -1680,10 +1705,21 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
 
             maybe_run_coach(tpath, effective_lang, forced=bool(job.get("coach")))
 
-            jf.unlink()
+            jf.rename(jf.with_suffix(".json.done"))
             result["processed"].append(jf.name)
         except Exception as e:
-            result["failed"].append(f"{jf.name}: {e}")
+            # Count the attempt in the sidecar instead of failing silently. The
+            # job file used to be left untouched, so a recording that could never
+            # be transcribed retried every single night forever and nothing said
+            # so. After MAX_JOB_RETRIES the job is parked: the audio is NOT
+            # deleted (retention now quarantines it into failed/), it just stops
+            # consuming a Whisper slot every night.
+            attempts = _bump_retry(jf, str(e))
+            if attempts > MAX_JOB_RETRIES:
+                jf.rename(jf.with_suffix(".json.exhausted"))
+                print(f"[queue] {jf.name}: {attempts} tentativas sem sucesso - "
+                      f"parqueado como .exhausted. Audio preservado.")
+            result["failed"].append(f"{jf.name} (tentativa {attempts}): {e}")
 
     print(f"[queue] processed={len(result['processed'])} "
           f"failed={len(result['failed'])} skipped={len(result['skipped'])}")
