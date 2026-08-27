@@ -68,9 +68,25 @@ def test_build_report_bug_appears_in_alerts():
     assert "idea-bug" in report
 
 
-def test_build_report_bug_badge_in_proposed_actions():
+def test_build_report_bug_badge_shown():
     bug = _make_idea(id="idea-bug", is_bug=True, status="backlog", impacto="alta", priority="alta")
     data = analyze([bug])
     report = build_report(_minimal_tests(), data)
-    # The bug badge should appear in Proposed actions next to the item
+    # The bug badge marks the item in the health check / alerts
     assert "🐛" in report
+
+
+def test_build_report_has_no_action_checkboxes():
+    """Toolkit 2.0 (idea-066): the daily report states, it never asks.
+
+    No checkbox may reach this report — the approval loop moved to the
+    Weekly Brief, answered in conversation.
+    """
+    ideas = [
+        _make_idea(id="idea-a", status="backlog", impacto="alta", priority="alta"),
+        _make_idea(id="idea-b", status="análise - aprovado", impacto="alta", priority="alta"),
+    ]
+    report = build_report(_minimal_tests(), analyze(ideas))
+    assert "- [ ]" not in report
+    assert "- [x]" not in report
+    assert "Proposed actions" not in report

@@ -14,7 +14,9 @@ offline — no external API keys required.
 - **Vault path:** read from env var `TECHCOLAB_VAULT` (fallback in `config.py`)
 - **Backlog items:** `{VAULT_ROOT}/backlog items/idea-NNN.md`
 - **Agent reports:** `{VAULT_ROOT}/agent-reports/`
-- **Daily logs:** `{VAULT_ROOT}/Log/diario-YYYY-MM-DD.md`
+- **Daily logs:** the vault's daily note — `{VAULT}/Daily/YYYY-MM-DD.md`, section `## 🗂️ Backlog`
+  - **Moved 2026-08-26 (Toolkit 2.0, idea-067).** Was a separate diary at `{VAULT_ROOT}/Log/diario-YYYY-MM-DD.md`; that parallel record is retired and its 25 historical files live in `Log/archive/`. Read logs through `backlog.daily_log.read_log_lines(date)` — the single reader that covers both locations. Note `Daily/` is a **vault-root** folder, not under `App/Personal toolkit/`.
+- **Weekly brief:** `{VAULT_ROOT}/weekly-briefs/brief-YYYY-Wnn.md` — the decision loop (see below)
 - **Team (direct reports):** `{VAULT_ROOT}/Team/{Person}/` — `1on1.md`, `OKR.md`, `PDI.md`, `Overview.md`
 - **Call recorder:** `call-recorder/` — standalone session notes land in `{VAULT_ROOT}/Team/{Person}/1on1/{date}_1on1_{Person}.md`
   - **2.0 since 2026-08-26 — two 1.x assumptions are dead.** Recordings are **2-channel** (ch0 Kelvin / ch1 the other party), so transcripts carry exact speaker labels and `process.py diarize` is legacy. And recording **starts and stops on its own** when Teams takes/releases the mic (`autocapture.py`, scheduled task `CallRecorder-AutoCapture`) — the menu flow is no longer how a call gets recorded. Classification moved to *after* capture (`.pending.json`; `classify.py` not built yet). Full detail in `call-recorder/CLAUDE.md`.
@@ -119,15 +121,36 @@ After updating the app pages, also check if `README.md` needs updating.
   execution time limit at 2h and do not revert the VBS to a non-blocking `WShell.Run`.
   There must be exactly **one** task pointing at `run_agent.bat`: two of them race on
   `logsgent-last.log` and one ends up permanently red, masking real failures.
-- **Tests:** 40 tests in `tests/`, all must pass before committing
+- **Tests:** 305 tests in `tests/`, all must pass before committing
 
-## Agent Phase 2 — Executing approved actions
+## The decision loop — Weekly Brief (Toolkit 2.0, since 2026-08-26)
 
-When the user opens a Claude Code session via `execute_agent.bat` and says
-"Execute the approved items from today's agent report", follow this protocol:
+**The daily report proposes nothing and has no checkboxes.** It is a health check:
+tests, vault reachability, overdue/stale counts, open bugs. It states; it does not ask.
 
-1. **Find today's report** — read `{VAULT_ROOT}/agent-reports/report-YYYY-MM-DD.md`
-2. **List approved items** — show the user all checked boxes (`- [x]`) and confirm before acting
+Decisions live in `agent/weekly_brief.py` → `{VAULT_ROOT}/weekly-briefs/brief-YYYY-Wnn.md`:
+
+- At most **5 items** per week, each a lettered question with two options.
+- Sources: open bugs, overdue dates, items untouched ≥ `STALE_DAYS` (14).
+- Written on the **first agent run of each ISO week** (not tied to Monday); re-running
+  the week is a no-op unless `--force`. Generation is wired into `daily_report.main()`
+  and never takes the health check down with it.
+- Truncation is always reported — never silently capped.
+- **Answered in conversation** ("descarta A, reativa C"), then applied with
+  `update_status.py` or the `techcolab-vault` MCP tools. Read it with MCP
+  `vault_get_weekly_brief`.
+
+Why: over 86 reports the old "Proposed actions" section emitted 1,986 checkboxes and
+collected 32 approvals (1.6%, none in the final two weeks). The analysis was fine; the
+mechanism — open a file, tick boxes, wait a cycle — was not. Do not reintroduce it.
+
+## Agent Phase 2 — Executing what Kelvin decided
+
+When the user opens a Claude Code session via `execute_agent.bat`, follow this protocol:
+
+1. **Get the mandate** — either his answer to the weekly brief, or what he asks for
+   directly. There are no `- [x]` boxes to find; do not infer approval from a document.
+2. **Restate what you understood as approved** and confirm before acting
 3. **Update status — start of work:**
    ```
    python agent/update_status.py <idea_id> "em desenvolvimento"

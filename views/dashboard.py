@@ -237,16 +237,15 @@ def _report_dialog():
         end   = col_e.date_input("To",   value=today,                      format="DD/MM/YYYY")
 
     if st.button("Generate report", type="primary"):
-        log_dir = VAULT_ROOT / "Log"
+        from backlog.daily_log import read_log_lines
         entries = {"CRIADA": [], "ALTERADA": [], "CONCLUÍDA": [], "TO-DO": []}
         current = start
         while current <= end:
-            log_file = log_dir / f"diario-{current.isoformat()}.md"
-            if log_file.exists():
-                for line in log_file.read_text(encoding="utf-8").splitlines():
-                    for label in entries:
-                        if f"`{label}`" in line:
-                            entries[label].append(line.strip())
+            # read_log_lines covers both the Daily/ note and the retired diario
+            for line in read_log_lines(current):
+                for label in entries:
+                    if f"`{label}`" in line:
+                        entries[label].append(line)
             current += timedelta(days=1)
 
         total_events = sum(len(v) for v in entries.values())

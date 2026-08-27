@@ -44,16 +44,21 @@ def _parse_1on1(path: Path):
 
 
 def _read_logs(log_dir: Path, start: date, end: date):
+    """Collect backlog activity between two dates.
+
+    `log_dir` is accepted for signature compatibility but no longer used:
+    since 2026-08-26 the source is resolved by backlog.daily_log.read_log_lines,
+    which reads the Daily/ note and falls back to the retired diario files.
+    """
+    from backlog.daily_log import read_log_lines
     entries, cur = [], start
     while cur <= end:
-        lp = log_dir / f"diario-{cur.isoformat()}.md"
-        if lp.exists():
-            for line in lp.read_text(encoding="utf-8", errors="replace").splitlines():
-                m = re.match(r"^- (\d{2}:\d{2}) `([\w-]+)` \[(.+?)\] (.+?)(?:\s—\s(.+))?$", line)
-                if m:
-                    entries.append({"date": cur, "time": m.group(1), "action": m.group(2),
-                                    "idea_id": m.group(3), "title": m.group(4).strip(),
-                                    "detail": (m.group(5) or "").strip()})
+        for line in read_log_lines(cur):
+            m = re.match(r"^- (\d{2}:\d{2}) `([\w-]+)` \[(.+?)\] (.+?)(?:\s—\s(.+))?$", line)
+            if m:
+                entries.append({"date": cur, "time": m.group(1), "action": m.group(2),
+                                "idea_id": m.group(3), "title": m.group(4).strip(),
+                                "detail": (m.group(5) or "").strip()})
         cur += timedelta(days=1)
     return entries
 

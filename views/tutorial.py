@@ -237,9 +237,12 @@ You interact with it in two steps:
 
 Open `agent-reports/report-YYYY-MM-DD.md` in the vault.
 
-The **Proposed actions** section lists specific to-dos from your backlog, grouped by idea.
-Check the boxes (`- [x]`) next to every to-do you want the agent to implement.
-Leave unchecked what you don't approve.
+The report is a **health check**: tests, vault reachability, backlog snapshot, alerts.
+It states status — it proposes nothing and has no boxes to tick.
+
+Decisions live in the **Weekly Brief** (`weekly-briefs/brief-YYYY-Wnn.md`): at most five
+lettered questions per week, answered in conversation ("discard A, reactivate C"), not by
+editing the file.
 
 The **Ideas under review** section holds the Phase 2 analysis. If it opens with a
 `Phase 2 DEGRADED` callout, the local model analysis crashed for the ideas listed there —

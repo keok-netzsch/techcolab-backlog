@@ -52,7 +52,7 @@ IMPACT_SCORE = {"alta": 3, "média": 2, "baixa": 1}
 PRIORITY_SCORE = {"alta": 3, "média": 2, "baixa": 1}
 
 CLOSED = {"concluído", "descartado", "análise - rejeitado"}
-STALE_DAYS = 7  # flag items unchanged for this many days
+STALE_DAYS = 14  # flag items unchanged for this many days (Toolkit 2.0, idea-066)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -172,10 +172,12 @@ def build_report(tests: dict, data: dict) -> str:
         "ai-first: true",
         "---",
         "",
-        f"> **For future Claude:** Daily agent report for {TODAY}. "
-        "Check the **Proposed actions** section for items the user has approved (checked boxes). "
-        "Execute only those. Do not act on unchecked items. "
-        "For each item you execute: run `python agent/update_status.py <idea_id> \"em desenvolvimento\"` before starting, "
+        f"> **For future Claude:** Daily health check for {TODAY} — status only, no action list. "
+        "This report proposes nothing and expects no approval: the decision loop moved to the "
+        "**Weekly Brief** (`agent/weekly_brief.py`), which Kelvin answers in conversation. "
+        "Do not treat anything here as a task to execute. "
+        "If he asks you to act on a backlog item, run "
+        "`python agent/update_status.py <idea_id> \"em desenvolvimento\"` before starting, "
         "and `python agent/update_status.py <idea_id> \"em validação\"` (or `concluído`) when done.",
         "",
         f"# Agent Report — {TODAY}",
@@ -240,48 +242,18 @@ def build_report(tests: dict, data: dict) -> str:
         lines += alerts
         lines += [""]
 
-    # ── Proposed actions ──
-    lines += [
-        "## Proposed actions",
-        "",
-        "> Check the boxes you approve. Then open a Claude Code session and say:",
-        '> *"Execute the approved items from today\'s agent report."*',
-        "> Items marked 🤖 are pre-approved (flag `agente_autorizado` active) — their boxes are already checked.",
-        "",
-    ]
-
-    if a["candidates"]:
-        lines.append("### Tasks to pick up")
-        lines.append("")
-        for i in a["candidates"]:
-            pico = PRIORITY_ICON.get(i.priority, "⭐")
-            effort = i.esforco or "?"
-            status_en = STATUS_LABEL.get(i.status, i.status)
-            bug_badge = " 🐛" if getattr(i, "is_bug", False) else ""
-            pending_todos = [t for t in i.todos if not t.get("done")]
-            if pending_todos:
-                lines.append(f"**`{i.id}`**{bug_badge} {pico} _{i.title}_ — {status_en}, effort: {effort}")
-                for t in pending_todos:
-                    todo_auto = t.get("agente_autorizado", False)
-                    check = "x" if todo_auto else " "
-                    badge = " 🤖" if todo_auto else ""
-                    due = f" _(due {t['due_date']})_" if t.get("due_date") else ""
-                    lines.append(f"- [{check}] {t['text']}{due}{badge}")
-            else:
-                idea_auto = getattr(i, "agente_autorizado", False)
-                check = "x" if idea_auto else " "
-                badge = " 🤖" if idea_auto else ""
-                lines.append(
-                    f"- [{check}] **`{i.id}`**{bug_badge} {pico} {i.title} — move to next status"
-                    f" _(currently: {status_en}, effort: {effort})_{badge}"
-                )
-            lines.append("")
+    # ── Proposed actions: removed in Toolkit 2.0 (idea-066) ──
+    # This section used to emit a checkbox list of candidate tasks. Over 86
+    # reports it produced 1,986 checkboxes and collected 32 approvals (1.6%,
+    # none in the final two weeks) — the loop was writing to nobody. Decisions
+    # now live in the Weekly Brief, answered in conversation. This report is a
+    # health check: it states, it does not ask.
 
     if not tests["ok"]:
         lines += [
-            "### Fix failing tests",
+            "## Failing tests",
             "",
-            f"- [ ] **Fix tests** — {tests['failed']} test(s) failing. Run `pytest tests/ -v` for details.",
+            f"- {tests['failed']} test(s) failing. Run `pytest tests/ -v` for details.",
             "",
         ]
 
@@ -907,11 +879,27 @@ def main() -> int:
     except Exception as _e:
         safe_print(f"[agent] Dashboard generation skipped: {_e}")
 
+    # Weekly brief — written on the first agent run of each ISO week, so it
+    # does not depend on the machine being up on a Monday (Toolkit 2.0, idea-066).
+    brief_written = False
+    try:
+        from agent.weekly_brief import generate as _gen_brief, week_id as _wid
+        brief_written, _bp = _gen_brief()
+        if brief_written:
+            safe_print(f"[agent] Weekly brief written for {_wid()}: {_bp}")
+        else:
+            safe_print(f"[agent] Weekly brief for {_wid()} already exists, skipped.")
+    except Exception as _be:
+        # A failed brief must not take the health check down with it.
+        safe_print(f"[agent] Weekly brief failed: {type(_be).__name__}: {_be}")
+
     # Notify (Windows toast — local, only the current user sees it)
     all_good = tests["ok"] and not data["overdue"] and not phase2_error
     status_label = "All good" if all_good else "Action needed"
     status_emoji = "OK" if all_good else "WARN"
-    msg = f"{data['active']} active items, {data['pending_todos']} pending to-dos, {len(data['candidates'])} tasks proposed"
+    msg = f"{data['active']} active items, {data['pending_todos']} pending to-dos, {len(data['stale'])} stale"
+    if brief_written:
+        msg = "Weekly brief ready | " + msg
     if _dash:
         msg += f" | actions: {_dash['overdue']} overdue, {_dash['today']} today"
     if phase2_error:

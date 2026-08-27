@@ -1,14 +1,14 @@
 """views/backlog.py — Idea Backlog page (list, kanban, create, edit, delete)."""
 
 import json
-from datetime import date
+from datetime import date, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 
 import streamlit as st
 
 from backlog.cache import get_store, load_ideas, rebuild_index
-from backlog.daily_log import log_entry
+from backlog.daily_log import log_entry, read_log_lines
 from backlog.schema import (
     VALID_AREAS,
     VALID_EFFORTS,
@@ -562,12 +562,16 @@ def render() -> None:
                         st.session_state[f"show_hist_{idea.id}"] = not st.session_state.get(f"show_hist_{idea.id}", False)
 
                 if st.session_state.get(f"show_hist_{idea.id}"):
-                    log_dir = VAULT_ROOT / "Log"
+                    # Walk back a year of days: reads Daily/ notes and, for
+                    # dates before the 2026-08-26 move, the retired diario files.
                     hist_lines = []
-                    for lf in sorted(log_dir.glob("diario-*.md")):
-                        for line in lf.read_text(encoding="utf-8").splitlines():
-                            if idea.id in line and line.strip().startswith("-"):
-                                hist_lines.append(f"`{lf.stem[7:]}` {line.strip()}")
+                    _cur = date.today()
+                    for _ in range(365):
+                        for line in read_log_lines(_cur):
+                            if idea.id in line:
+                                hist_lines.append(f"`{_cur.isoformat()}` {line}")
+                        _cur -= timedelta(days=1)
+                    hist_lines.reverse()
                     if hist_lines:
                         st.markdown("**History:**")
                         for hl in hist_lines[-20:]:
