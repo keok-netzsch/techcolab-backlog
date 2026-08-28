@@ -9,8 +9,8 @@
 # Ana discussing the OKR 05 export policy, and no string match could know that.
 # Only Kelvin can say. This dialog is where he says it.
 #
-# Fires BEFORE the 20:00 queue run, so anything classified here is filed to the
-# right place in the same nightly batch instead of landing in the Inbox.
+# Fires at 16:00, while Kelvin is still at his desk. The queue that consumes the
+# decisions runs at 20:00, so a choice made here is filed correctly that night.
 #
 # WinForms dialog, not toast: the toast API reported success on every fire while
 # Focus Assist suppressed the banner, so reminders were missed silently (see

@@ -3,10 +3,11 @@
 #   .\install-triage-reminder.ps1            # instala / reinstala
 #   .\install-triage-reminder.ps1 -Remove    # desinstala
 #
-# 18:30 on weekdays: after the working-hours window where daily_report.py refuses
-# to run Whisper, and 90 minutes before the 20:00 queue. Anything Kelvin
-# classifies in that gap is filed to the right place in the same nightly batch
-# instead of landing in the Inbox to be moved by hand later.
+# 16:00 on weekdays, deliberately INSIDE working hours: classifying is a task for
+# Kelvin at his desk, not something to find at night. The queue that consumes the
+# decisions runs at 20:00, long after he has stopped working - so the order is
+# decide first, process later, and anything classified by 16:00 is filed to the
+# right place in the same batch instead of landing in the Inbox to be moved by hand.
 
 param([switch]$Remove)
 
@@ -28,9 +29,9 @@ $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $scrip
 $acao = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg
 
 $gatilho = New-ScheduledTaskTrigger -Weekly `
-    -DaysOfWeek Monday, Tuesday, Wednesday, Thursday, Friday -At "18:30"
+    -DaysOfWeek Monday, Tuesday, Wednesday, Thursday, Friday -At "16:00"
 
-# StartWhenAvailable: se a maquina estiver desligada as 18:30, o lembrete
+# StartWhenAvailable: se a maquina estiver desligada as 16:00, o lembrete
 # aparece no proximo logon em vez de simplesmente sumir naquele dia.
 $cfg = New-ScheduledTaskSettingsSet -StartWhenAvailable `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
