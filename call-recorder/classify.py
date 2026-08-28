@@ -117,13 +117,17 @@ def classify(pending: dict, team: list, stake: list) -> dict:
         return {"kind": "manager", "target": holder,
                 "why": f"'{core}' bate com Stakeholders/{holder}"}
 
+    # From here down nothing is certain. A named meeting ("Power BI Data Export")
+    # tells us the SUBJECT, never the participants — Teams does not put them in
+    # the window title. So these are routed somewhere safe AND flagged for Kelvin
+    # to confirm, instead of pretending the guess is an answer.
     if any(h in _fold(core) for h in MEETING_HINTS):
-        return {"kind": "project", "target": "",
-                "why": f"'{core}' parece reuniao de projeto"}
+        return {"kind": "project", "target": "", "needs_review": True,
+                "why": f"'{core}' parece reuniao de projeto - participantes desconhecidos"}
 
     # Deliberately a loose note: filing under a guessed person is worse than
     # leaving it in the Inbox for Kelvin to place.
-    return {"kind": "note", "target": "",
+    return {"kind": "note", "target": "", "needs_review": True,
             "why": f"'{core}' nao bate com ninguem do vault - vai para Inbox"}
 
 
@@ -142,6 +146,7 @@ def build_job(pending_path: Path, pending: dict, verdict: dict) -> dict:
         "coach": False,          # auto-detected English still triggers the coach
         "source": "autocapture",
         "meeting": pending.get("window_title", ""),
+        "needs_review": bool(verdict.get("needs_review")),
     }
 
 
