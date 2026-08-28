@@ -152,7 +152,7 @@ def _spool_dir(base_dir: str) -> str:
     return d
 
 
-def capture_all(stop_flag, base_dir: str, log=print) -> dict:
+def capture_all(stop_flag, base_dir: str, log=print, mics=None, loops=None) -> dict:
     """Record every candidate endpoint until stop_flag(). Returns {label: path}.
 
     Each stream spools straight to its own PCM16 file: RAM stays flat regardless
@@ -163,8 +163,10 @@ def capture_all(stop_flag, base_dir: str, log=print) -> dict:
     import soundfile as sf
 
     d = _spool_dir(base_dir)
-    mics = input_candidates()
-    loops = loopback_candidates()
+    # Injectable so the diagnostic can sweep EVERY input while production keeps
+    # a conservative list — the narrow list is what hid `FrontMic` (WDM-KS only).
+    mics = input_candidates() if mics is None else mics
+    loops = loopback_candidates() if loops is None else loops
     log(f"[multi] gravando {len(mics)} entrada(s) + {len(loops)} loopback(s)")
     for _, n in mics:
         log(f"[multi]   mic      {n}")
@@ -175,7 +177,10 @@ def capture_all(stop_flag, base_dir: str, log=print) -> dict:
     threads = []
 
     def pump_mic(idx, name):
-        label = f"mic:{name[:28]}"
+        # Index in the label, not just the name: the same physical microphone is
+        # exposed under several host APIs with an identical truncated name, and
+        # a colliding key would silently drop devices from the result.
+        label = f"mic:[{idx}] {name[:34]}"
         path = os.path.join(d, f"mic_{idx}.wav")
         buf = []
         try:
@@ -269,3 +274,48 @@ def select_channels(paths: dict, log=print):
 def cleanup(base_dir: str) -> None:
     import shutil
     shutil.rmtree(_spool_dir(base_dir), ignore_errors=True)
+
+
+def capture_dual_redundant(stop_flag, base_dir: str, log=print):
+    """Drop-in replacement for record.capture_dual using redundant capture.
+
+    Returns (mic, sys) as (N,1) float32 arrays of equal length — the exact shape
+    the existing callers already concatenate — or None so the caller can fall
+    back to the classic single-device path.
+
+    This is the whole point of the module in production: Kelvin rotates headsets
+    (Logitech at the office, an Asus, and currently generic earphones in the
+    jack). Any pinned device name is wrong the next time hardware changes, and
+    the Windows default input on this machine points at an empty jack. Recording
+    every present input and choosing by speech activity is the only approach that
+    survives the hardware moving around.
+    """
+    import numpy as np
+
+    try:
+        paths = capture_all(stop_flag, base_dir, log=log)
+    except Exception as e:
+        log(f"[multi] captura redundante falhou ({e})")
+        return None
+    if not paths:
+        return None
+
+    mic, sysa, _ = select_channels(paths, log=log)
+    try:
+        cleanup(base_dir)
+    except Exception:
+        pass
+
+    if mic is None and sysa is None:
+        return None
+    n = max(len(x) for x in (mic, sysa) if x is not None)
+
+    def col(x):
+        if x is None:
+            return np.zeros((n, 1), dtype="float32")
+        a = np.asarray(x, dtype="float32")
+        if len(a) < n:
+            a = np.concatenate([a, np.zeros(n - len(a), dtype="float32")])
+        return a[:n].reshape(-1, 1)
+
+    return col(mic), col(sysa)

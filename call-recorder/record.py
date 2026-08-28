@@ -36,6 +36,34 @@ RECORDINGS_RETENTION_DAYS = 7   # áudios em recordings/ mais antigos que isto s
 CAPTURE_SYSTEM_AUDIO = os.environ.get("CAPTURE_SYSTEM_AUDIO", "1") != "0"
 SPEAKER_LABELS = ("Kelvin", "Interlocutor")
 
+# Spool: during capture each channel streams to disk incrementally instead of
+# living only in RAM until the end. Two reasons, both learned the hard way on
+# 2026-08-27: (1) a crash/logoff/reboot mid-call used to lose the entire
+# recording (buffers die with the process, the .wav was only written at the
+# end); (2) RAM grew unbounded — a 2h call would hold ~460 MB. The spool files
+# survive the process; autocapture rescues orphaned spools at startup into a
+# normal recording. I/O happens in the pump loops, never in audio callbacks.
+SPOOL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "recordings")
+
+
+def spool_path(channel: int) -> str:
+    """Per-PID spool file, so a manual record.py and the watcher never truncate
+    each other's live capture. Rescue matches `_spool_ch*.*.wav` and only takes
+    COLD files (mtime older than ~30s) — a live capture touches its spool every
+    200ms, so freshness is the liveness signal and works even across PID reuse."""
+    return os.path.join(SPOOL_DIR, f"_spool_ch{channel}.{os.getpid()}.wav")
+
+
+def cleanup_spools() -> None:
+    """Remove this process's spool files — call AFTER the final wav is written."""
+    for ch in (0, 1):
+        try:
+            p = spool_path(ch)
+            if os.path.exists(p):
+                os.remove(p)
+        except OSError:
+            pass
+
 # --------------------
 
 chunks = []
@@ -74,152 +102,194 @@ def _log(msg: str) -> None:
         pass
 
 
-def _probe_input(device, seconds=2.0):
-    """Classifica uma entrada em 'live' | 'dead' | 'floating' por uma amostra curta.
-
-    - dead     : silencio digital (dispositivo desligado). Ex.: o Microphone
-                 Array deste notebook entrega -96,7 dBFS com 0,5 dB de faixa.
-    - floating : nivel alto e CONSTANTE, sem a intermitencia da fala. Assinatura
-                 de entrada de jack sem nada conectado, captando zumbido. Foi o
-                 que gravou 11,8 min de chiado numa call de 2026-08-27.
-    - live     : varia como audio de verdade.
-    """
-    import numpy as np
-    import sounddevice as sd
-    try:
-        a = sd.rec(int(seconds * SAMPLE_RATE), samplerate=SAMPLE_RATE,
-                   channels=1, dtype="float32", device=device)
-        sd.wait()
-    except Exception as e:
-        return "error", f"{e}"
-    x = a[:, 0]
-    win = SAMPLE_RATE // 10
-    k = len(x) // win
-    if k == 0:
-        return "error", "amostra curta demais"
-    rms = np.sqrt((x[:k * win].reshape(k, win).astype(np.float64) ** 2).mean(axis=1))
-    db = lambda v: 20 * np.log10(v + 1e-12)   # noqa: E731
-    mean_db, floor_db, peak_db = db(rms.mean()), db(np.percentile(rms, 10)), db(np.percentile(rms, 95))
-    dyn = peak_db - floor_db
-    detail = f"medio {mean_db:.1f} dBFS, dinamica {dyn:.1f} dB"
-    if mean_db < -80:
-        return "dead", detail
-    if dyn < 6 and mean_db > -45:
-        return "floating", detail
-    return "live", detail
-
-
-def pick_input_device():
-    """Devolve (device_index, nome, motivo) de uma entrada que parece viva.
-
-    O dispositivo padrao do Windows nao e confiavel: ele muda sozinho quando um
-    fone e plugado, e pode apontar para um jack vazio. Gravar 12 minutos de
-    zumbido e pior que gastar 2 segundos conferindo.
-    """
-    import sounddevice as sd
-    default = sd.default.device[0]
-    verdict, detail = _probe_input(default)
-    name = sd.query_devices(default)["name"]
-    if verdict == "live":
-        return default, name, f"padrao, {detail}"
-
-    skip = ("Mix", "Mapper", "Primary", "PC Speaker")
-    for i, d in enumerate(sd.query_devices()):
-        if i == default or d["max_input_channels"] <= 0:
-            continue
-        if any(s in d["name"] for s in skip):
-            continue
-        v2, d2 = _probe_input(i)
-        if v2 == "live":
-            return i, d["name"], f"padrao '{name}' estava {verdict} ({detail}); trocado, {d2}"
-    # Nada vivo: fica no padrao e registra, para nao perder a gravacao inteira.
-    return default, name, f"NENHUMA entrada viva; mantido o padrao ({verdict}, {detail})"
-
-
 def capture_dual(stop_flag):
     """Record the mic and the system output concurrently until `stop_flag()` is true.
 
-    Returns (mic, system) as float32 mono arrays of equal length, or None when
-    loopback is unavailable (no `soundcard`, no loopback endpoint) so the caller
-    can fall back to the mic-only path.
+    Returns (mic, system) as float32 mono arrays of equal length. When loopback
+    is unavailable (no `soundcard`, no loopback endpoint, CAPTURE_SYSTEM_AUDIO=0)
+    it degrades to mic-only INSIDE this function — the mic channel is real and
+    the system channel comes back zeroed. It only returns None when absolutely
+    nothing was captured.
+
+    Contract, hard-learned on 2026-08-27 (a 50-min call with Stefan was lost):
+    no failure of one source may ever discard the other. Callers (autocapture,
+    main) must be able to trust that whatever could be captured, was.
     """
-    try:
-        import soundcard as sc
-    except ImportError:
-        print("[WARN] soundcard nao instalado - gravando apenas o microfone.")
-        print("       pip install soundcard  (habilita a captura do outro lado)")
-        return None
+    # Redundant capture first: record EVERY present input and EVERY render
+    # endpoint, then keep whichever actually carries speech. Pinning one device
+    # cannot work here — Kelvin rotates headsets (Logitech at the office, an
+    # Asus, generic earphones in the jack today), and the Windows default input
+    # on this machine points at an empty jack, which is what produced hum on
+    # three calls on 2026-08-28. Falls through to the classic path below if the
+    # module is missing or captures nothing, so this can only ever add coverage.
+    # Set CAPTURE_REDUNDANT=0 to force the old single-device behaviour.
+    if os.environ.get("CAPTURE_REDUNDANT", "1") != "0":
+        try:
+            import capture_multi
+            res = capture_multi.capture_dual_redundant(stop_flag, SPOOL_DIR, _log)
+            if res is not None:
+                return res
+            _log("captura redundante nao devolveu audio - usando caminho classico")
+        except Exception as e:
+            _log(f"captura redundante indisponivel ({e}) - usando caminho classico")
 
     import threading
+    import time
     import numpy as np
-
     import sounddevice as sd
 
-    try:
-        speaker = sc.default_speaker()
-        loop = sc.get_microphone(speaker.name, include_loopback=True)
-    except Exception as e:
-        print(f"[WARN] loopback indisponivel ({e}) - gravando apenas o microfone.")
-        return None
+    # Loopback is best-effort. Every early `return None` that used to live here
+    # threw away the working microphone along with the broken loopback — the
+    # autocapture caller has no fallback of its own, so the fallback lives here.
+    loop = None
+    speaker_name = "(sem loopback)"
+    if not CAPTURE_SYSTEM_AUDIO:
+        _log("CAPTURE_SYSTEM_AUDIO=0 - capturando somente o microfone")
+    else:
+        try:
+            import soundcard as sc
+            speaker = sc.default_speaker()
+            loop = sc.get_microphone(speaker.name, include_loopback=True)
+            speaker_name = speaker.name
+        except ImportError:
+            _log("soundcard nao instalado - capturando somente o microfone "
+                 "(pip install soundcard habilita o outro lado)")
+        except Exception as e:
+            _log(f"loopback indisponivel ({e}) - capturando somente o microfone")
 
-    # Nomear os dois endpoints, nao so o do loopback: o dispositivo padrao muda
-    # sozinho quando um fone e plugado (2026-08-27: o mic padrao passou de
-    # "Microphone Array" para o mic do jack entre uma call e outra). Sem esse
-    # registro nao da para dizer, depois, se um canal mudo foi mute do usuario
-    # ou endpoint errado.
-    # Só registra qual e o dispositivo padrao. NAO sonda e NAO escolhe: sondar
-    # abre o dispositivo, e abrir o dispositivo antes de gravar foi o que
-    # quebrou a captura. Diagnostico nao pode custar a gravacao.
+    # Nomear o endpoint em uso: o padrao do Windows muda sozinho quando um fone
+    # e plugado. So REGISTRA — nao sonda nem escolhe: sondar abre o dispositivo,
+    # e abrir o dispositivo antes de gravar foi o que perdeu a call de 50 min.
     try:
         _mic_name = sd.query_devices(sd.default.device[0])["name"]
     except Exception as e:
         _mic_name = f"? ({e})"
-    _log("captura dupla iniciando")
+    _log("captura iniciando")
     _log(f"  canal 0 (voce)  <- {_mic_name} [padrao do sistema]")
-    _log(f"  canal 1 (outro) <- {speaker.name} [loopback]")
+    _log(f"  canal 1 (outro) <- {speaker_name}" + (" [loopback]" if loop else ""))
 
+    import soundfile as sf_spool
     out = {}
 
+    def _open_spool(channel):
+        try:
+            os.makedirs(SPOOL_DIR, exist_ok=True)
+            return sf_spool.SoundFile(spool_path(channel), "w",
+                                      samplerate=SAMPLE_RATE, channels=1,
+                                      subtype="PCM_16")
+        except Exception as e:
+            _log(f"spool ch{channel} indisponivel ({e}) - canal fica so em RAM")
+            return None
+
     def pump_mic():
-        # Deliberately sounddevice, not soundcard: the WASAPI path to this mic
-        # returns digital silence, while the MME path sounddevice uses is the one
-        # already proven to capture in production. Never risk losing our own side.
+        # Deliberately sounddevice (MME path), and device=None DE PROPOSITO:
+        # deixa o PortAudio resolver o padrao, que e o que funciona em producao.
+        # Um indice explicito vindo de sondagem foi o que quebrou em 2026-08-27.
+        #
+        # O callback do PortAudio so faz append em RAM; o flush para o spool
+        # acontece aqui no laco, a cada 200ms. I/O dentro de callback de audio
+        # causa overflow/glitch.
         buf = []
-        # device=None DE PROPOSITO: deixa o PortAudio resolver o padrao, que e o
-        # que funcionou em producao. Passar um indice explicito vindo de sondagem
-        # quebrou a captura de uma call de 50 min em 2026-08-27 — o Teams tomou o
-        # dispositivo entre a sondagem e a abertura do stream. A sondagem agora
-        # so informa (ver _mic_note); ela nao escolhe mais.
+        writer = _open_spool(0)
+
+        def drain():
+            while buf:
+                writer.write(buf.pop(0))
+
         try:
             with sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype=DTYPE,
                                 callback=lambda d, f, t, s: buf.append(d.copy())):
                 while not stop_flag():
+                    if writer is not None:
+                        drain()
                     sd.sleep(200)
         except Exception as e:
             _log(f"microfone: falha ao abrir: {e}")
-        out["mic"] = np.concatenate(buf) if buf else np.zeros((0, 1), dtype="float32")
+        if writer is not None:
+            drain()
+            writer.close()
+            out["mic"] = "spool"
+        else:
+            out["mic"] = np.concatenate(buf) if buf else np.zeros((0, 1), dtype="float32")
 
     def pump_sys():
-        buf = []
+        # COM e POR THREAD. `soundcard` fala com Media Foundation via COM, e sem
+        # CoInitializeEx nesta thread o recorder morre com 0x800401f0
+        # (CO_E_NOTINITIALIZED) no instante em que abre. Foi o que esvaziou o
+        # canal 1 numa call de 33 min em 2026-08-27 — latente desde a criacao da
+        # captura dupla: funcionava quando COM ja tinha sido inicializado por
+        # acaso nesta thread, falhava quando nao.
+        import ctypes
+        com_ready = False
         try:
-            with loop.recorder(samplerate=SAMPLE_RATE, channels=1) as rec:
-                while not stop_flag():
-                    buf.append(rec.record(numframes=SAMPLE_RATE // 2))
-        except Exception as e:                        # one side failing must not
-            print(f"[WARN] captura do loopback interrompida: {e}")   # kill the other
-        out["sys"] = np.concatenate(buf) if buf else np.zeros((0, 1), dtype="float32")
+            hr = ctypes.windll.ole32.CoInitializeEx(None, 0)  # 0 = APARTMENTTHREADED
+            com_ready = hr in (0, 1)          # S_OK | S_FALSE (ja inicializado)
+            if not com_ready:
+                _log(f"loopback: CoInitializeEx devolveu 0x{hr & 0xFFFFFFFF:08x}")
+        except Exception as e:
+            _log(f"loopback: CoInitializeEx falhou ({e})")
 
-    threads = [threading.Thread(target=pump_mic, daemon=True),
-               threading.Thread(target=pump_sys, daemon=True)]
+        buf = []
+        writer = _open_spool(1)
+        try:
+            # Uma falha transitoria ao abrir nao pode custar a call inteira.
+            rec_ctx, last_err = None, None
+            for tentativa in range(3):
+                try:
+                    rec_ctx = loop.recorder(samplerate=SAMPLE_RATE, channels=1)
+                    rec_ctx.__enter__()
+                    if tentativa:
+                        _log(f"loopback: aberto na tentativa {tentativa + 1}")
+                    break
+                except Exception as e:
+                    last_err, rec_ctx = e, None
+                    time.sleep(0.5)
+            if rec_ctx is None:
+                raise last_err or RuntimeError("loopback nao abriu")
+            try:
+                while not stop_flag():
+                    chunk = rec_ctx.record(numframes=SAMPLE_RATE // 2)
+                    if writer is not None:
+                        writer.write(chunk)
+                    else:
+                        buf.append(chunk)
+            finally:
+                rec_ctx.__exit__(None, None, None)
+        except Exception as e:                          # one side failing must
+            _log(f"loopback: captura interrompida: {e}")  # not kill the other
+        finally:
+            if com_ready:
+                try:
+                    ctypes.windll.ole32.CoUninitialize()
+                except Exception:
+                    pass
+        if writer is not None:
+            writer.close()
+            out["sys"] = "spool"
+        else:
+            out["sys"] = np.concatenate(buf) if buf else np.zeros((0, 1), dtype="float32")
+
+    threads = [threading.Thread(target=pump_mic, daemon=True)]
+    if loop is not None:
+        threads.append(threading.Thread(target=pump_sys, daemon=True))
     for t in threads:
         t.start()
     for t in threads:
         t.join()
 
-    a, b = out.get("mic"), out.get("sys")
-    empty = np.zeros((0, 1), dtype="float32")
-    a = empty if a is None else a
-    b = empty if b is None else b
+    def _resolve(key, channel):
+        v = out.get(key)
+        if isinstance(v, str):          # "spool" — read the streamed file back
+            try:
+                data, _sr = sf_spool.read(spool_path(channel), dtype="float32")
+                return data.reshape(-1, 1)
+            except Exception as e:
+                _log(f"falha lendo spool ch{channel}: {e}")
+                return np.zeros((0, 1), dtype="float32")
+        return v if v is not None else np.zeros((0, 1), dtype="float32")
+
+    a = _resolve("mic", 0)
+    b = _resolve("sys", 1)
 
     # NUNCA descartar tudo porque um lado falhou. A versao anterior retornava
     # None quando o mic vinha vazio, e isso jogou fora 50 min de uma call em
@@ -400,8 +470,16 @@ def transcribe(audio_path: str, language: str | None = LANGUAGE) -> tuple[str, s
     # A 2-channel file comes from capture_dual(): channel 0 is the mic, channel 1
     # is the system loopback. Transcribing each separately and interleaving by
     # timestamp yields exact speaker labels — no diarization guesswork.
+    #
+    # soundfile only decodes audio containers. File Processing (--input) also
+    # feeds mp4/mov here, which faster-whisper decodes via PyAV — for those,
+    # sf.info raises and the answer is simply "not a dual-capture wav".
     import soundfile as sf
-    if sf.info(audio_path).channels == 2:
+    try:
+        n_channels = sf.info(audio_path).channels
+    except Exception:
+        n_channels = 1
+    if n_channels == 2:
         return _transcribe_dual(model, audio_path, language)
 
     print("[INFO] Transcrevendo...")
@@ -418,9 +496,9 @@ def transcribe(audio_path: str, language: str | None = LANGUAGE) -> tuple[str, s
         lines.append(f"{ts} {seg.text.strip()}")
     detected = getattr(info, "language", None) or (language or "pt")
 
-    import soundfile as sf2
-    info_wav = sf2.info(audio_path)
-    _sanity_check(lines, info_wav.frames / info_wav.samplerate)
+    # Duration comes from whisper's own probe (PyAV), not a second soundfile
+    # read — soundfile cannot open the mp4/mov inputs this path also serves.
+    _sanity_check(lines, float(getattr(info, "duration", 0.0)))
     return "\n".join(lines), detected
 
 
@@ -583,6 +661,7 @@ def main():
         print(f"[CLEAN] {_pruned} gravação(ões) com mais de {RECORDINGS_RETENTION_DAYS} dias removida(s).")
     wav_path = os.path.join(recordings_dir, f"{base_name}.wav")
     sf.write(wav_path, audio, SAMPLE_RATE)
+    cleanup_spools()   # o wav definitivo existe; o seguro anti-crash ja cumpriu o papel
     print(f"[INFO] Áudio salvo em: {wav_path}")
 
     if args.record_only:
