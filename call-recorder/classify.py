@@ -76,10 +76,36 @@ def match_person(core: str, folders: list):
     return None
 
 
+ALIASES_FILE = HERE / "meeting-aliases.json"
+
+
+def _aliases() -> dict:
+    """Recurring meetings whose title carries no full name.
+
+    "Jour Fixe KO <> AR" is Kelvin's weekly with Alberto Reuters, but nothing in
+    that string matches a vault folder — only initials do, and guessing from
+    initials is how a recording ends up in the wrong person's file. So the
+    mapping is declared once, by a human, instead of inferred every week.
+    """
+    try:
+        raw = json.loads(ALIASES_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    return {_fold(k): v for k, v in raw.items()
+            if not k.startswith("_") and isinstance(v, dict)}
+
+
 def classify(pending: dict, team: list, stake: list) -> dict:
     """Return {kind, target, why} for one recording."""
     title = pending.get("window_title", "") or ""
     core = _title_core(title)
+
+    # Declared aliases win over any heuristic: a human said so.
+    folded = _fold(title)
+    for key, dest in _aliases().items():
+        if key in folded:
+            return {"kind": dest.get("kind", "note"), "target": dest.get("target", ""),
+                    "why": f"apelido declarado em meeting-aliases.json ('{key}')"}
 
     person = match_person(core, team)
     if person:

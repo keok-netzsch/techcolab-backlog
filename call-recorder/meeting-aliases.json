@@ -1,0 +1,4 @@
+{
+  "_comment": "Titulo de reuniao recorrente -> destino. A chave e casada por SUBSTRING, sem acento e sem maiuscula, contra o titulo da janela do Teams. Consultado ANTES do casamento por nome, para que apelido e sigla ganhem de heuristica. Edite a vontade.",
+  "jour fixe ko <> ar": { "kind": "manager", "target": "Alberto-Reuters" }
+}
