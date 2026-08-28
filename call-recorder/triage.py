@@ -42,6 +42,29 @@ def _load(p):
         return None
 
 
+def listar_json():
+    """Machine-readable listing.
+
+    The GUI used to scrape the human listing with a regex and silently parsed
+    zero items when the format shifted by one space. Formatted text is for
+    people; anything that consumes this should read JSON.
+    """
+    out = []
+    for p in _jobs():
+        j = _load(p)
+        if j and j.get("needs_review"):
+            out.append({
+                "id": p.name.replace(".job.json", ""),
+                "date": j.get("date", ""),
+                "time": (j.get("time", "") or "").replace("-", ":"),
+                "kind": j.get("kind", ""),
+                "target": j.get("target", ""),
+                "meeting": j.get("meeting", ""),
+            })
+    print(json.dumps(out, ensure_ascii=False))
+    return 0
+
+
 def listar():
     pend = []
     for p in _jobs():
@@ -105,12 +128,15 @@ def main():
     ap.add_argument("alvo", nargs="?", default="")
     ap.add_argument("--lembrar", action="store_true")
     ap.add_argument("--nota", default="")
+    ap.add_argument("--json", action="store_true", help="listagem legivel por maquina")
     ap.add_argument("-h", "--help", action="store_true")
     a = ap.parse_args()
 
     if a.help:
         print(__doc__)
         return 0
+    if a.json:
+        return listar_json()
     if not a.fragmento:
         return listar()
 
