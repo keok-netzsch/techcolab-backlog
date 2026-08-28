@@ -73,14 +73,19 @@ def main():
     t0 = time.time()
     paths = cm.capture_all(lambda: time.time() - t0 > seconds,
                            base_dir=str(Path(__file__).parent / "recordings"),
-                           log=_erros.append, mics=mics, loops=[])
+                           log=_erros.append, mics=mics)   # loopbacks incluidos
     print("   >>> pode parar <<<\n")
 
     import soundfile as sf
 
-    rows = []
+    rows, sys_rows = [], []
     for label, path in sorted(paths.items()):
-        if not label.startswith("mic:"):
+        if label.startswith("sys:"):
+            try:
+                a, sr = sf.read(path, dtype="float32")
+                sys_rows.append((label, cm.score(a if a.ndim == 1 else a[:, 0], sr)))
+            except Exception:
+                pass
             continue
         try:
             a, sr = sf.read(path, dtype="float32")
@@ -106,6 +111,18 @@ def main():
     from datetime import datetime
     report = Path(__file__).parent / "which_mic_result.txt"
     header = [f"which_mic — {datetime.now():%Y-%m-%d %H:%M:%S} — {seconds}s de voz"]
+
+    if sys_rows:
+        out_lines.append("")
+        out_lines.append("SAIDAS (canal 1 - a outra pessoa):")
+        for label, s2 in sorted(sys_rows, key=lambda r: -r[1]["active_pct"]):
+            out_lines.append(f"   {label[4:][:41]:41s} {s2['verdict']:9s} "
+                             f"{s2['dynamic_db']:7.1f} dB {s2['active_pct']:6.1f}%")
+        print()
+        print("SAIDAS (canal 1 - a outra pessoa):")
+        for label, s2 in sorted(sys_rows, key=lambda r: -r[1]["active_pct"]):
+            print(f"   {label[4:][:41]:41s} {s2['verdict']:9s} "
+                  f"{s2['dynamic_db']:7.1f} dB {s2['active_pct']:6.1f}%")
 
     good = [r for r in rows if r[1]["verdict"] == "speech" and r[1]["active_pct"] > 25]
     print()
