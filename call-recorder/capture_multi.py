@@ -42,28 +42,31 @@ MIN_ACTIVE_PCT = 5.0
 # ── Endpoint discovery ───────────────────────────────────────────────────────
 
 def input_candidates():
-    """Physical inputs worth recording, de-duplicated across host APIs.
+    """Inputs worth recording — the SAME device under EVERY host API it exposes.
 
-    MME is preferred over WASAPI for microphones: the WASAPI path to the built-in
-    array returns digital silence on this machine, while MME captures normally.
-    Stereo Mix / Mapper / Primary are excluded — they are not microphones.
+    Do not de-duplicate by device name. The same physical microphone behaves
+    completely differently depending on the host API, and on 2026-08-28 that
+    difference was the whole bug: "Saida do MicrofoneMic" delivered Kelvin's
+    voice at 79% speech through WASAPI and flat hum at 0.0% through DirectSound.
+    De-duplicating by name kept the MME entry and discarded the one that works.
+
+    WDM-KS is excluded on purpose: it opens in exclusive mode, and taking the
+    microphone that way during a call could steal it from Teams and leave him
+    muted. Extra coverage is not worth breaking the call being recorded.
     """
     import sounddevice as sd
 
     apis = {i: a["name"] for i, a in enumerate(sd.query_hostapis())}
-    out, seen = [], set()
-    for pref in ("MME", "Windows WASAPI"):
-        for idx, d in enumerate(sd.query_devices()):
-            if d["max_input_channels"] <= 0 or apis.get(d["hostapi"]) != pref:
-                continue
-            name = d["name"]
-            if any(s in name for s in ("Mix", "Mapper", "Primary", "PC Speaker")):
-                continue
-            key = name[:28].strip().lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append((idx, name))
+    out = []
+    for idx, d in enumerate(sd.query_devices()):
+        if d["max_input_channels"] <= 0:
+            continue
+        if apis.get(d["hostapi"]) not in ("MME", "Windows WASAPI", "Windows DirectSound"):
+            continue
+        name = d["name"]
+        if any(s in name for s in ("Mix", "Mapper", "Primary", "PC Speaker")):
+            continue
+        out.append((idx, f"{name} [{apis[d['hostapi']]}]"))
     return out
 
 
@@ -183,18 +186,40 @@ def capture_all(stop_flag, base_dir: str, log=print, mics=None, loops=None) -> d
         label = f"mic:[{idx}] {name[:34]}"
         path = os.path.join(d, f"mic_{idx}.wav")
         buf = []
+
+        # Open at the device's NATIVE rate, not at 16 kHz. WASAPI shared mode
+        # refuses any other rate — every WASAPI path on this machine failed with
+        # "Invalid sample rate [-9997]" and silently dropped out of the capture,
+        # including both real microphones. Whisper wants 16 kHz, so resample on
+        # the way to disk instead of demanding it from the driver.
+        try:
+            native = int(sd.query_devices(idx)["default_samplerate"]) or SAMPLE_RATE
+        except Exception:
+            native = SAMPLE_RATE
+
+        def to_16k(block):
+            if native == SAMPLE_RATE:
+                return block
+            import numpy as np
+            n_out = int(len(block) * SAMPLE_RATE / native)
+            if n_out < 1:
+                return block[:0]
+            src = np.linspace(0, len(block) - 1, n_out)
+            return np.interp(src, np.arange(len(block)),
+                             block[:, 0]).astype("float32").reshape(-1, 1)
+
         try:
             with sf.SoundFile(path, "w", samplerate=SAMPLE_RATE, channels=1,
                               subtype="PCM_16") as w, \
-                 sd.InputStream(device=idx, samplerate=SAMPLE_RATE, channels=1,
+                 sd.InputStream(device=idx, samplerate=native, channels=1,
                                 dtype="float32",
                                 callback=lambda x, f, t, s: buf.append(x.copy())):
                 while not stop_flag():
                     sd.sleep(200)
                     while buf:
-                        w.write(buf.pop(0))
+                        w.write(to_16k(buf.pop(0)))
                 while buf:
-                    w.write(buf.pop(0))
+                    w.write(to_16k(buf.pop(0)))
             paths[label] = path
         except Exception as e:
             log(f"[multi] entrada '{name}' falhou: {e}")

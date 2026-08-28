@@ -63,10 +63,17 @@ def main():
         time.sleep(1)
     print("   >>> FALE AGORA <<<", flush=True)
 
+    # Capture the failures instead of swallowing them. Suppressing this log is
+    # what made the FIRST run useless: seven devices — including all three
+    # "Saida do MicrofoneMic" entries, the one Teams actually uses — failed to
+    # open and vanished from the report with no trace, which reads exactly like
+    # "recorded, heard nothing".
+    _erros = []
+
     t0 = time.time()
     paths = cm.capture_all(lambda: time.time() - t0 > seconds,
                            base_dir=str(Path(__file__).parent / "recordings"),
-                           log=lambda m: None, mics=mics, loops=[])
+                           log=_erros.append, mics=mics, loops=[])
     print("   >>> pode parar <<<\n")
 
     import soundfile as sf
@@ -85,11 +92,20 @@ def main():
 
     cm.cleanup(str(Path(__file__).parent / "recordings"))
 
-    print(f"{'entrada':44s} {'veredito':9s} {'dinamica':>9s} {'fala':>7s}")
-    print("-" * 74)
+    # Also to a file: the terminal is where the answer went to die the first time
+    # it was run, and asking Kelvin to fish it out of scrollback wastes a round
+    # trip on something the script already knows.
+    out_lines = [f"{'entrada':44s} {'veredito':9s} {'dinamica':>9s} {'fala':>7s}",
+                 "-" * 74]
     for label, s in sorted(rows, key=lambda r: -r[1]["active_pct"]):
-        print(f"{label[4:][:44]:44s} {s['verdict']:9s} "
-              f"{s['dynamic_db']:7.1f} dB {s['active_pct']:6.1f}%")
+        out_lines.append(f"{label[4:][:44]:44s} {s['verdict']:9s} "
+                         f"{s['dynamic_db']:7.1f} dB {s['active_pct']:6.1f}%")
+    for ln in out_lines:
+        print(ln)
+
+    from datetime import datetime
+    report = Path(__file__).parent / "which_mic_result.txt"
+    header = [f"which_mic — {datetime.now():%Y-%m-%d %H:%M:%S} — {seconds}s de voz"]
 
     good = [r for r in rows if r[1]["verdict"] == "speech" and r[1]["active_pct"] > 25]
     print()
@@ -101,6 +117,31 @@ def main():
         print("NENHUMA entrada ouviu a sua voz.")
         print("   Verifique se o microfone do fone esta selecionado no Windows")
         print("   (Configuracoes > Sistema > Som > Entrada) e rode de novo.")
+        out_lines.append("NENHUMA entrada ouviu a voz.")
+
+    if good:
+        best = max(good, key=lambda r: r[1]["active_pct"])
+        out_lines.append(f"USAR ESTA: {best[0][4:]}  ({best[1]['active_pct']:.0f}% de fala)")
+    # Failures go in BEFORE the file is written, or the report ships without the
+    # single most useful section — which is what a device that cannot be opened
+    # looks like, versus one that was recorded and heard nothing.
+    falhas = [e for e in _erros if "falhou" in e]
+    if falhas:
+        out_lines.append("")
+        out_lines.append("ENTRADAS QUE NAO ABRIRAM (nao foram gravadas):")
+        for e in falhas:
+            out_lines.append(f"   {e}")
+        print()
+        print("ENTRADAS QUE NAO ABRIRAM (nao foram gravadas):")
+        for e in falhas:
+            print(f"   {e}")
+
+    report.write_text(chr(10).join(header + [""] + out_lines) + chr(10),
+                      encoding="utf-8")
+
+    print()
+    print("Resultado salvo em:")
+    print(f"   {report}")
 
 
 if __name__ == "__main__":

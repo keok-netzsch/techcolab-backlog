@@ -127,14 +127,33 @@ def test_input_candidates_exclude_non_microphones():
         assert not any(s in name for s in ("Mix", "Mapper", "Primary", "PC Speaker"))
 
 
-def test_input_candidates_are_deduplicated_across_host_apis():
-    """The same physical mic appears under MME and WASAPI; record it once."""
+def test_same_device_is_kept_under_every_host_api():
+    """De-duplicating by device name was itself the bug.
+
+    On 2026-08-28 "Saida do MicrofoneMic" delivered Kelvin's voice at 79% speech
+    through WASAPI and flat hum at 0.0% through DirectSound — the same physical
+    microphone. De-duplication kept the MME entry and discarded the working one,
+    so the recorder captured hum for three calls while Teams heard him fine.
+    """
     try:
         cands = cm.input_candidates()
     except Exception:
         pytest.skip("PortAudio indisponivel neste ambiente")
-    keys = [n[:28].strip().lower() for _, n in cands]
-    assert len(keys) == len(set(keys))
+    if len(cands) < 2:
+        pytest.skip("maquina com uma unica entrada")
+    # Each entry must carry its host API, so two rows for one device are distinct.
+    assert all("[" in n and "]" in n for _, n in cands)
+    assert len({i for i, _ in cands}) == len(cands)   # device index unique
+
+
+def test_exclusive_mode_host_api_is_never_used_in_production():
+    """WDM-KS opens exclusively; taking the mic that way during a call could
+    steal it from Teams and leave Kelvin muted. Diagnostics only."""
+    try:
+        cands = cm.input_candidates()
+    except Exception:
+        pytest.skip("PortAudio indisponivel neste ambiente")
+    assert not any("WDM-KS" in n for _, n in cands)
 
 
 def test_more_than_one_render_endpoint_is_discovered():
