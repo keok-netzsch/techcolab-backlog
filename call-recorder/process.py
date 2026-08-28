@@ -180,6 +180,87 @@ def _ollama_generate(prompt: str, stream: bool = True, model: str = OLLAMA_MODEL
         return r.json()["response"]
 
 
+# A 33-minute call is ~40k characters. Feeding it whole to a 7B model on CPU is
+# slow and blows the context; feeding only the head (the old `transcript[:8000]`)
+# silently dropped everything after the first few minutes. Map over windows, then
+# reduce. CHUNK is characters, not tokens — good enough and cheap to reason about.
+SUMMARY_CHUNK = int(os.environ.get("CALLREC_CHUNK", "7000"))
+SUMMARY_OVERLAP = 400  # so a topic straddling a boundary survives in one piece
+
+
+def _chunks(text: str, size: int = SUMMARY_CHUNK, overlap: int = SUMMARY_OVERLAP):
+    text = text.strip()
+    if len(text) <= size:
+        return [text]
+    out, i = [], 0
+    while i < len(text):
+        out.append(text[i:i + size])
+        i += size - overlap
+    return out
+
+
+def _summarize_chunked(transcript: str, instructions: str, lang_word: str,
+                       label: str, stream: bool = True) -> str:
+    """Structure a full transcript without truncating it.
+
+    Map: each window is summarized under the same instructions. Reduce: the
+    partial summaries are merged into one note. A single-window transcript skips
+    the reduce step entirely, so short calls cost exactly what they used to.
+    """
+    parts = _chunks(transcript)
+    head = (
+        "Voce e um assistente que organiza transcricoes em notas estruturadas para o Obsidian.\n"
+        f"A transcricao abaixo (em {lang_word}) e de uma {label}.\n"
+        f"{instructions}\n"
+        "Baseie-se EXCLUSIVAMENTE na transcricao; nao invente. "
+        "Responda APENAS com o conteudo em markdown, sem preambulo.\n\n"
+    )
+    if len(parts) == 1:
+        return _ollama_generate(head + "=== TRANSCRICAO ===\n" + parts[0],
+                                stream=stream).strip()
+
+    print(f"  [Ollama] transcricao longa: {len(parts)} trechos")
+    partials = []
+    for n, part in enumerate(parts, 1):
+        print(f"  [Ollama] trecho {n}/{len(parts)}...", flush=True)
+        partials.append(_ollama_generate(
+            head + f"Este e o trecho {n} de {len(parts)} da reuniao.\n"
+            "=== TRECHO ===\n" + part, stream=False).strip())
+
+    print("  [Ollama] consolidando...", flush=True)
+    return _ollama_generate(
+        head + "Abaixo estao resumos parciais de trechos consecutivos da MESMA "
+        "reuniao. Consolide num unico documento, sem repetir item e sem inventar. "
+        "Mantenha exatamente as secoes pedidas acima.\n\n"
+        "=== RESUMOS PARCIAIS ===\n" + "\n\n---\n\n".join(partials),
+        stream=stream).strip()
+
+
+def topic_extract(transcript: str, topic: str, lang_word: str = "portugues") -> str:
+    """Return only the part of the transcript that is about `topic`.
+
+    A call covers several subjects; each destination should receive its own slice,
+    not the whole recording. The topic comes from the person approving the route,
+    so this is a guided cut, not the model guessing what mattered.
+    """
+    if not topic:
+        return transcript
+    parts = _chunks(transcript)
+    kept = []
+    for n, part in enumerate(parts, 1):
+        if len(parts) > 1:
+            print(f"  [Ollama] recorte '{topic}' — trecho {n}/{len(parts)}...", flush=True)
+        got = _ollama_generate(
+            f"A transcricao abaixo (em {lang_word}) e de uma reuniao que cobriu varios assuntos.\n"
+            f"Extraia APENAS as falas que tratam de: {topic}\n"
+            "Copie os trechos relevantes na ordem em que aparecem, sem resumir e sem comentar.\n"
+            "Se este trecho nao tratar do assunto, responda exatamente: (nada)\n\n"
+            "=== TRECHO ===\n" + part, stream=False).strip()
+        if got and got.lower() not in ("(nada)", "nada", "(nada)."):
+            kept.append(got)
+    return "\n\n".join(kept).strip()
+
+
 # ── Vault helpers ─────────────────────────────────────────────────────────────
 
 def read_file(path: str, max_chars: int = None) -> str:
@@ -1269,7 +1350,7 @@ def cmd_note(transcript_path: str, date: str, lang: str = "pt", time_str: str = 
 
 
 def cmd_capture(mode: str, transcript_path: str, date: str,
-                lang: str = "pt", time_str: str = None):
+                lang: str = "pt", time_str: str = None, context: str = ""):
     """Structure a standalone session (project meeting / retrospective / idea
     capture) into an Inbox note for later triage. See CAPTURE_MODES (idea-031)."""
     cfg = CAPTURE_MODES.get(mode)
@@ -1285,16 +1366,9 @@ def cmd_capture(mode: str, transcript_path: str, date: str,
         time_str = datetime.now().strftime("%H-%M")
 
     lang_word = "ingles" if lang == "en" else "portugues"
-    prompt = (
-        "Voce e um assistente que organiza transcricoes em notas estruturadas para o Obsidian.\n"
-        f"A transcricao abaixo (em {lang_word}) e de uma {cfg['label']}.\n"
-        f"{cfg['instructions']}\n"
-        "Baseie-se EXCLUSIVAMENTE na transcricao; nao invente. "
-        "Responda APENAS com o conteudo em markdown, sem preambulo.\n\n"
-        f"=== TRANSCRICAO ===\n{transcript[:8000]}"
-    )
     print(f"\n  [Ollama] Organizando {cfg['label']}...\n")
-    summary = _ollama_generate(prompt, stream=True).strip()
+    summary = _summarize_chunked(transcript, cfg["instructions"], lang_word,
+                                 cfg["label"])
 
     inbox = Path(VAULT) / "Inbox"
     inbox.mkdir(parents=True, exist_ok=True)
@@ -1310,7 +1384,11 @@ def cmd_capture(mode: str, transcript_path: str, date: str,
         "tags: [inbox, triage]\n"
         "---\n\n"
     )
-    body = summary + "\n\n## Transcricao\n\n" + transcript.strip() + "\n"
+    # The context Kelvin typed at triage time (`triage.py --nota`) is the only
+    # record of *why* this recording mattered — it used to be written into the job
+    # sidecar and read by nobody.
+    ctx = f"> **Contexto:** {context.strip()}\n\n" if context.strip() else ""
+    body = ctx + summary + "\n\n## Transcricao\n\n" + transcript.strip() + "\n"
     fpath.write_text(header + body, encoding="utf-8")
     print(f"\n  [OK] Nota salva: Inbox/{fname}")
     print(f"  Status: {cfg['status']} (classifique depois no vault).")
@@ -1629,6 +1707,49 @@ def _bump_retry(job_file, error: str) -> int:
     return job["retry_count"]
 
 
+def check_transcript_quality(transcript_path, text: str = None) -> dict:
+    """Report degenerate stretches in a fresh transcript. Never blocks.
+
+    The pre-existing check judged the whole file by words-per-minute, which
+    catches "everything is garbage" and misses "these fifteen minutes are". On
+    2026-08-28 the OKR 05 call passed it with 8209 words while the first 15
+    minutes of Kelvin's own channel were 30 consecutive hallucinations reading
+    "This is the end of this video" — and he was about to send it to a colleague.
+
+    Deliberately advisory: half a transcript is still worth having, and deleting
+    audio or refusing to file it would be worse than filing it with a warning.
+    What must never happen again is it passing SILENTLY.
+    """
+    try:
+        import transcript_quality as tq
+    except ImportError:
+        return {}
+    try:
+        if text is None:
+            text = Path(transcript_path).read_text(encoding="utf-8", errors="replace")
+        rep = tq.scan(text)
+    except Exception as e:
+        print(f"[qualidade] nao foi possivel avaliar: {e}")
+        return {}
+
+    if rep.get("ok"):
+        return rep
+
+    n = len(rep.get("suspect", []))
+    print(f"[qualidade] *** {n} linha(s) suspeita(s) em "
+          f"{Path(transcript_path).name} ***")
+    for sp, d in rep.get("speakers", {}).items():
+        if d["suspeitas"]:
+            print(f"[qualidade]   {sp}: {d['suspeitas']}/{d['total']} "
+                  f"({d['suspeitas'] / d['total'] * 100:.0f}% do canal)")
+    for run in rep.get("runs", []):
+        print(f"[qualidade]   audio mudo de {run[0][0] / 60:.1f} a "
+              f"{run[-1][0] / 60:.1f} min ({len(run)} linhas inventadas)")
+    print(f"[qualidade]   limpar com: python transcript_quality.py "
+          f"{Path(transcript_path).name} --limpar")
+    return rep
+
+
 def maybe_run_coach(transcript_path, effective_lang: str, forced: bool = False) -> bool:
     """Single entry point for firing the English Coach. Returns True if it ran.
 
@@ -1691,6 +1812,22 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
             tpath = Path(job["transcript"])
             tpath.parent.mkdir(parents=True, exist_ok=True)
             tpath.write_text(transcript_text, encoding="utf-8")
+            check_transcript_quality(tpath, transcript_text)
+
+            # Autocapture jobs park here instead of being filed (ADR 2026-08-28):
+            # the destination was guessed from the Teams window title before anyone
+            # could read a word of the call, and one call routinely covers several
+            # subjects. Now that the transcript exists, routing happens against the
+            # content — see route.py. A manually started recording skips this: the
+            # person who hit record already knew where it belonged.
+            if job.get("route_after_transcript"):
+                job["transcript_ready"] = True
+                job["lang_detected"] = effective_lang
+                jf.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
+                maybe_run_coach(tpath, effective_lang, forced=bool(job.get("coach")))
+                jf.rename(jf.with_suffix(".json.routing"))
+                result["processed"].append(jf.name)
+                continue
 
             kind, date = job["kind"], job["date"]
             if kind == "person":
@@ -1701,7 +1838,8 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
             elif kind == "note":
                 cmd_note(str(tpath), date, lang=effective_lang, time_str=job.get("time"))
             elif kind in CAPTURE_MODES:
-                cmd_capture(kind, str(tpath), date, lang=effective_lang, time_str=job.get("time"))
+                cmd_capture(kind, str(tpath), date, lang=effective_lang,
+                            time_str=job.get("time"), context=job.get("context", ""))
 
             maybe_run_coach(tpath, effective_lang, forced=bool(job.get("coach")))
 
