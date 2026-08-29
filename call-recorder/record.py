@@ -34,6 +34,10 @@ RECORDINGS_RETENTION_DAYS = 7   # áudios em recordings/ mais antigos que isto s
 # Kelvin and channel 1 is always the interlocutor, which makes speaker attribution
 # exact instead of something an LLM has to guess from the text afterwards.
 CAPTURE_SYSTEM_AUDIO = os.environ.get("CAPTURE_SYSTEM_AUDIO", "1") != "0"
+# INTERFACE EXTERNA desde 2026-08-29 (P1 do PM review): o Team Memory Agent
+# consome transcripts das Daily BIZ/PM via discover_sources() e parseia o
+# formato de linha `[012.4s] Kelvin: ...`. Mudar rotulo, timestamp ou separador
+# quebra um consumidor FORA deste repo - coordenar antes.
 SPEAKER_LABELS = ("Kelvin", "Interlocutor")
 
 # Spool: during capture each channel streams to disk incrementally instead of

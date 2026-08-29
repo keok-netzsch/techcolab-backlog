@@ -1,5 +1,10 @@
 # Lembrete de roteamento - call recorder
 #
+# SUBSTITUICAO APROVADA (P3, PM review 2026-08-29): este script sera absorvido
+# pelo motor unico de notificacao do toolkit. NAO investir em melhorias aqui -
+# so correcao que o mantenha funcionando ate a troca.
+# Plano: vault/pm-review-toolkit-2026-08-29.md
+#
 # Avisa o Kelvin, de manha, que ha calls transcritas na noite anterior esperando
 # destino no vault.
 #

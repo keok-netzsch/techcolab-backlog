@@ -8,6 +8,19 @@ PowerShell + Python tool that records speech, transcribes with Whisper (local, C
 
 ---
 
+## Doc triad (regra aprovada 2026-08-29)
+
+Toda mudanca no call-recorder atualiza, NA MESMA ENTREGA, os tres documentos:
+este `CLAUDE.md` (tecnico), `GOVERNANCE.md` (proposito/privacidade — tem 2
+perguntas ABERTAS que so o Kelvin responde; nao fechar nem assumir resposta) e
+`USER-GUIDE.md` (operacao). Mudou tarefa agendada → atualiza tambem
+`docs/scheduled-automation.md`. Hosting: local-por-design PERMANENTE (hardware
+de audio + dado sensivel) — nao propor migracao para cloud.
+
+**Interface externa (P1):** o Team Memory Agent consome transcripts das Daily
+BIZ/PM e parseia o formato `[012.4s] Kelvin: ...`. Mudanca de formato de
+transcript e mudanca de contrato — coordenar antes.
+
 ## Call Recorder 2.0 (2026-08-26) — READ THIS FIRST
 
 Two assumptions from 1.x are **dead**. Do not reason from them, and do not
@@ -243,3 +256,24 @@ routing and self-tests without revealing the key.
 Path: `%USERPROFILE%\techcolab-backlog\call-recorder\.venv`
 Activate: `.\.venv\Scripts\Activate.ps1`
 Key packages: `faster-whisper`, `sounddevice`, `soundfile`, `numpy`, `requests`
+
+---
+
+## Coordenacao PM review 2026-08-29 (aprovado pelo Kelvin)
+
+Plano completo: vault/pm-review-toolkit-2026-08-29.md + ADR 2026-08-29-doc-triad-e-producao.md.
+Impactos aqui:
+
+- **Triade de docs e obrigatoria**: mudanca no call-recorder atualiza CLAUDE.md +
+  GOVERNANCE.md + USER-GUIDE.md na mesma entrega. GOVERNANCE tem 2 perguntas abertas
+  (consentimento, retencao) que so o Kelvin fecha.
+- **P1**: transcripts das Daily BIZ/PM virarao fonte do Team Memory Agent. O formato
+  2-canais `[012.4s] Kelvin: ...` e INTERFACE externa — nao mudar sem coordenar.
+- **P3**: scripts/triage-reminder.ps1 sera absorvido por um motor unico de notificacao —
+  nao investir nele.
+- **P5**: runtime Whisper sera unificado com o voice-dictate — nao hardcodar path novo de
+  modelo.
+- **P6**: deutsch coach v2 reusara o pipeline de audio — preferir componentes reusaveis
+  (captura / transcricao / avaliacao) ao refatorar.
+- Task agendada mudou? Atualizar docs/scheduled-automation.md na mesma mudanca.
+- Hosting: local-por-design permanente. Nao propor cloud.
