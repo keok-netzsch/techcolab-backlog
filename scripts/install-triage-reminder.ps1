@@ -3,11 +3,13 @@
 #   .\install-triage-reminder.ps1            # instala / reinstala
 #   .\install-triage-reminder.ps1 -Remove    # desinstala
 #
-# 16:00 on weekdays, deliberately INSIDE working hours: classifying is a task for
-# Kelvin at his desk, not something to find at night. The queue that consumes the
-# decisions runs at 20:00, long after he has stopped working - so the order is
-# decide first, process later, and anything classified by 16:00 is filed to the
-# right place in the same batch instead of landing in the Inbox to be moved by hand.
+# 09:00 on weekdays. It was 16:00 until 2026-08-28, which was simply too early:
+# routing now happens against the TRANSCRIPT, and the transcript does not exist
+# until the 20:00 batch has run. At 16:00 there was nothing to read.
+#
+# So the order is: record all day -> transcribe at 20:00 -> route in the morning,
+# with the content in hand. See "Routing happens after transcription" in
+# call-recorder/CLAUDE.md.
 
 param([switch]$Remove)
 
@@ -29,9 +31,9 @@ $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $scrip
 $acao = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg
 
 $gatilho = New-ScheduledTaskTrigger -Weekly `
-    -DaysOfWeek Monday, Tuesday, Wednesday, Thursday, Friday -At "16:00"
+    -DaysOfWeek Monday, Tuesday, Wednesday, Thursday, Friday -At "09:00"
 
-# StartWhenAvailable: se a maquina estiver desligada as 16:00, o lembrete
+# StartWhenAvailable: se a maquina estiver desligada as 09:00, o lembrete
 # aparece no proximo logon em vez de simplesmente sumir naquele dia.
 $cfg = New-ScheduledTaskSettingsSet -StartWhenAvailable `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
@@ -39,7 +41,7 @@ $cfg = New-ScheduledTaskSettingsSet -StartWhenAvailable `
 
 Register-ScheduledTask -TaskName $nome -Action $acao -Trigger $gatilho `
     -Settings $cfg -Force `
-    -Description "Pede ao Kelvin para classificar gravacoes que o autocapture nao conseguiu rotear. Roda antes da fila das 20:00." | Out-Null
+    -Description "Avisa o Kelvin de manha que ha calls transcritas na noite anterior esperando destino no vault (route.py)." | Out-Null
 
 $t = Get-ScheduledTask -TaskName $nome
 $i = $t | Get-ScheduledTaskInfo
