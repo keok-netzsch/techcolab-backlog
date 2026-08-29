@@ -1,6 +1,12 @@
-# Daily sensitive-content scan for the D&A team central vault (10_2ndBrain).
-# Report-only - never writes to, edits, or deletes anything inside the central vault.
-# Companion to vault-central-consolidation-agent.ps1 (same read-only design).
+# Sensitive-content scan for the D&A team central vault (10_2ndBrain).
+# Companion to vault-central-consolidation-agent.ps1.
+#
+# NOT report-only since 2026-08-29, on Kelvin's explicit instruction: a file with a
+# NEW finding is pulled out of the shared vault IMMEDIATELY (moved to a quarantine
+# folder off SharePoint, content fully preserved) and only returns after his review.
+# The 08:15 consolidation agent will flag these removals - that is the audit trail,
+# not a malfunction. SharePoint version history still holds the old content; full
+# cleanup of a real leak also needs the version history handled manually.
 #
 # Why it exists (2026-08-29): a manual sweep found that an exclusion note in
 # okr-ownership-roster.md had leaked the very confidential fact it was excluding.
@@ -105,6 +111,38 @@ foreach ($file in $files) {
 $newFindings = @($findings | Where-Object { -not $_.Known })
 $knownFindings = @($findings | Where-Object { $_.Known })
 
+# --- Quarantine (Kelvin's instruction, 2026-08-29): any file with a NEW finding is
+# moved out of the shared vault immediately. It comes back only after his review -
+# the report below carries a ready-to-paste restore command per file.
+# Skipped under -UpdateBaseline: that run IS the review (he is accepting findings).
+# .NET IO calls throughout because vault folder names contain [brackets].
+$quarantineRoot = "C:\Users\Kelvin.okuda\VaultBackups\10_2ndBrain-quarantine"
+$quarantineLog = Join-Path $reportDir "sensitive-quarantine-log.md"
+$quarantined = @()
+$quarantineFailed = @()
+if (-not $UpdateBaseline -and $newFindings.Count -gt 0) {
+    $filesToPull = @($newFindings | ForEach-Object { $_.File } | Sort-Object -Unique)
+    foreach ($rel in $filesToPull) {
+        $src = Join-Path $vaultPath $rel
+        $dst = Join-Path (Join-Path $quarantineRoot $today) $rel
+        try {
+            [System.IO.Directory]::CreateDirectory([System.IO.Path]::GetDirectoryName($dst)) | Out-Null
+            if ([System.IO.File]::Exists($dst)) { $dst = "$dst.$((Get-Date).ToString('HHmmss'))" }
+            [System.IO.File]::Move($src, $dst)
+            $quarantined += New-Object PSObject -Property @{ File = $rel; Dest = $dst }
+        } catch {
+            $quarantineFailed += New-Object PSObject -Property @{ File = $rel; Error = $_.Exception.Message }
+        }
+    }
+    if ($quarantined.Count -gt 0 -or $quarantineFailed.Count -gt 0) {
+        $logLines = @("## $((Get-Date).ToString('yyyy-MM-dd HH:mm')) - $($quarantined.Count) file(s) quarantined")
+        foreach ($q in $quarantined) { $logLines += "- ``$($q.File)`` -> ``$($q.Dest)``" }
+        foreach ($q in $quarantineFailed) { $logLines += "- FAILED to quarantine ``$($q.File)``: $($q.Error)" }
+        $logLines += ""
+        Add-Content -Path $quarantineLog -Value ($logLines -join "`r`n") -Encoding utf8
+    }
+}
+
 # Baseline update is an explicit, manual act - after a human reviewed the report.
 if ($UpdateBaseline) {
     $allKeys = @($findings | ForEach-Object { $_.Key } | Sort-Object -Unique)
@@ -116,17 +154,22 @@ $r = New-Object System.Collections.Generic.List[string]
 $r.Add("# Vault Central Sensitive Scan - $today")
 $r.Add("")
 $r.Add("Scanned $($files.Count) text files in ``10_2ndBrain`` against $($patternGroups.Count) pattern groups (comp / money / hr / secret / confid).")
-$r.Add("Baseline: $($baseline.Count) reviewed-as-benign findings. Read-only - nothing in the central vault was touched.")
+$r.Add("Baseline: $($baseline.Count) reviewed-as-benign findings.")
 $r.Add("")
 
 if ($newFindings.Count -eq 0) {
     $r.Add("## Result: OK - no new findings")
     $r.Add("")
     $r.Add("$($knownFindings.Count) known (baselined) matches, nothing new since the last reviewed baseline.")
+    $todayQuarantine = Join-Path $quarantineRoot $today
+    if ([System.IO.Directory]::Exists($todayQuarantine)) {
+        $r.Add("")
+        $r.Add("NOTE: files were quarantined earlier today and may still be pending your review - see ``sensitive-quarantine-log.md``.")
+    }
 } else {
     $r.Add("## Result: ATTENTION - $($newFindings.Count) NEW finding(s)")
     $r.Add("")
-    $r.Add("Review each one. If benign, re-run with ``-UpdateBaseline`` to accept; if sensitive, fix the file in the central vault (and remember SharePoint version history keeps old versions).")
+    $r.Add("Files with new findings were PULLED FROM THE VAULT (quarantine, content preserved). Review each: if benign, restore with the command below and re-run with ``-UpdateBaseline`` to accept; if sensitive, edit the quarantined copy and restore only the clean version (SharePoint version history still keeps old versions - handle it there too).")
     $r.Add("")
     $r.Add("| Group | File | Line | Excerpt |")
     $r.Add("|---|---|---|---|")
@@ -135,6 +178,26 @@ if ($newFindings.Count -eq 0) {
         $r.Add("| $($f.Group) | $($f.File) | $($f.Line) | $safeExcerpt |")
     }
     $r.Add("")
+    if ($quarantined.Count -gt 0) {
+        $r.Add("### Quarantined - restore after review")
+        $r.Add("")
+        foreach ($q in $quarantined) {
+            $restoreDst = Join-Path $vaultPath $q.File
+            $r.Add("- ``$($q.File)``")
+            $r.Add('  ```powershell')
+            $r.Add("  [System.IO.File]::Move(`"$($q.Dest)`", `"$restoreDst`")")
+            $r.Add('  ```')
+        }
+        $r.Add("")
+    }
+    if ($quarantineFailed.Count -gt 0) {
+        $r.Add("### Quarantine FAILED (file still in the vault - handle manually)")
+        $r.Add("")
+        foreach ($q in $quarantineFailed) {
+            $r.Add("- ``$($q.File)``: $($q.Error)")
+        }
+        $r.Add("")
+    }
     $r.Add("Known (baselined) matches: $($knownFindings.Count).")
 }
 
@@ -145,7 +208,7 @@ if ($UpdateBaseline) {
 
 $r.Add("")
 $r.Add("---")
-$r.Add("Generated by ``scripts/vault-central-sensitive-scan.ps1`` (techcolab-backlog). Scheduled task: D&A Vault Central Sensitive Scan, daily 08:25.")
+$r.Add("Generated by ``scripts/vault-central-sensitive-scan.ps1`` (techcolab-backlog). Scheduled task: D&A Vault Central Sensitive Scan, hourly 08:25-18:25.")
 
 Set-Content -Path $reportPath -Value ($r -join "`r`n") -Encoding utf8
 
