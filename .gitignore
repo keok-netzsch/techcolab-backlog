@@ -60,3 +60,11 @@ backlog items/
 
 # Preview/dev server logs
 preview-*.log
+
+# Artefatos de execucao do call-recorder (nunca versionar)
+call-recorder/record.log
+call-recorder/which_mic_result.txt
+
+# Inventario do vault central: caminhos + hashes de arquivo do 10_2ndBrain.
+# Este repo e PUBLICO - a estrutura de pastas do vault ja e informacao demais.
+scripts/vault-central-snapshot.csv

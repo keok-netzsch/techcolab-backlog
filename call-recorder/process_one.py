@@ -65,6 +65,16 @@ def main():
     Path(str(tpath) + ".lang").write_text(effective, encoding="utf-8")
     print(f"[one] transcrito: {len(text.split())} palavras, lang={effective}")
 
+    if job.get("route_after_transcript"):
+        job["transcript_ready"] = True
+        job["lang_detected"] = effective
+        jf.write_text(json.dumps(job, ensure_ascii=False), encoding="utf-8")
+        proc.maybe_run_coach(tpath, effective, forced=bool(job.get("coach")))
+        jf.rename(jf.with_suffix(".json.routing"))
+        print(f"[one] transcrito e parqueado para roteamento: {jf.stem}")
+        print("[one] proximo passo: python route.py")
+        return
+
     kind, date = job["kind"], job["date"]
     if kind == "person":
         proc.cmd_transcript(job["target"], str(tpath), date,
@@ -75,7 +85,7 @@ def main():
         proc.cmd_note(str(tpath), date, lang=effective, time_str=job.get("time"))
     elif kind in proc.CAPTURE_MODES:
         proc.cmd_capture(kind, str(tpath), date, lang=effective,
-                         time_str=job.get("time"))
+                         time_str=job.get("time"), context=job.get("context", ""))
     else:
         print(f"[one] kind desconhecido '{kind}' — transcrito, mas nao roteado.")
 

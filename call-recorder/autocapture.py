@@ -100,11 +100,85 @@ def teams_window_title() -> str:
     return max(titles, key=len) if titles else ""
 
 
-def record_call() -> None:
-    """Capture until Teams releases the mic, then persist wav + pending sidecar."""
+def _rescue_spools() -> None:
+    """Turn spool files left by a dead process into a normal recording.
+
+    The spool is the crash insurance: capture streams to disk every 200ms, so
+    if the machine rebooted or the watcher was killed mid-call, the audio up to
+    that moment is sitting in `_spool_ch*.<pid>.wav`. Only COLD spools are
+    taken (mtime older than 30s) — a live capture touches its spool constantly,
+    which makes freshness a liveness check that survives PID reuse.
+    """
+    import re
+
     import numpy as np
     import soundfile as sf
 
+    spools = sorted(RECORDINGS.glob("_spool_ch*.wav"))
+    if not spools:
+        return
+
+    by_pid = {}
+    for p in spools:
+        m = re.match(r"_spool_ch([01])\.(\d+)\.wav$", p.name)
+        if not m:
+            continue
+        if time.time() - p.stat().st_mtime < 30:
+            continue                     # captura viva escrevendo agora
+        by_pid.setdefault(m.group(2), {})[int(m.group(1))] = p
+
+    for pid, chans in by_pid.items():
+        tracks = []
+        for ch in (0, 1):
+            p = chans.get(ch)
+            if p is None:
+                tracks.append(None)
+                continue
+            try:
+                d, _sr = sf.read(str(p), dtype="float32")
+                tracks.append(d.reshape(-1, 1))
+            except Exception as e:
+                log(f"resgate: spool {p.name} ilegivel ({e})")
+                tracks.append(None)
+
+        n = max((len(t) for t in tracks if t is not None), default=0)
+        seconds = n / record.SAMPLE_RATE
+        stamp = None
+        for p in chans.values():
+            stamp = datetime.fromtimestamp(p.stat().st_mtime)
+            break
+
+        if seconds >= MIN_SECONDS:
+            full = [t if t is not None and len(t) else np.zeros((n, 1), dtype="float32")
+                    for t in tracks]
+            full = [t[:n] if len(t) >= n else
+                    np.vstack([t, np.zeros((n - len(t), 1), dtype="float32")])
+                    for t in full]
+            base = f"{stamp:%Y-%m-%d_%H-%M}_auto-recovered"
+            wav = RECORDINGS / f"{base}.wav"
+            sf.write(wav, np.concatenate(full, axis=1), record.SAMPLE_RATE)
+            (RECORDINGS / f"{base}.pending.json").write_text(json.dumps({
+                "wav": wav.name,
+                "source": "spool-rescue",
+                "ended": stamp.isoformat(timespec="seconds"),
+                "duration_s": round(seconds),
+                "window_title": "",
+                "channels": list(record.SPEAKER_LABELS),
+            }, ensure_ascii=False, indent=2), encoding="utf-8")
+            log(f"resgate: {wav.name} ({seconds/60:.1f} min) recuperado de spool "
+                f"de processo morto (pid {pid})")
+        else:
+            log(f"resgate: spool do pid {pid} com {seconds:.0f}s (< {MIN_SECONDS}s) - descartado")
+
+        for p in chans.values():
+            try:
+                p.unlink()
+            except OSError:
+                pass
+
+
+def record_call() -> None:
+    """Capture until Teams releases the mic, then persist wav + pending sidecar."""
     started = datetime.now()
     title = teams_window_title()
     log(f"call detectada -> gravando  {('| ' + title) if title else ''}")
@@ -125,18 +199,30 @@ def record_call() -> None:
             time.sleep(POLL_SECONDS)
 
     threading.Thread(target=watch, daemon=True).start()
-    dual = record.capture_dual(stop.is_set)
-    stop.set()
+    try:
+        dual = record.capture_dual(stop.is_set)
+        stop.set()
 
-    if dual is None:
-        log("[WARN] captura falhou - nada gravado.")
-        return
+        if dual is None:
+            log("[WARN] captura falhou - nada gravado. Ver record.log para a causa.")
+            return
 
-    mic, sysa = dual
-    seconds = len(mic) / record.SAMPLE_RATE
-    if seconds < MIN_SECONDS:
-        log(f"descartado: {seconds:.0f}s (< {MIN_SECONDS}s)")
-        return
+        mic, sysa = dual
+        seconds = len(mic) / record.SAMPLE_RATE
+        if seconds < MIN_SECONDS:
+            log(f"descartado: {seconds:.0f}s (< {MIN_SECONDS}s)")
+            return
+        _persist_call(started, title, mic, sysa, seconds)
+    finally:
+        # Spools ja cumpriram o papel (o wav final existe, ou a captura foi
+        # descartada de proposito). Sem isto, o resgate do proximo startup
+        # ressuscitaria uma call curta que foi descartada por decisao.
+        record.cleanup_spools()
+
+
+def _persist_call(started, title, mic, sysa, seconds) -> None:
+    import numpy as np
+    import soundfile as sf
 
     # Diagnostico por canal, gravado no log e no sidecar. Um canal plano pode
     # ser mute do usuario (legitimo) ou endpoint errado (bug), e depois do fato
@@ -205,6 +291,10 @@ def main() -> None:
 
     log(f"autocapture iniciado (poll {POLL_SECONDS}s, minimo {MIN_SECONDS}s)")
     log(f"para pausar, crie: {PAUSE_FILE}")
+    try:
+        _rescue_spools()
+    except Exception as e:
+        log(f"[WARN] resgate de spools falhou: {e}")
     was_active = False
     while True:
         try:
