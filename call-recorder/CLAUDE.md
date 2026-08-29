@@ -55,6 +55,16 @@ where it belonged.
 Consequence for the 16:00 `triagem-gravacoes` routine: at 16:00 there is nothing
 transcribed to read. Review belongs in the morning, after the 20:00 batch.
 
+### Regras de roteamento (decisoes do Kelvin)
+
+- **Daily BIZ / Daily PM = territorio do Team Memory Agent** (29/08/2026). O TMA
+  ja captura o resumo docx dessas series e consolida no vault central; rotear o
+  audio inteiro duplicaria o mesmo fato com versoes divergentes. No roteamento:
+  ficar SO com o que e pessoal do Kelvin (decisao dele, 1:1 embutido, item de
+  stakeholder) e `--descartar` o resto. A regra vive em `ROUTING_RULES` no
+  `route.py` e aparece na propria listagem (humana e `--json`, campo `rule`) -
+  a sessao que roteia a ve sem depender deste arquivo.
+
 ### Consent
 
 Recording now captures the other person's voice, not just Kelvin's. He chose to

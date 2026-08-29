@@ -83,6 +83,31 @@ def _transcript_text(j) -> str:
         return t.read_text(encoding="utf-8", errors="replace")
 
 
+# ── Regras de roteamento por reuniao ─────────────────────────────────────────
+# Decididas pelo Kelvin; aparecem na listagem (humana e --json) para que a
+# sessao que roteia as veja SEM depender de ter lido CLAUDE.md ou o ADR.
+#
+# 2026-08-29 — Daily BIZ / Daily PM sao territorio do Team Memory Agent: o TMA
+# ja captura o resumo docx dessas series e consolida no vault central. Sem esta
+# regra, o mesmo fato do time apareceria no relatorio semanal do TMA e numa
+# nota roteada, com versoes divergentes. Aqui, rotear SO o que e pessoal do
+# Kelvin (decisao dele, 1:1 embutido, item de stakeholder) e descartar o resto.
+ROUTING_RULES = [
+    (("daily biz", "daily pm"),
+     "territorio do TMA - rotear SO o pessoal do Kelvin (decisao dele, 1:1 "
+     "embutido, item de stakeholder); o resto --descartar. "
+     "ADR 2026-08-29-call-recorder-avaliacao-arquitetura.md, secao C1"),
+]
+
+
+def rule_for(meeting: str) -> str:
+    m = (meeting or "").lower()
+    for keys, guidance in ROUTING_RULES:
+        if any(k in m for k in keys):
+            return guidance
+    return ""
+
+
 def listar(as_json=False):
     rows = []
     for p in _parked():
@@ -98,6 +123,7 @@ def listar(as_json=False):
             "context": j.get("context", ""),
             "words": len(text.split()),
             "transcript": j.get("transcript", ""),
+            "rule": rule_for(_meeting(j)),
         })
     if as_json:
         print(json.dumps(rows, ensure_ascii=False))
@@ -111,6 +137,8 @@ def listar(as_json=False):
         print(f"     {r['date']} {r['time']}  {r['meeting']}  ({r['words']} palavras)")
         if r["context"]:
             print(f"     contexto: {r['context']}")
+        if r["rule"]:
+            print(f"     REGRA: {r['rule']}")
         print()
     print("Para rotear:")
     print("   python route.py <trecho> --para person:Ana-Leite --assunto \"...\"")

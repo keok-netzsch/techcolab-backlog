@@ -115,3 +115,19 @@ def test_unparseable_time_is_refused_not_coerced_to_zero():
     except SystemExit:
         return
     raise AssertionError("tempo invalido deveria ser recusado")
+
+
+# ── Regras de roteamento por reuniao (decisao do Kelvin, 2026-08-29) ─────────
+# Daily BIZ/PM sao territorio do Team Memory Agent; a listagem tem que carregar
+# a regra junto, senao a sessao que roteia arquiva o mesmo fato duas vezes.
+
+
+def test_rule_for_daily_biz_e_pm():
+    assert "TMA" in route.rule_for("Ingresso na reuniao | Daily BIZ | Microsoft Teams")
+    assert "TMA" in route.rule_for("Meeting join | Daily PM | Microsoft Teams")
+
+
+def test_rule_for_nao_pega_outras_reunioes():
+    assert route.rule_for("Jour Fixe KO <> AR | Microsoft Teams") == ""
+    assert route.rule_for("BIA War Room") == ""
+    assert route.rule_for("") == ""
