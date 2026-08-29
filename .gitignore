@@ -68,3 +68,7 @@ call-recorder/which_mic_result.txt
 # Inventario do vault central: caminhos + hashes de arquivo do 10_2ndBrain.
 # Este repo e PUBLICO - a estrutura de pastas do vault ja e informacao demais.
 scripts/vault-central-snapshot.csv
+
+# Roster do time (nomes + paths de maquina dos liderados) - repo e PUBLICO.
+# O script fica so neste disco; a tarefa agendada nao depende dele.
+scripts/validate-vault-setup.ps1
