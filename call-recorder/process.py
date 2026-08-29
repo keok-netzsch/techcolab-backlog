@@ -1911,6 +1911,18 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
     Meant to run in the idle-time daily agent so Whisper+LLM stay off working hours."""
     rdir = Path(recordings_dir) if recordings_dir else (Path(__file__).parent / "recordings")
     result = {"processed": [], "failed": [], "skipped": []}
+
+    # Classificar ANTES de listar: o autocapture escreve .pending.json e NADA o
+    # convertia em .job.json automaticamente - o elo era manual e, quando ninguem
+    # lembrava, a gravacao ficava para sempre fora da fila (3 calls de 28/08
+    # ficaram assim). Subprocess isolado: um erro do classify nao derruba o lote.
+    # So no diretorio real - em teste (tmp_path) nao ha por que tocar o de verdade.
+    if not dry_run and rdir == (Path(__file__).parent / "recordings")             and any(rdir.glob("*.pending.json")):
+        classify_py = Path(__file__).parent / "classify.py"
+        if classify_py.exists():
+            print("[queue] classificando pendentes do autocapture...")
+            subprocess.run([sys.executable, str(classify_py), "--apply"], check=False)
+
     jobs = sorted(rdir.glob("*.job.json")) if rdir.exists() else []
     if not jobs:
         return result

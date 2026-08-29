@@ -149,10 +149,12 @@ def build_job(pending_path: Path, pending: dict, verdict: dict) -> dict:
         "needs_review": bool(verdict.get("needs_review")),
         # ADR vault/decisions/2026-08-28-roteamento-por-assunto.md moves routing to
         # after transcription, so a call can be filed by subject into more than one
-        # destination. OFF until the slicing mechanism is settled: the first attempt
-        # asked Ollama to pull the relevant passages and qwen2.5-coder answered
-        # "(nada)" for a chunk that plainly discussed the topic. Flipping this to
-        # True with no working slicer would park every recording and file nothing.
+        # destination. ON since 2026-08-29: the slicer is NOT Ollama (qwen2.5-coder
+        # answered "(nada)" for a chunk that plainly discussed the topic) - it is
+        # Claude reading the transcript in the 09:00 `triagem-gravacoes` routine,
+        # authorized by Kelvin on 2026-08-29 for this purpose only. Flipping this
+        # back to False silently recreates the split-brain closed that day: nothing
+        # parks, route.py always answers [], and the reminder goes mute.
         "route_after_transcript": True,
     }
 

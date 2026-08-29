@@ -35,6 +35,9 @@ try {
     # deixa o arquivo vazio e nao ha como saber onde ela parou.
     & python -u "process.py" queue 2>&1 | Tee-Object -FilePath $log -Append
     $rc = $LASTEXITCODE
+    # O sweep (reprocessa transcricoes falhas) morava no daily_report e veio
+    # junto com a fila - e trabalho de Whisper, pertence a noite, nao a manha.
+    & python -u "process.py" sweep 2>&1 | Tee-Object -FilePath $log -Append
 } catch {
     "ERRO: $($_.Exception.Message)" | Out-File $log -Append -Encoding utf8
     $rc = 1

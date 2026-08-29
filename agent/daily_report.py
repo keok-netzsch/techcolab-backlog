@@ -784,55 +784,37 @@ def main() -> int:
     safe_print("[agent] Updating Claude Pro data (backlog stats)...")
     _update_claude_pro_data(ideas)
 
-    # Process queued recordings (decoupled recorder) + reprocess failed ones.
-    # Heavy Whisper+LLM work runs here, off the user's working hours.
+    # A fila de transcricao NAO roda mais aqui (2026-08-29). Duas tarefas
+    # apontavam para este mesmo script e a analise de ideias consumia o limite de
+    # 6h antes de o Whisper comecar - 10 gravacoes ficaram paradas em .wav sem
+    # nenhum sinal de falha. A fila agora e a tarefa CallRecorder-Queue (20:00,
+    # scripts/run-queue.ps1), single-flight via recordings/.queue.lock.
     #
-    # The guard below matters more than the trigger time. Whisper takes all 12
-    # cores for hours: on 2026-08-26 a run that started at 17:30 was still going
-    # at 19:20 with the machine at 100% CPU and 705 MB RAM free, and transcription
-    # crawled at 6x slower than realtime because it was fighting Kelvin's own
-    # session. Task Scheduler catch-up makes this worse, not better — a missed
-    # night fires at next logon, which is exactly 07:30. So the job decides for
-    # itself whether now is an acceptable time, regardless of why it was started.
-    # Manual runs (`python process.py queue`) are unaffected; this only guards the
-    # scheduled path. Override with QUEUE_ANYTIME=1.
-    _hour = datetime.now().hour
-    if os.environ.get("QUEUE_ANYTIME") != "1" and 7 <= _hour < 18:
-        safe_print(f"[agent] Fila de gravacoes ADIADA: {_hour}h esta dentro do "
-                   f"horario de trabalho (07-18h). Whisper tomaria a maquina "
-                   f"por horas. Rode a mao se precisar agora: "
-                   f"python call-recorder/process.py queue")
-        _skip_queue = True
-    else:
-        _skip_queue = False
-
-    safe_print("[agent] Processing queued recordings + sweeping failed ones...")
+    # O que ESTE relatorio faz, fiel ao papel de health check do Toolkit 2.0
+    # ("it states; it does not ask"): dizer quando a fila esta ENGASGADA. Foi a
+    # observabilidade que faltou - o backlog de .wav so foi visto por acaso.
+    safe_print("[agent] Checking recording queue health...")
     try:
-        if _skip_queue:
-            raise RuntimeError("adiado pelo guard de horario de trabalho")
-        import sys as _sys
-        _cr = str(Path(__file__).parent.parent / "call-recorder")
-        if _cr not in _sys.path:
-            _sys.path.insert(0, _cr)
-        import process as _proc
-        _q = _proc.cmd_queue()
-        if _q["processed"]:
-            safe_print(f"[agent] Queue: processed {len(_q['processed'])} recording(s)")
-        # Failures used to be dropped on the floor here: only "processed" was
-        # ever printed. On 2026-08-26 a 43-min call transcribed to 98% dots and
-        # the run still reported success, because nothing read this list.
-        if _q["failed"]:
-            safe_print(f"[agent] !! Queue: {len(_q['failed'])} recording(s) FAILED "
-                       f"- job kept in recordings/ for retry:")
-            for _f in _q["failed"]:
-                safe_print(f"[agent]    {_f}")
-        if _q["skipped"]:
-            safe_print(f"[agent] Queue: {len(_q['skipped'])} orphan job(s) dropped")
-        _sw = _proc.cmd_sweep()
-        if _sw["reprocessed"]:
-            safe_print(f"[agent] Reprocessed {len(_sw['reprocessed'])} call(s): {_sw['reprocessed']}")
+        _rdir = Path(__file__).parent.parent / "call-recorder" / "recordings"
+        _now = datetime.now().timestamp()
+        _age_h = lambda p: (_now - p.stat().st_mtime) / 3600
+        _stuck = {
+            "pendentes sem classificar (>36h)":
+                [p.name for p in _rdir.glob("*.pending.json") if _age_h(p) > 36],
+            "jobs sem transcrever (>36h)":
+                [p.name for p in _rdir.glob("*.job.json") if _age_h(p) > 36],
+            "transcritos sem rotear (>72h)":
+                [p.name for p in _rdir.glob("*.job.json.routing") if _age_h(p) > 72],
+            "esgotados (falha permanente)":
+                [p.name for p in _rdir.glob("*.job.json.exhausted")],
+        }
+        for _label, _names in _stuck.items():
+            if _names:
+                safe_print(f"[agent] !! Fila engasgada - {_label}: {len(_names)}")
+                for _n in _names[:6]:
+                    safe_print(f"[agent]    {_n}")
     except Exception as _e:
-        safe_print(f"[agent] Call queue/sweep skipped: {_e}")
+        safe_print(f"[agent] Queue health check failed: {_e}")
 
     # Audio retention: enforce RECORDINGS_RETENTION_DAYS every day.
     # record.prune_old_recordings() was only ever called from record.py, i.e. only
