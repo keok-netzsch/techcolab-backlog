@@ -83,6 +83,7 @@ and do not quietly disable capture either. The controls that exist are enough:
 | `which_mic.py` | Diagnostico: grava TODAS as entradas por N segundos enquanto o Kelvin fala e diz qual ouviu a voz dele. Dirigido por VOZ HUMANA de proposito — um teste com tom sintetico declarou o microfone bom quando o que a entrada captava era crosstalk eletrico do proprio jack, e as tres calls seguintes gravaram zumbido. Reporta tambem as entradas que NAO ABRIRAM, com o codigo do PortAudio: engolir esse erro faz "nem abriu" parecer "gravou e nao ouviu nada". Salva em `which_mic_result.txt`. |
 | `transcript_quality.py` | **Gate de qualidade por TRECHO (2026-08-28).** Complementa `audit_transcripts.py`, nao substitui: aquele julga o arquivo inteiro por palavras-por-minuto e pega "tudo degenerado"; este pega "estes 15 minutos degeneraram". Sinal principal e ESTRUTURAL — o Whisper decodifica em janelas de 30 s e, em janela sem fala, emite algo que cai em 0.0/30.0/60.0; tres seguidas e conclusivo, em qualquer idioma. Reporta POR FALANTE, porque a falha do OKR 05 era de um canal so. Advisory: nunca bloqueia. `--todos` audita tudo, `--limpar` grava versao limpa. |
 | `triage.py` | O Kelvin classifica o que a maquina nao soube. Gravacao marcada `needs_review` espera aqui em vez de ser arquivada sob palpite. `--lembrar` grava o titulo em `meeting-aliases.json`, entao reuniao recorrente se classifica sozinha da segunda vez — a decisao humana e tomada uma vez, nao toda semana. `--json` para consumo por script (o lembrete grafico lia o texto formatado com regex e passou a achar ZERO pendentes quando o formato mudou por um espaco). |
+| `process.py queue` (trava) | A fila e **single-flight**: `recordings/.queue.lock` com o PID. Segunda fila sai sem tocar em nada, e os jobs continuam intactos para o proximo lote. Existe desde 2026-08-29, quando a fila ganhou tarefa propria as 20:00 (`CallRecorder-Queue`) — um lote manual iniciado de dia ainda pode estar rodando na hora do gatilho, e as duas leem a MESMA lista de `.job.json`: a nota iria ao vault duas vezes e dois Whisper disputariam a mesma CPU. Trava de processo morto e tratada como orfa e removida (reboot no meio do lote nao pode impedir o lote seguinte). |
 | `process_one.py` | Processa UM job pelo nome. `cmd_queue` e tudo-ou-nada, o que e certo para o lote noturno e errado quando se quer uma call especifica agora: 45 min de audio sao ~1,5 h de Whisper nesta maquina, e transcrever dez gravacoes para chegar em uma nao e opcao durante o expediente. |
 | `verify_capture.py` | Veredito sobre a captura em 2 canais da gravacao mais recente: o canal do interlocutor tem fala de verdade, ou o arquivo tem so o Kelvin? Ferramenta manual — nada a chama automaticamente. |
 | `audit_transcripts.py` | Varre `transcripts/` procurando transcricao degenerada no arquivo inteiro (o caso de 2026-08-26: 43 min que viraram 98% de "."). Ver `transcript_quality.py` para o caso complementar, de trecho. |
@@ -91,6 +92,21 @@ and do not quietly disable capture either. The controls that exist are enough:
 | Project root (`.`) | **Separate, ad-hoc category — do not confuse with `transcripts/`.** `record.py` run standalone (not via `call-recorder.ps1`'s menu) writes `transcript_<stem>_<timestamp>.txt` directly here (`record.py`'s default `out_path`), e.g. `transcript_reuniao_diretoria_*.txt` — Kelvin's own recurring leadership-meeting recordings, unrelated to any team member's 1:1/manager session. These are **not** auto-routed through `process.py` and never land in the vault unless processed manually. If searching for a specific person's session and the filename pattern doesn't match `YYYY-MM-DD_HH-MM_Person.txt`, it's in `transcripts/`, not here — don't assume a same-day root-level file is that person's session.|
 
 ---
+
+### Tarefas agendadas (revisto 2026-08-29)
+
+| Tarefa | Hora | Faz |
+|---|---|---|
+| `CallRecorder-AutoCapture` | logon | Grava sozinha quando o Teams pega o mic |
+| `TechColab Backlog Agent` | 07:00 | Relatorio de backlog (`run_agent.bat`) |
+| `CallRecorder-Queue` | 20:00 | So a fila (`scripts/run-queue.ps1` -> `process.py queue`) |
+| lembrete de roteamento | 09:00 | `scripts/triage-reminder.ps1` (janela) + rotina `triagem-gravacoes` do Claude |
+| ~~`TechColab Daily Agent`~~ | ~~20:00~~ | **DESABILITADA.** Era a segunda tarefa no mesmo `run_agent.bat` |
+
+A fila saiu do agente de backlog porque as duas cargas estavam amarradas no mesmo
+`.bat`: a analise de ideias consumia o limite de 6h e a transcricao nunca era
+alcancada. Em 29/08 havia 10 gravacoes paradas em `.wav`, ~4h de audio, sem que
+nada indicasse falha. Reinstalar/desinstalar: `scripts/install-queue-task.ps1`.
 
 ## English Coach flow
 

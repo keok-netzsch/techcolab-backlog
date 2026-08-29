@@ -145,7 +145,8 @@ def _check_ollama():
         sys.exit(1)
 
 
-def _ollama_generate(prompt: str, stream: bool = True, model: str = OLLAMA_MODEL) -> str:
+def _ollama_generate(prompt: str, stream: bool = True, model: str = OLLAMA_MODEL,
+                     keep_alive: str = None) -> str:
     """
     Call Ollama REST API.
     With stream=True  → prints tokens as they arrive, returns full text.
@@ -156,7 +157,9 @@ def _ollama_generate(prompt: str, stream: bool = True, model: str = OLLAMA_MODEL
     # Override with CALLREC_KEEPALIVE (e.g. "5m") to keep it warm across a batch.
     payload = {
         "model": model, "prompt": prompt, "stream": stream,
-        "keep_alive": os.environ.get("CALLREC_KEEPALIVE", "0"),
+        # A caller doing many sequential calls (chunked summary, topic extraction)
+        # passes keep_alive so the model is not cold-started per chunk.
+        "keep_alive": keep_alive or os.environ.get("CALLREC_KEEPALIVE", "0"),
     }
 
     if stream:
@@ -225,7 +228,7 @@ def _summarize_chunked(transcript: str, instructions: str, lang_word: str,
         print(f"  [Ollama] trecho {n}/{len(parts)}...", flush=True)
         partials.append(_ollama_generate(
             head + f"Este e o trecho {n} de {len(parts)} da reuniao.\n"
-            "=== TRECHO ===\n" + part, stream=False).strip())
+            "=== TRECHO ===\n" + part, stream=False, keep_alive="10m").strip())
 
     print("  [Ollama] consolidando...", flush=True)
     return _ollama_generate(
@@ -236,29 +239,106 @@ def _summarize_chunked(transcript: str, instructions: str, lang_word: str,
         stream=stream).strip()
 
 
+_LINE_PICK_RE = re.compile(r"\d+")
+
+
+def _line_windows(lines, size: int = SUMMARY_CHUNK):
+    """Group whole transcript lines into prompt-sized windows.
+
+    Line-aligned, unlike _chunks: the model is asked to name line numbers, so a
+    window must never cut a line in half.
+    """
+    out, cur, n = [], [], 0
+    for idx, ln in enumerate(lines):
+        if cur and n + len(ln) > size:
+            out.append(cur)
+            cur, n = [], 0
+        cur.append((idx, ln))
+        n += len(ln) + 1
+    if cur:
+        out.append(cur)
+    return out
+
+
+_TS_RE = re.compile(r"^\[(\d+(?:\.\d+)?)s\]")
+
+
+def slice_by_time(transcript: str, start_s: float = None, end_s: float = None) -> str:
+    """Cut a transcript to a time window, by the `[123.4s]` stamp on each line.
+
+    Deterministic on purpose. The first cut of this took the opposite route and
+    asked the local model which passages were about a subject; qwen2.5-coder
+    answered "(nada)" for a window that plainly discussed it, and a wrong cut is
+    worse than no cut — it files a confident note built on the wrong half of a
+    call. Boundaries come from whoever read the transcript; this only obeys them.
+
+    Lines with no stamp inherit the last stamp seen, so a wrapped line is not
+    silently dropped.
+    """
+    if start_s is None and end_s is None:
+        return transcript
+    lo = float(start_s) if start_s is not None else float("-inf")
+    hi = float(end_s) if end_s is not None else float("inf")
+    kept, current = [], None
+    for line in transcript.splitlines():
+        m = _TS_RE.match(line.strip())
+        if m:
+            current = float(m.group(1))
+        if current is not None and lo <= current <= hi:
+            kept.append(line)
+    return "\n".join(kept).strip()
+
+
 def topic_extract(transcript: str, topic: str, lang_word: str = "portugues") -> str:
     """Return only the part of the transcript that is about `topic`.
 
     A call covers several subjects; each destination should receive its own slice,
     not the whole recording. The topic comes from the person approving the route,
     so this is a guided cut, not the model guessing what mattered.
+
+    The model picks LINE NUMBERS and Python does the cutting. Asking a 7B model to
+    copy the relevant passages verbatim was the first design and it failed outright:
+    on a 16k-char transcript it burned 512s and returned nothing at all. Selecting
+    is a far easier task than transcribing, the answer is a few dozen tokens instead
+    of thousands, and the text that reaches the vault is the real transcript rather
+    than whatever the model retyped.
     """
     if not topic:
         return transcript
-    parts = _chunks(transcript)
-    kept = []
-    for n, part in enumerate(parts, 1):
-        if len(parts) > 1:
-            print(f"  [Ollama] recorte '{topic}' — trecho {n}/{len(parts)}...", flush=True)
+    lines = [l for l in transcript.splitlines() if l.strip()]
+    if not lines:
+        return ""
+
+    windows = _line_windows(lines)
+    picked = set()
+    # One keep_alive window for the whole loop: with the default keep_alive=0 the
+    # 5GB model is unloaded and cold-started again for every single chunk.
+    for n, win in enumerate(windows, 1):
+        if len(windows) > 1:
+            print(f"  [Ollama] recorte '{topic}' — janela {n}/{len(windows)}...", flush=True)
+        numbered = "\n".join(f"{i}| {ln}" for i, ln in win)
         got = _ollama_generate(
-            f"A transcricao abaixo (em {lang_word}) e de uma reuniao que cobriu varios assuntos.\n"
-            f"Extraia APENAS as falas que tratam de: {topic}\n"
-            "Copie os trechos relevantes na ordem em que aparecem, sem resumir e sem comentar.\n"
-            "Se este trecho nao tratar do assunto, responda exatamente: (nada)\n\n"
-            "=== TRECHO ===\n" + part, stream=False).strip()
-        if got and got.lower() not in ("(nada)", "nada", "(nada)."):
-            kept.append(got)
-    return "\n\n".join(kept).strip()
+            f"Abaixo estao falas numeradas de uma reuniao (em {lang_word}) que cobriu varios assuntos.\n"
+            f"ASSUNTO PROCURADO: {topic}\n\n"
+            "Responda APENAS com os numeros das linhas que tratam desse assunto, "
+            "separados por virgula (ex: 12,13,14,27).\n"
+            "Inclua as linhas de contexto imediato da conversa sobre o assunto.\n"
+            "Se nenhuma linha tratar do assunto, responda apenas: nenhuma\n"
+            "Nao escreva mais nada alem dos numeros.\n\n"
+            "=== FALAS ===\n" + numbered,
+            stream=False, keep_alive="10m").strip()
+
+        if "nenhuma" in got.lower():
+            continue
+        valid = {i for i, _ in win}
+        for tok in _LINE_PICK_RE.findall(got):
+            idx = int(tok)
+            if idx in valid:          # a hallucinated number is simply dropped
+                picked.add(idx)
+
+    if not picked:
+        return ""
+    return "\n".join(lines[i] for i in sorted(picked))
 
 
 # ── Vault helpers ─────────────────────────────────────────────────────────────
@@ -1769,6 +1849,61 @@ def maybe_run_coach(transcript_path, effective_lang: str, forced: bool = False) 
     return True
 
 
+# ── Trava da fila ─────────────────────────────────────────────────────────────
+# Duas filas ao mesmo tempo transcrevem os MESMOS .job.json: cada uma le a lista
+# no inicio e nenhuma sabe da outra, entao a nota vai para o vault duas vezes e
+# dois Whisper disputam a mesma CPU - cada um mais lento que um sozinho seria.
+#
+# Ficou possivel em 2026-08-29, quando a fila ganhou tarefa propria as 20:00: um
+# lote manual iniciado de dia ainda pode estar rodando quando a tarefa dispara.
+
+QUEUE_LOCK_NAME = ".queue.lock"
+
+
+def _pid_alive(pid: int) -> bool:
+    """Windows nao aceita os.kill(pid, 0) como sonda: o os.kill do Python chama
+    TerminateProcess e MATARIA o processo em vez de perguntar por ele."""
+    if pid <= 0:
+        return False
+    if sys.platform == "win32":
+        import ctypes
+        PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+        h = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ok = ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        # 259 = STILL_ACTIVE. Sem essa checagem, PID reciclado pelo Windows
+        # deixaria a trava presa ate alguem apagar o arquivo na mao.
+        return bool(ok) and code.value == 259
+    try:
+        os.kill(pid, 0)
+        return True
+    except (OSError, ProcessLookupError):
+        return False
+
+
+def acquire_queue_lock(rdir: Path):
+    """Devolve o Path da trava, ou None se outra fila ja estiver rodando."""
+    lock = rdir / QUEUE_LOCK_NAME
+    if lock.exists():
+        try:
+            dono = int(lock.read_text(encoding="utf-8").split()[0])
+        except Exception:
+            dono = -1
+        if _pid_alive(dono):
+            return None
+        # Trava orfa (crash, logoff, reboot no meio do lote). Nao e erro: o lote
+        # da noite tem que conseguir rodar mesmo depois de a maquina cair.
+        print(f"[queue] trava orfa do PID {dono} removida.")
+        lock.unlink(missing_ok=True)
+    rdir.mkdir(parents=True, exist_ok=True)
+    lock.write_text(f"{os.getpid()} {datetime.now().isoformat(timespec='seconds')}",
+                    encoding="utf-8")
+    return lock
+
+
 def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
     """Process queued recordings produced by the decoupled recorder: a `<base>.wav`
     plus a `<base>.job.json` sidecar. Transcribes with Whisper, then routes to the
@@ -1780,13 +1915,36 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
     if not jobs:
         return result
 
+    lock = None
     if not dry_run:
+        lock = acquire_queue_lock(rdir)
+        if lock is None:
+            print("[queue] outra fila ja esta rodando - saindo sem processar nada.")
+            result["skipped"] = [j.name for j in jobs]
+            return result
         try:
             requests.get("http://localhost:11434/", timeout=3)
         except Exception:
-            print("[queue] Ollama unreachable — skipping.")
+            print("[queue] Ollama unreachable - skipping.")
+            lock.unlink(missing_ok=True)
             return result
 
+    try:
+        _queue_run(jobs, result, rdir, dry_run)
+    finally:
+        # finally, nao no fim do laco: uma excecao que escape daqui deixaria a
+        # trava presa e nenhuma fila rodaria de novo ate alguem notar.
+        if lock is not None:
+            lock.unlink(missing_ok=True)
+
+    print(f"[queue] processed={len(result['processed'])} "
+          f"failed={len(result['failed'])} skipped={len(result['skipped'])}")
+    return result
+
+
+def _queue_run(jobs, result, rdir, dry_run):
+    """Corpo do laco. Extraido de cmd_queue so para que a trava possa ser
+    liberada num finally que envolve o laco inteiro."""
     for jf in jobs:
         try:
             job = json.loads(jf.read_text(encoding="utf-8"))
@@ -1858,10 +2016,6 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
                 print(f"[queue] {jf.name}: {attempts} tentativas sem sucesso - "
                       f"parqueado como .exhausted. Audio preservado.")
             result["failed"].append(f"{jf.name} (tentativa {attempts}): {e}")
-
-    print(f"[queue] processed={len(result['processed'])} "
-          f"failed={len(result['failed'])} skipped={len(result['skipped'])}")
-    return result
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────

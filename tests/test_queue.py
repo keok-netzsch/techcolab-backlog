@@ -79,3 +79,63 @@ def test_queue_empty_when_no_jobs(tmp_path):
     rdir = tmp_path / "recordings"; rdir.mkdir()
     r = process.cmd_queue(str(rdir))
     assert r == {"processed": [], "failed": [], "skipped": []}
+
+
+# ── Trava de concorrencia ─────────────────────────────────────────────────────
+# A fila ganhou tarefa propria as 20:00 em 2026-08-29. Um lote manual iniciado de
+# dia pode ainda estar rodando quando a tarefa dispara, e as duas leem a MESMA
+# lista de .job.json: a nota iria para o vault duas vezes e dois Whisper
+# disputariam a mesma CPU.
+
+
+def test_lock_recusa_segunda_fila(tmp_path):
+    assert process.acquire_queue_lock(tmp_path) is not None
+    assert process.acquire_queue_lock(tmp_path) is None
+
+
+def test_lock_orfa_de_processo_morto_e_liberada(tmp_path):
+    # Crash, logoff ou reboot no meio do lote deixa a trava para tras. O lote da
+    # noite tem que rodar mesmo assim - trava presa seria pior que concorrencia.
+    (tmp_path / process.QUEUE_LOCK_NAME).write_text("999999 x", encoding="utf-8")
+    lock = process.acquire_queue_lock(tmp_path)
+    assert lock is not None
+    assert lock.read_text(encoding="utf-8").startswith(str(os.getpid()))
+
+
+def test_lock_ilegivel_nao_trava_a_fila_para_sempre(tmp_path):
+    (tmp_path / process.QUEUE_LOCK_NAME).write_text("nao e um pid", encoding="utf-8")
+    assert process.acquire_queue_lock(tmp_path) is not None
+
+
+def test_pid_alive_nao_mata_o_processo_que_sonda(tmp_path):
+    # os.kill(pid, 0) no Windows chama TerminateProcess: a sonda ingenua mataria
+    # a propria fila que veio conferir.
+    assert process._pid_alive(os.getpid()) is True
+    assert process._pid_alive(999999) is False
+    assert process._pid_alive(0) is False
+
+
+def test_queue_ocupada_nao_consome_o_job(tmp_path, monkeypatch):
+    _ollama_ok(monkeypatch)
+    job = _write_job(tmp_path, "2026-08-29_10-00_auto", kind="note", lang="pt")
+    (tmp_path / process.QUEUE_LOCK_NAME).write_text(f"{os.getpid()} agora", encoding="utf-8")
+    res = process.cmd_queue(str(tmp_path))
+    assert res["processed"] == []
+    assert res["skipped"] == [job.name]
+    assert job.exists(), "job recusado por trava nao pode ser consumido nem renomeado"
+
+
+def test_lock_liberada_quando_o_laco_explode(tmp_path, monkeypatch):
+    _ollama_ok(monkeypatch)
+    _write_job(tmp_path, "2026-08-29_10-00_auto", kind="note", lang="pt")
+
+    def boom(*a, **k):
+        raise KeyboardInterrupt("Ctrl+C no meio do lote")
+
+    monkeypatch.setattr(process, "_queue_run", boom)
+    try:
+        process.cmd_queue(str(tmp_path))
+    except KeyboardInterrupt:
+        pass
+    assert not (tmp_path / process.QUEUE_LOCK_NAME).exists(), \
+        "excecao que escapa do laco nao pode deixar a trava presa"
