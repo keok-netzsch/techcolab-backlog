@@ -147,6 +147,13 @@ def build_job(pending_path: Path, pending: dict, verdict: dict) -> dict:
         "source": "autocapture",
         "meeting": pending.get("window_title", ""),
         "needs_review": bool(verdict.get("needs_review")),
+        # ADR vault/decisions/2026-08-28-roteamento-por-assunto.md moves routing to
+        # after transcription, so a call can be filed by subject into more than one
+        # destination. OFF until the slicing mechanism is settled: the first attempt
+        # asked Ollama to pull the relevant passages and qwen2.5-coder answered
+        # "(nada)" for a chunk that plainly discussed the topic. Flipping this to
+        # True with no working slicer would park every recording and file nothing.
+        "route_after_transcript": True,
     }
 
 
