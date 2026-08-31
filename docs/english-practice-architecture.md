@@ -1,3 +1,8 @@
+> **Nota (2026-08-31):** este documento descreve uma página dentro do app Streamlit,
+> que foi aposentado. O English Coach em si continua vivo (`agent/english_coach.py`,
+> tarefa de segunda 08:30); o que morreu foi a tela. Trechos sobre a porta 8501 e
+> "nova página" são históricos.
+
 # English Practice — Architecture Proposal
 
 **Project:** techcolab-backlog personal toolkit  
