@@ -45,6 +45,8 @@ unless noted. This is the "production = hardened local" record required by the A
 |---|---|---|
 | `TechColab English Coach` | Mon 08:30 | `run_english_coach.bat` → `agent/english_coach.py` |
 | `CDMP Daily Study Reminder` | weekdays 15:30 | vault `cdmp-notify.ps1` |
+| `cdmp-diario` | daily 15:37 | Claude scheduled routine (not Task Scheduler) — generates 1 ready CDMP practice question via the cdmp skill (was missing from this map; added 2026-08-31) |
+| `study-diario` | daily 15:40 | Claude scheduled routine (not Task Scheduler) — opens a `/study` session with status + day menu and waits for Kelvin in the app's routines area; interactive from there. Created 2026-08-31, pairs with the `study-reminder` toast |
 | `study-notify-diario` | daily 15:40 | `scripts/notify.ps1 -Profile study-reminder` → body from `scripts/notify-body/study-body.ps1` (reads `study-plan.json` + area trackers, zero LLM; silent when every active area already studied today); pairs with the `/study` skill. Migrated to the engine 2026-08-30 as messagebox (was balloon — Focus Assist rationale); old `vault/study-notify.ps1` retired |
 | `NETZSCH-AI-Usage-Capture` | daily 09:00 | `~/NETZSCH-AI-Usage/Capture-Usage.ps1` |
 
