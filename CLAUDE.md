@@ -2,6 +2,20 @@
 
 Operating instructions for Claude Code when working in this project.
 
+> ## LEIA `ARCHITECTURE.md` ANTES DE CRIAR QUALQUER COISA
+>
+> Script, tela, rotina agendada, comando, notificação, arquivo de estado, skill — **antes**,
+> não depois. Ele diz o que já existe (para você estender em vez de criar um paralelo), os
+> 10 padrões que toda peça nova replica, e as decisões que não se reabrem sem perguntar.
+>
+> Isso existe porque em 2026-08-31 três sessões trabalharam no mesmo dia sem saber uma da
+> outra: um gate foi construído contra uma regra que o Kelvin já tinha dado, um app foi
+> removido por leitura errada de uma frase, e uma pendência foi aberta para uma decisão
+> tomada havia sete semanas. Nenhum erro foi de código — todos foram de não saber o que já
+> existia.
+>
+> Achou o `ARCHITECTURE.md` errado ou desatualizado? **Corrigir faz parte da tarefa.**
+
 ---
 
 ## Project context

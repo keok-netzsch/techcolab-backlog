@@ -104,6 +104,7 @@ techcolab-backlog/
 ├── docs/                 # Documentação (FAQ, propostas de arquitetura)
 ├── requirements.txt      # Dependências do app
 ├── pyproject.toml        # Config ruff + pytest (Python >=3.12)
+├── ARCHITECTURE.md       # LEIA ANTES DE CRIAR: o que existe, padroes, decisoes
 ├── SECURITY.md           # Regras de isolamento de dados (repo público)
 └── .githooks/pre-commit  # Guard contra commit de dados do vault
 ```
@@ -117,7 +118,11 @@ ruff check .                          REM lint (E/F/I/UP/B)
 python -m pytest tests/ -q            REM testes (requer TECHCOLAB_VAULT setado)
 ```
 
-Antes de criar qualquer página/seção nova, leia **`DESIGN_SYSTEM.md`** (paleta, tipografia, cards `.cc-*`, regras de minimalismo). Toda UI deve ser em **inglês**.
+Antes de criar **qualquer coisa** — script, tela, rotina agendada, comando, notificação,
+skill — leia **[`ARCHITECTURE.md`](ARCHITECTURE.md)**: o que já existe, os padrões que toda
+peça nova replica e as decisões que não se reabrem sem perguntar. Para página/seção nova,
+leia também **`DESIGN_SYSTEM.md`** (paleta, tipografia, cards `.cc-*`, minimalismo). Toda UI
+em **inglês**.
 
 ---
 
