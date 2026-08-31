@@ -35,6 +35,15 @@ What that means for anyone touching this code: do **not** add prompts, banners o
 his behalf, and do **not** quietly disable capture either. The existing controls are
 considered sufficient — the `autocapture.paused` file and `CAPTURE_SYSTEM_AUDIO=0`.
 
+**How he does it (his words, 2026-08-31):** *"Eu irei informar as pessoas."* Disclosure is
+his, spoken, per situation — not a banner this software puts on the screen.
+
+**If someone objects:** he asked whether the other party's audio could be discarded. It can
+— capture is 2-channel and `ch1` is the other side, so dropping it is a file operation, not
+a re-recording. What that should *do* (drop the channel and keep his own, or delete the
+whole call) is his call, open in the ledger as `P-017`. Until he decides, handle an
+objection by deleting the recording.
+
 (An earlier version of this document listed consent as an open question. That was an error
 of research, not a gap in the decision: the answer was already in `CLAUDE.md`. Corrected
 2026-08-30.)
