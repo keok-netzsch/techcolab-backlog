@@ -392,6 +392,25 @@ hr { border-color: #E5E7EB !important; }
 [data-testid="stExpander"] summary { color: #111827 !important; background: #F9FAFB !important; }
 [data-testid="stExpander"] summary:hover { background: #F0FDF9 !important; }
 [data-testid="stExpanderDetails"] { background: #F9FAFB !important; padding-bottom: 0.75rem !important; }
+
+/* Widget chrome text. Streamlit 1.49 has no theme CSS variable to override —
+   its emotion classes hardcode the base theme's textColor (#E2E8F0, dark) onto
+   radios, checkboxes, alerts and the select VALUE. On a white surface those
+   read as near-invisible pale gray, which is what Kelvin reported on the
+   Backlog filters (2026-08-31). Measured, not guessed: computed color was
+   rgb(226,232,240) on every one of them. */
+[data-testid="stRadio"] label p,
+[data-testid="stCheckbox"] label p,
+[data-testid="stCheckbox"] label span,
+[data-testid="stAlert"], [data-testid="stAlert"] p, [data-testid="stAlert"] div,
+[data-baseweb="select"] div, [data-baseweb="select"] span,
+[data-baseweb="tag"] span,
+[data-testid="stMetricValue"], [data-testid="stMarkdownContainer"] p,
+[data-testid="stDataFrame"] { color: #111827 !important; }
+/* Placeholders and widget labels stay deliberately quieter than body text. */
+[data-testid="stWidgetLabel"] p { color: #6B7280 !important; }
+[data-testid="stTextInput"] input::placeholder,
+[data-testid="stTextArea"] textarea::placeholder { color: #9CA3AF !important; }
 </style>
 """
 
