@@ -40,7 +40,18 @@ def _parse_1on1(path):
                 topics.append(s[2:])
             if in_a and re.match(r"- \[[ x]\]", s):
                 actions.append({"text": s[6:].strip(), "done": s[3] == "x"})
-        sessions.append({"date": s_date, "topics": topics, "actions": actions})
+        # A session the model could not structure is NOT a session with one weird topic.
+        # New notes carry an explicit `<!-- unparsed -->` marker; older ones (before
+        # 2026-08-31) wrote the failure as a topic starting with "(auto) Modelo nao
+        # estruturou". Both are recognised here so the tab can say "not processed"
+        # instead of printing a parser error as something the person said.
+        unparsed = "<!-- unparsed -->" in content or any(
+            t.startswith("(auto) Modelo nao estruturou") for t in topics
+        )
+        if unparsed:
+            topics = [t for t in topics if not t.startswith("(auto) Modelo nao estruturou")]
+        sessions.append({"date": s_date, "topics": topics, "actions": actions,
+                         "unparsed": unparsed})
     return sessions
 
 
@@ -78,6 +89,25 @@ def _parse_okr(path):
                 krs.append((cur_kr, ms.group(1).strip()))
                 cur_kr = None
     return krs
+
+
+def _pdi_freshness(path):
+    """When the PDI was last updated, and whether it was reconciled with the closed cycle.
+
+    The Team tab used to print "progress: 0% · deadline: 2026-06-30" with no hint that the
+    numbers were from May and the deadline two months gone — next to a performance cycle
+    that had already closed. A confident screen built on a stale number is worse than no
+    screen, because the reader has no way to tell. So freshness travels with the data.
+    """
+    if not path.exists():
+        return None, False
+    text = path.read_text(encoding="utf-8", errors="replace")
+    m = re.search(r"^last-updated:\s*(\d{4}-\d{2}-\d{2})", text, re.MULTILINE)
+    updated = m.group(1) if m else None
+    # The callout is where a human states "these numbers are stale" (see Pedro Klein's PDI,
+    # the reconciled one). Trust that statement over any heuristic.
+    stale = bool(re.search(r"n[aã]o foram reconciliados|are \*\*stale|s[aã]o de \*\*20", text))
+    return updated, stale
 
 
 def _parse_pdi(path):
@@ -184,7 +214,15 @@ def render() -> None:
             if _sess:
                 _lat = _sess[0]
                 st.caption(f"Last session: {_lat['date']}")
-                if _lat["topics"]:
+                if _lat.get("unparsed") and not _lat["topics"]:
+                    st.markdown(
+                        "<div class='cc-stale'>This session was not processed into "
+                        "topics — the model returned unstructured output. Nothing was "
+                        "extracted; the full note is in the person's <code>1on1/</code> "
+                        "folder.</div>",
+                        unsafe_allow_html=True,
+                    )
+                elif _lat["topics"]:
                     st.markdown("**Topics:**")
                     for _t in _lat["topics"][:5]:
                         st.markdown(f"  - {_t}")
@@ -207,10 +245,33 @@ def render() -> None:
                 st.caption("No 1:1 sessions recorded.")
 
             if _pdi:
-                with st.expander("PDI objectives", expanded=False):
+                _pdi_updated, _pdi_stale = _pdi_freshness(_folder / "PDI.md")
+                _label = "PDI objectives"
+                if _pdi_stale:
+                    _label += "  ·  not reconciled with the closed cycle"
+                elif _pdi_updated:
+                    _label += f"  ·  as of {_pdi_updated}"
+                with st.expander(_label, expanded=False):
+                    if _pdi_stale:
+                        st.markdown(
+                            "<div class='cc-stale'>These figures were not reconciled with "
+                            "the closed performance cycle. Read them as history, not as "
+                            "current status — the PDI file says where the newer material "
+                            "is.</div>",
+                            unsafe_allow_html=True,
+                        )
                     for _pn, _pd, _pp in _pdi:
                         _prog = f"{_pp}%" if _pp is not None else "—"
-                        st.markdown(f"- **{_pn}** — progress: {_prog} · deadline: {_pd or '—'}")
+                        _overdue = ""
+                        if _pd:
+                            try:
+                                if date.fromisoformat(_pd.strip()) < date.today():
+                                    _overdue = "  ·  **deadline passed**"
+                            except ValueError:
+                                pass
+                        st.markdown(
+                            f"- **{_pn}** — progress: {_prog} · deadline: {_pd or '—'}{_overdue}"
+                        )
 
             if _krs:
                 with st.expander("OKR", expanded=False):

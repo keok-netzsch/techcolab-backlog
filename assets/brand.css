@@ -111,3 +111,18 @@ details[data-testid="stExpander"][open] > div[data-testid="stExpanderDetails"],
     overflow: visible !important;
     min-height: 0 !important;
 }
+
+/* Stale-data banner (.cc-stale) — Team tab, PDI figures not reconciled with the closed
+   performance cycle. Amber, not red: the data is not wrong, it is old, and the reader
+   must be able to tell the difference at a glance. Added 2026-08-31 after the Team tab
+   showed a two-month-overdue PDI at 0% as if it were current status. */
+.cc-stale {
+    border-left: 3px solid #D97706;
+    background: rgba(217, 119, 6, 0.08);
+    padding: 0.6rem 0.9rem;
+    margin: 0 0 0.8rem 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    opacity: 0.95;
+}

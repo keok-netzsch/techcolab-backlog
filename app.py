@@ -301,7 +301,7 @@ st.markdown(
 )
 
 # ── Top navigation (pure HTML — full height control) ───────────────────────
-_PAGES_MAIN = ["Dashboard", "Backlog", "To-Do List", "Team", "AI Usage", "Weekly Brief", "English Coach"]
+_PAGES_MAIN = ["Dashboard", "Pending", "Backlog", "To-Do List", "Team", "AI Usage", "Weekly Brief", "English Coach"]
 _ALL_PAGES  = _PAGES_MAIN + ["FAQ", "Tutorial", "Documentation", "Settings"]
 
 _qpage = st.query_params.get("page", "Dashboard")
@@ -391,6 +391,13 @@ if page == "Backlog":
 elif page == "To-Do List":
     from views.todo_list import render as _render_todo_list
     _render_todo_list()
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE — PENDING (decisions/graduations waiting on Kelvin; vault is record-only)
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Pending":
+    from views.pendencias import render as _render_pendencias
+    _render_pendencias()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — DASHBOARD

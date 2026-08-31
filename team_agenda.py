@@ -59,7 +59,15 @@ def generate_agenda_text(folder: str, name: str, timeout: int = 60) -> str:
     Returns the agenda markdown. Raises on connection/LLM failure."""
     fp  = Path(TEAM_DIR) / folder
     okr = (fp / "OKR.md").read_text(encoding="utf-8", errors="replace")[:700] if (fp / "OKR.md").exists() else ""
-    pdi = (fp / "PDI.md").read_text(encoding="utf-8", errors="replace")[:600] if (fp / "PDI.md").exists() else ""
+    # 1200, not 600: the first 600 characters of a PDI are the front matter and the
+    # callout, so the model was being fed the stale header and none of the newest
+    # section — which is exactly where the FY26 feedback lives.
+    pdi_raw = (fp / "PDI.md").read_text(encoding="utf-8", errors="replace") if (fp / "PDI.md").exists() else ""
+    pdi = pdi_raw[:1200]
+    # If a human wrote in the PDI that its numbers were never reconciled with the closed
+    # cycle, the agenda must not present them as current. Say so in the prompt instead of
+    # hoping the model notices.
+    pdi_stale = bool(re.search(r"n[aã]o foram reconciliados|are \*\*stale", pdi_raw))
     sess = _parse_last_1on1(fp / "1on1.md")
     ctx = ""
     if sess:
@@ -68,13 +76,30 @@ def generate_agenda_text(folder: str, name: str, timeout: int = 60) -> str:
         if oa:
             ctx += "\n\nOpen actions:\n" + "\n".join(f"- {a}" for a in oa[:5])
 
+    stale_note = (
+        "\nIMPORTANT: this person's PDI progress figures were NOT reconciled with the "
+        "closed performance cycle. Do not present them as the current situation. If the "
+        "PDI is worth a topic, the topic is agreeing on where it actually stands.\n"
+        if pdi_stale else ""
+    )
+    # No fixed number of topics, on purpose. The old prompt demanded "4-6 topics", so
+    # with thin material the model padded to reach the count — that is where lines like
+    # "Review team progress and discuss any challenges or concerns" came from. A short
+    # agenda drawn from real material beats a full one built from filler.
     prompt = (
         "You are a management coach. "
-        f"Prepare a concise 1:1 agenda for {name}.\n\n"
+        f"Prepare a concise 1:1 agenda for {name}, using ONLY the material below.\n\n"
         f"=== OKR ===\n{okr}\n\n"
         f"=== PDI ===\n{pdi}\n\n"
-        f"=== Last 1:1 context ===\n{ctx}\n\n"
-        "Suggest 4-6 agenda topics, each with one focus line. "
+        f"=== Last 1:1 context ===\n{ctx}\n"
+        f"{stale_note}\n"
+        "Write one topic per item of real, specific material — no more. Two solid topics "
+        "are better than six. Each topic names something concrete from the material "
+        "above (a named objective, a specific open action, a date). "
+        "NEVER write generic filler such as 'review progress', 'discuss challenges', "
+        "'align expectations' or 'set goals for next quarter' — if the material does not "
+        "support a topic, leave it out. If there is nothing specific to discuss, reply "
+        "with the single line: (no specific material for an agenda). "
         "Numbered list only. No preamble."
     )
     payload = json.dumps({

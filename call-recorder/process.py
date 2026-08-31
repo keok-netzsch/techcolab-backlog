@@ -463,11 +463,23 @@ def _strip_dated_1on1(oneonone_path: Path, date: str) -> None:
 def _fallback_1on1(oneonone_path: Path, date: str) -> None:
     """If the model didn't emit a parseable BLOCO, still record a dated section so
     the session shows up in the Team tab (the visible "last 1:1" / Topics). The full
-    unstructured output remains in the standalone note."""
+    unstructured output remains in the standalone note.
+
+    This used to write the failure as a **topic**:
+
+        **Topics:**
+        - (auto) Modelo nao estruturou em blocos; ver nota completa em ...
+
+    which meant a parser error was rendered as if it were something discussed in the
+    1:1 — it showed up on the Team tab as the last session's only topic. A processing
+    failure has to look like a failure, so it is now an explicit marker with no topic
+    list. Consumers detect `<!-- unparsed -->` and say "not processed" instead of
+    printing it as content.
+    """
     block = (
-        f"## {date}\n\n**Topics:**\n"
-        f"- (auto) Modelo nao estruturou em blocos; ver nota completa em "
-        f"1on1/{date}_1on1_*.md\n"
+        f"## {date}\n\n<!-- unparsed -->\n"
+        f"> Esta sessao nao foi estruturada pelo modelo. Nenhum topico foi extraido — "
+        f"a nota completa esta em `1on1/{date}_1on1_*.md`.\n"
     )
     save_block(str(oneonone_path), block, mode="prepend")
     print("  [OK] 1on1.md atualizado (fallback — modelo sem BLOCO)")
