@@ -21,8 +21,8 @@
                   silencio. MessageBox nao passa pelo Focus Assist.
 
       balloon     NotifyIcon do system tray. Menos intrusivo, mas sujeito a supressao.
-                  Existe aqui porque os lembretes de estudo (cdmp, study) usam esse modo
-                  hoje e a migracao e 1:1. Nao escolha este modo para algo critico.
+                  Existe aqui porque o lembrete do CDMP ainda usa esse modo (o de estudo
+                  migrou para messagebox em 2026-08-30). Nao escolha para algo critico.
 
     CORPO DINAMICO: um perfil pode ter "message" (texto fixo) ou "messageScript"
     (caminho, relativo a raiz do repo, de um .ps1 que ESCREVE o corpo na saida). Se o

@@ -68,15 +68,15 @@ Two window modes, and the choice is not cosmetic. `messagebox` (WinForms, TopMos
 blocking) is the right mode for a reminder that must not be missed — it bypasses Focus
 Assist, which in 2026-08-11 was silently swallowing toasts while the API reported success.
 `balloon` (tray NotifyIcon) is less intrusive and *can* be suppressed; it exists because
-the study reminders use it today.
+the CDMP reminder still uses it (the study reminder switched to messagebox on 2026-08-30).
 
 A profile's body is either fixed (`message`) or generated (`messageScript` → a script in
 `scripts/notify-body/` that prints the body). **A generator that prints nothing produces
 no window** — a reminder that fires on an empty day stops being read.
 
-Still on their own scripts, by design (see `_pendentes` in the config): `CDMP Daily Study
-Reminder` (also sends e-mail via Outlook COM — migrating needs a decision on the e-mail)
-and `study-notify-diario` (active work of another session; migrate only as its opt-in).
+Still on its own script, by design (see `_pendentes` in the config): `CDMP Daily Study
+Reminder`, which also sends e-mail via Outlook COM — the engine only notifies, so
+migrating it needs a decision on what happens to the e-mail.
 
 Old scripts are kept in `scripts/_retired-notify-2026-08-30/` for rollback.
 
