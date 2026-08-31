@@ -493,7 +493,30 @@ def _stage_for_review(base_path: Path, block_type: str, target_file: str,
     )
     print(f"  [REVISAR] {block_type} -> {out.relative_to(base_path.parent.parent)}"
           if len(out.parts) > 3 else f"  [REVISAR] {block_type} -> {out}")
+
+    # Register it where Kelvin actually looks. A proposal parked in a folder he does
+    # not open is the same as no gate at all — he stated the rule on 2026-08-31: the
+    # vault is a record layer, not an interaction layer. The pending ledger surfaces
+    # it on the app page and in the 08:45 reminder. Best-effort: the gate must hold
+    # even if the ledger is unavailable.
+    try:
+        _register_pending(base_path.name, block_type, day)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  [WARN] pendencia nao registrada ({exc}) — a proposta segue em _review/")
     return out
+
+
+def _register_pending(person: str, block_type: str, day: str) -> None:
+    import subprocess as _sp
+    repo = Path(__file__).resolve().parent.parent
+    _sp.run(
+        [sys.executable, str(repo / "agent" / "pending.py"), "add",
+         "--tipo", "decisao",
+         "--texto", f"Revisar {block_type} proposto para {person} ({day}) — "
+                    f"escrito por modelo local, aguarda aprovacao",
+         "--origem", f"call-recorder/process.py review --approve {person}/{day}-{block_type}"],
+        capture_output=True, text=True, timeout=30,
+    )
 
 
 def _strip_dated_1on1(oneonone_path: Path, date: str) -> None:
@@ -557,12 +580,26 @@ def _read_review_file(p: Path) -> dict:
     return {"meta": meta, "body": body, "path": p}
 
 
-def cmd_review(person_folder: str = None, apply: bool = False) -> dict:
+def _review_id(person: str, path: Path) -> str:
+    """Stable, typeable handle for one proposal: `Ana-Leite/2026-06-03-PDI`."""
+    return f"{person}/{path.stem}"
+
+
+def cmd_review(person_folder: str = None, apply: bool = False,
+               approve: str = None, reject: str = None) -> dict:
     """The approval gate for model-written PDI/OKR/Overview blocks.
 
-    Without --apply: shows what is waiting. With --apply: writes the approved ones
-    into the real files and archives them. Anything still `draft` is left alone —
-    silence is not consent.
+    Kelvin does NOT approve by editing files (his rule, 2026-08-31: the vault is a
+    record layer, not an interaction layer). So approval is an ACTION here, callable
+    from the app, from a Claude session, or from the terminal:
+
+        review                      what is waiting
+        review --approve <id>       apply it now
+        review --reject  <id>       discard it
+        review --apply              apply everything a human already marked approved
+
+    Editing `status:` by hand still works, because the file is plain markdown and
+    someone may prefer that — but nothing requires it.
     """
     team_dir = Path(VAULT) / "Team"
     stk_dir = Path(VAULT) / "Stakeholders"
@@ -589,15 +626,38 @@ def cmd_review(person_folder: str = None, apply: bool = False) -> dict:
             else:
                 pending.append(item)
 
+    all_items = pending + approved
+
+    # ── Acao direta por id: aprovar ou descartar sem abrir arquivo nenhum ──────
+    if approve or reject:
+        wanted = (approve or reject).strip()
+        hit = next((it for it in all_items
+                    if _review_id(it["person"], it["path"]) == wanted
+                    or it["path"].stem == wanted), None)
+        if not hit:
+            print(f"[ERRO] proposta '{wanted}' nao encontrada. Rode 'review' para ver os ids.")
+            return {"pending": len(pending), "approved": len(approved), "applied": 0}
+        if reject:
+            trash = hit["path"].parent / "_rejected"
+            trash.mkdir(exist_ok=True)
+            hit["path"].replace(trash / hit["path"].name)
+            print(f"  [DESCARTADO] {wanted} (guardado em _rejected/, nao apagado)")
+            return {"pending": len(pending) - 1, "approved": len(approved), "applied": 0}
+        approved = [hit]          # aprovar exatamente esta, e mais nenhuma
+        apply = True
+
     if not apply:
         if not pending and not approved:
             print("Nada aguardando revisao.")
         for it in pending:
-            print(f"  [draft]    {it['person']:16} {it['meta'].get('block','?'):9} "
-                  f"{it['meta'].get('date','?')}  {it['path']}")
+            print(f"  [aguarda]  {_review_id(it['person'], it['path'])}"
+                  f"   ({it['meta'].get('block','?')})")
         for it in approved:
-            print(f"  [approved] {it['person']:16} {it['meta'].get('block','?'):9} "
-                  f"{it['meta'].get('date','?')}  -> rode --apply")
+            print(f"  [aprovada] {_review_id(it['person'], it['path'])}"
+                  f"   ({it['meta'].get('block','?')})  -> rode --apply")
+        if pending:
+            print("\n  aprovar: process.py review --approve <id>"
+                  "\n  descartar: process.py review --reject <id>")
         return {"pending": len(pending), "approved": len(approved), "applied": 0}
 
     for it in approved:
@@ -1624,6 +1684,13 @@ DASHBOARD_EXCLUDE_DIRS = {
     ".obsidian", "_attachments", "Archive", "raw", "Clippings",
     ".git", ".trash", "node_modules",
     "agent-reports",  # daily generated snapshots that echo open actions — not a task source
+    # Proposals awaiting Kelvin's approval (the PDI/OKR/Overview gate). Without
+    # this the gate only closes the front door: the block never reaches OKR.md,
+    # but the dashboard walks every .md and would collect the SAME invented
+    # action straight out of the draft — which is exactly how the phantom
+    # "Daniela" action from 2026-06-03 reached Action-Dashboard. A proposal is
+    # not a commitment until it is approved and applied.
+    REVIEW_DIRNAME,
 }
 _TASK_RE  = re.compile(r"^\s*[-*]\s+\[ \]\s+(.*\S)\s*$")
 _OWNER_RE = re.compile(r"^\((?P<owner>[^)]{1,40})\)\s*(?P<rest>.*)$")
@@ -2233,6 +2300,8 @@ def main():
     rv = sub.add_parser("review", help="Gate de aprovacao: blocos PDI/OKR/Overview escritos pelo modelo esperam revisao antes de entrar no arquivo real")
     rv.add_argument("--person", default=None, help="Folder da pessoa (ex: Ana-Leite). Omitir = todos")
     rv.add_argument("--apply", action="store_true", help="Aplica os que estao 'status: approved' e arquiva")
+    rv.add_argument("--approve", default=None, metavar="ID", help="Aprova e aplica UMA proposta pelo id (ex: Ana-Leite/2026-06-03-PDI)")
+    rv.add_argument("--reject", default=None, metavar="ID", help="Descarta UMA proposta pelo id (vai para _rejected/, nao e apagada)")
 
     dz = sub.add_parser("diarize", help="Rotula falantes numa transcricao (baseado em texto, aproximado — idea-031)")
     dz.add_argument("--transcript", required=True, help="Arquivo .txt da transcricao a rotular")
@@ -2282,7 +2351,7 @@ def main():
     elif args.command == "dashboard":
         cmd_dashboard(args.output)
     elif args.command == "review":
-        cmd_review(args.person, args.apply)
+        cmd_review(args.person, args.apply, args.approve, args.reject)
     elif args.command == "diarize":
         cmd_diarize(args.transcript, args.people, args.output)
     elif args.command == "memory":

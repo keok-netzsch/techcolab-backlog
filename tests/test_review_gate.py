@@ -115,3 +115,92 @@ def test_human_edit_survives_approval(person, monkeypatch):
     pdi = (person / "PDI.md").read_text(encoding="utf-8")
     assert "Ana Leite" in pdi
     assert "Daniela" not in pdi
+
+
+# ── O gate tem que valer para o dashboard tambem ─────────────────────────────
+
+def test_draft_nao_aprovado_nao_vira_tarefa_no_dashboard(tmp_path):
+    """A proposta parqueada nao pode ser colhida como compromisso.
+
+    Sem isto o gate fecha so a porta da frente: o bloco nao chega ao OKR.md, mas
+    o dashboard varre TODO .md do vault e colheria a mesma acao inventada direto
+    do rascunho - foi assim que a acao fantasma da "Daniela" (2026-06-03) chegou
+    ao Action-Dashboard e ao lembrete diario. Proposta nao e compromisso ate ser
+    aprovada e aplicada.
+    """
+    rev = tmp_path / "Team" / "Ana-Leite" / "_review"
+    rev.mkdir(parents=True)
+    (rev / "2026-06-03-PDI.md").write_text(
+        "---\nstatus: draft\nblock: PDI\n---\n\n"
+        "- [ ] (Daniela) Estruturar objetivo do projeto ENH @2026-06-30\n",
+        encoding="utf-8")
+
+    assert process._collect_open_tasks(tmp_path, process.DASHBOARD_FILE) == []
+
+
+def test_a_mesma_acao_aprovada_no_arquivo_real_e_colhida(tmp_path):
+    """Controle do teste acima: o filtro exclui o diretorio de propostas, nao a
+    sintaxe. Aprovado e aplicado, o item aparece normalmente."""
+    pessoa = tmp_path / "Team" / "Ana-Leite"
+    pessoa.mkdir(parents=True)
+    (pessoa / "PDI.md").write_text(
+        "- [ ] (Ana Leite) Estruturar objetivo do projeto ENH @2026-06-30\n",
+        encoding="utf-8")
+
+    achadas = process._collect_open_tasks(tmp_path, process.DASHBOARD_FILE)
+    assert len(achadas) == 1
+    assert achadas[0]["owner"] == "Ana Leite"
+
+
+# ── Aprovar sem tocar no Obsidian (regra do Kelvin, 2026-08-31) ───────────────
+# "EU nao quero fazer nada direto no obsidian" — o vault e camada de registro,
+# nao de interacao. Entao aprovar nao pode exigir editar frontmatter: e uma acao,
+# chamavel do app, de uma sessao do Claude ou do terminal.
+
+def test_aprovar_por_id_sem_editar_arquivo(person, monkeypatch):
+    monkeypatch.setattr(process, "VAULT", str(person.parent.parent))
+    process._parse_and_save(RESPONSE, person, process.SECTION_MAP,
+                            process.SECTION_MODE, date="2026-06-03")
+
+    res = process.cmd_review(approve="Ana-Leite/2026-06-03-PDI")
+
+    assert res["applied"] == 1
+    assert "Modelo pumps" in (person / "PDI.md").read_text(encoding="utf-8")
+    assert (person / process.REVIEW_DIRNAME / "_applied" / "2026-06-03-PDI.md").exists()
+
+
+def test_aprovar_uma_nao_arrasta_as_outras(person, monkeypatch):
+    """Aprovar o PDI nao pode aplicar o OKR de carona."""
+    monkeypatch.setattr(process, "VAULT", str(person.parent.parent))
+    process._parse_and_save(RESPONSE, person, process.SECTION_MAP,
+                            process.SECTION_MODE, date="2026-06-03")
+
+    process.cmd_review(approve="Ana-Leite/2026-06-03-PDI")
+
+    assert "Reduzir demandas" not in (person / "OKR.md").read_text(encoding="utf-8")
+    assert (person / process.REVIEW_DIRNAME / "2026-06-03-OKR.md").exists()
+
+
+def test_descartar_guarda_em_vez_de_apagar(person, monkeypatch):
+    """Descartar nao destroi evidencia: o texto do modelo fica em _rejected/."""
+    monkeypatch.setattr(process, "VAULT", str(person.parent.parent))
+    process._parse_and_save(RESPONSE, person, process.SECTION_MAP,
+                            process.SECTION_MODE, date="2026-06-03")
+
+    process.cmd_review(reject="Ana-Leite/2026-06-03-PDI")
+
+    assert not (person / process.REVIEW_DIRNAME / "2026-06-03-PDI.md").exists()
+    guardado = person / process.REVIEW_DIRNAME / "_rejected" / "2026-06-03-PDI.md"
+    assert guardado.exists() and "Daniela" in guardado.read_text(encoding="utf-8")
+    assert "Daniela" not in (person / "PDI.md").read_text(encoding="utf-8")
+
+
+def test_id_desconhecido_nao_aplica_nada(person, monkeypatch):
+    monkeypatch.setattr(process, "VAULT", str(person.parent.parent))
+    process._parse_and_save(RESPONSE, person, process.SECTION_MAP,
+                            process.SECTION_MODE, date="2026-06-03")
+
+    res = process.cmd_review(approve="Ana-Leite/nao-existe")
+
+    assert res["applied"] == 0
+    assert "Modelo pumps" not in (person / "PDI.md").read_text(encoding="utf-8")
