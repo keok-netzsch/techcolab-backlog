@@ -22,6 +22,14 @@
       "_source": "scripts/triage-reminder.ps1 (aposentado 2026-08-30)",
       "_task": "CallRecorder-Triage-Reminder (weekdays 09:00)",
       "_nota": "Silencioso quando nao ha nada a rotear - o gerador devolve vazio."
+    },
+    "study-reminder": {
+      "mode": "messagebox",
+      "title": "Estudo - bloco da tarde",
+      "messageScript": "scripts/notify-body/study-body.ps1",
+      "_source": "vault/study-notify.ps1 (aposentado 2026-08-30; opt-in da sessao de skills de estudo)",
+      "_task": "study-notify-diario (daily 15:40)",
+      "_nota": "Modo messagebox e nao balloon (o original era balloon): lembrete de estudo perdido em silencio pelo Focus Assist quebra o proposito do monitor - mesmo racional de 2026-08-11. Silencioso quando todas as areas ativas ja tiveram sessao hoje."
     }
   },
   "_pendentes": {
@@ -30,11 +38,6 @@
       "mode": "balloon",
       "title": "(dinamico: dias restantes)",
       "_bloqueio": "vault/cdmp-notify.ps1 tambem envia e-mail via Outlook COM. O motor so notifica; migrar exigiria decidir o que fazer com o e-mail."
-    },
-    "study-reminder": {
-      "mode": "balloon",
-      "title": "(dinamico: alerta ou bloco da tarde)",
-      "_bloqueio": "vault/study-notify.ps1 e trabalho ativo da sessao 'Plano de skills por area de estudo' (criado 2026-08-29). Migrar so como opt-in dela."
     }
   }
 }

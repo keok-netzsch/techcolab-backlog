@@ -45,7 +45,7 @@ unless noted. This is the "production = hardened local" record required by the A
 |---|---|---|
 | `TechColab English Coach` | Mon 08:30 | `run_english_coach.bat` → `agent/english_coach.py` |
 | `CDMP Daily Study Reminder` | weekdays 15:30 | vault `cdmp-notify.ps1` |
-| `study-notify-diario` | daily 15:40 | vault `study-notify.ps1` — study-monitor toast (reads `study-plan.json` + area trackers, zero LLM); created 2026-08-29, pairs with the `/study` skill |
+| `study-notify-diario` | daily 15:40 | `scripts/notify.ps1 -Profile study-reminder` → body from `scripts/notify-body/study-body.ps1` (reads `study-plan.json` + area trackers, zero LLM; silent when every active area already studied today); pairs with the `/study` skill. Migrated to the engine 2026-08-30 as messagebox (was balloon — Focus Assist rationale); old `vault/study-notify.ps1` retired |
 | `NETZSCH-AI-Usage-Capture` | daily 09:00 | `~/NETZSCH-AI-Usage/Capture-Usage.ps1` |
 
 ## Disabled / retired
