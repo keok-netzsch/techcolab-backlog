@@ -52,10 +52,39 @@ Deve retornar `True`. Se retornar `False`, crie a pasta manualmente no Obsidian 
 
 ## 1. Adicionar novas ideias
 
-Crie (ou edite) qualquer arquivo `.md` na pasta do vault:
+### O caminho normal: `create_idea.py` (use este)
+
+Ideia nasce em conversa — no Claude, numa nota, num WhatsApp encaminhado — não dentro do
+app. Quando a conversa produzir algo que vale guardar, cadastre direto:
+
+```bash
+python ~/techcolab-backlog/agent/create_idea.py --title "..." --description "..." --todo "Primeiro passo"
+```
+
+Funciona de qualquer pasta e nas duas contas do CLI (`claude` e `claude-api`): é Python
+puro sobre o `BacklogStore`, sem chamada de LLM. O ID é atribuído sozinho e título
+duplicado é recusado.
+
+**Nunca escreva `idea-NNN.md` na mão** — é assim que entra divergência de schema e ID
+duplicado. Para texto com acento, prefira `--json arquivo.json` em vez das flags: o
+quoting do shell no Windows corrompe acentuação vinda de stdin.
+
+Para **mudar o status** de uma ideia que já existe, o script é outro:
+
+```bash
+python ~/techcolab-backlog/agent/update_status.py idea-081 "em desenvolvimento"
+```
+
+Detalhe completo das flags: `CLAUDE.md`, seção "Capturing a new idea".
+
+### O caminho alternativo: ingestão de notas soltas
+
+Ainda existe, e serve para quando você já escreveu bastante texto livre e quer que o
+modelo extraia as ideias. Crie (ou edite) qualquer arquivo `.md` na pasta de notas do
+vault:
 
 ```
-%USERPROFILE%\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\Notes\
+%USERPROFILE%\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\App\Personal toolkit\notes\
 ```
 
 Escreva livremente — o modelo entende texto não estruturado. Exemplos do que funciona:
@@ -80,7 +109,7 @@ python main.py ingest
 O sistema vai:
 1. Detectar os arquivos `.md` novos (sem a tag `<!-- techcolab:ingested -->`)
 2. Enviar para o modelo Ollama extrair as ideias
-3. Salvar cada ideia como `idea-NNN.md` na pasta `backlog/ideias/`
+3. Salvar cada ideia como `idea-NNN.md` na pasta `backlog items/` do vault
 4. Marcar a nota original como processada
 5. Regenerar o `_index.md`
 
@@ -217,10 +246,42 @@ Se quiser que o modelo reanalise uma nota (ex: você a atualizou com mais conte�
 
 ---
 
-## 6. Referência rápida de comandos
+## 6. O loop de decisão — Weekly Brief e Closer (Toolkit 2.0)
+
+Esta é a parte que substituiu o pipeline diário. Vale entender, porque é onde as decisões
+acontecem de fato.
+
+**O que morreu:** o `/plan` diário e a seção "Ações propostas" do relatório, com
+checkboxes para marcar. Em 86 relatórios ela emitiu 1.986 checkboxes e colheu 32
+aprovações (1,6%, nenhuma nas duas últimas semanas). A análise era boa; o mecanismo —
+abrir arquivo, marcar caixa, esperar um ciclo — não. **Não reintroduza.**
+
+**O que existe hoje, e como você usa:**
+
+| Quando | O quê | Seu papel |
+|---|---|---|
+| Diário, 07:00 | Relatório de saúde (`TechColab Backlog Agent`): testes, vault alcançável, itens vencidos/parados, bugs abertos | Nada. Ele **afirma**, não pergunta |
+| 1ª execução da semana | **Weekly Brief** em `{VAULT_ROOT}/weekly-briefs/brief-YYYY-Wnn.md`: no máximo 5 itens, cada um uma pergunta com duas opções | Ler |
+| Segunda, 08:30 | **Closer** (rotina agendada do Claude): lê o brief + backlog e redige a ação de cada ponto aberto | Responder **em uma linha** |
+
+O Closer entrega cada ponto num de três formatos: `[PRONTO]` (texto pronto para enviar),
+`[RECOMENDO]` (decisão com racional) ou `[FEITO]` (status já reconciliado com evidência).
+
+**Como responder:** em conversa, numa linha — *"aprova A e C, descarta B"*. Não existe
+caixa para marcar. O que você aprovou é então aplicado com `update_status.py` ou pelas
+ferramentas MCP do vault.
+
+Truncamento é sempre reportado: se havia mais de 5 candidatos, o brief diz quantos ficaram
+de fora — nunca corta em silêncio.
+
+## 7. Referência rápida de comandos
 
 | Ação | Comando |
 |---|---|
+| **Cadastrar ideia (caminho normal)** | `python agent/create_idea.py --title "..." --description "..."` |
+| Cadastrar com acento/texto longo | `python agent/create_idea.py --json payload.json` |
+| Validar sem gravar | `python agent/create_idea.py --json payload.json --dry-run` |
+| **Mudar status** | `python agent/update_status.py idea-081 "em validação"` |
 | Ingerir novas notas | `python main.py ingest` |
 | Preview sem escrever | `python main.py ingest --dry-run` |
 | Listar ideias | `python main.py backlog list` |
