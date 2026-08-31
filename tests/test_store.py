@@ -294,3 +294,26 @@ def test_create_with_all_fields(tmp_store):
     assert loaded.agente_autorizado is True
     assert loaded.todos[0]["is_bug"] is True
     assert loaded.todos[0]["due_date"] == "2026-07-01"
+
+
+# ── auto-advance vs. explicit status decision ────────────────────────────────
+
+def test_save_auto_advances_backlog_with_done_todo(tmp_store):
+    """Default behaviour: ticking a todo moves a backlog idea into development."""
+    idea = tmp_store.create(title="Auto advance", status="backlog")
+    idea.todos = [{"text": "Feito", "done": True, "due_date": None}]
+    tmp_store.save(idea)
+    assert tmp_store.load_by_id(idea.id).status == "em desenvolvimento"
+
+
+def test_save_auto_advance_off_keeps_explicit_backlog(tmp_store):
+    """Regression (idea-037, Closer W35 item H): a deliberate move back to
+    'backlog' on an idea with done todos was silently reverted to
+    'em desenvolvimento', so the decision never reached the file."""
+    idea = tmp_store.create(title="Explicit backlog", status="em desenvolvimento")
+    idea.todos = [{"text": "Feito", "done": True, "due_date": None}]
+    tmp_store.save(idea)
+
+    idea.status = "backlog"
+    tmp_store.save(idea, auto_advance=False)
+    assert tmp_store.load_by_id(idea.id).status == "backlog"

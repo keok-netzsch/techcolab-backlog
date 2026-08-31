@@ -44,8 +44,9 @@ from backlog.schema import (
     VALID_PRIORITIES,
     VALID_STATUSES,
 )
+from backlog.index import generate_index
 from backlog.store import BacklogStore, _parse_todos
-from config import BACKLOG_DIR
+from config import BACKLOG_DIR, BACKLOG_INDEX
 
 EXIT_INVALID = 1
 EXIT_DUPLICATE = 2
@@ -272,6 +273,12 @@ def main(argv=None) -> int:
 
     idea = store.create(**payload)
     path = store._path(idea.id)
+    # Same reason as in update_status.py: only the Streamlit app used to regenerate the
+    # vault index, and Toolkit 2.0 moved capture to this CLI. Best-effort, never fatal.
+    try:
+        generate_index(store.load_all(), Path(BACKLOG_INDEX))
+    except Exception as e:  # noqa: BLE001
+        print(f"[WARN] _index.md not regenerated: {e}")
     print(f"[OK] {idea.id} created - status '{idea.status}', priority '{idea.priority}'")
     print(f"[OK] {path}")
     return 0

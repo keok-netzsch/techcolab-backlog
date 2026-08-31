@@ -126,11 +126,14 @@ class BacklogStore:
         nums = [int(p.stem.split("-")[1]) for p in existing if p.stem.split("-")[1].isdigit()]
         return f"idea-{(max(nums) + 1):03d}" if nums else "idea-001"
 
-    def save(self, idea: Idea) -> Path:
+    def save(self, idea: Idea, auto_advance: bool = True) -> Path:
         idea.updated_at = date.today()
-        # Auto-advance: if any todo is active/done and idea is still in backlog, move forward
+        # Auto-advance: if any todo is active/done and idea is still in backlog, move forward.
+        # auto_advance=False is for an EXPLICIT status decision (update_status.py): sending an
+        # idea with done todos back to "backlog" is a legitimate call — "this stalled, it is not
+        # in development" — and the rule was silently undoing it (idea-037, Closer W35 item H).
         _STATUS_RANK = {"backlog": 0, "em desenvolvimento": 1, "em validação": 2, "concluído": 3, "arquivado": 4}
-        if _STATUS_RANK.get(idea.status, 99) == 0 and any(
+        if auto_advance and _STATUS_RANK.get(idea.status, 99) == 0 and any(
             t.get("in_progress") or t.get("done") for t in idea.todos
         ):
             idea.status = "em desenvolvimento"
