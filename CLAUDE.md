@@ -169,6 +169,11 @@ When the user opens a Claude Code session via `execute_agent.bat`, follow this p
 
 ## Pendências do Kelvin — registrar no ledger, não só no ADR
 
+> **Regra global, em `~/.claude/CLAUDE.md`:** o Obsidian é camada de REGISTRO; a
+> interação é no chat. Nunca instrua o Kelvin a abrir/editar/ticar/aprovar algo
+> dentro do vault. Se o mecanismo que você construiu só funciona editando arquivo
+> à mão, o mecanismo está errado — dê a ele um caminho por CLI/chat.
+
 Anything that ends a session as "waiting for Kelvin" (a decision, a graduation
 approval, something only he can verify) MUST be registered in the ledger — an ADR
 section alone is where pendências go to be forgotten (his words, 2026-08-31:

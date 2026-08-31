@@ -485,9 +485,11 @@ def _stage_for_review(base_path: Path, block_type: str, target_file: str,
         f"---\nstatus: draft\nblock: {block_type}\ntarget: {target_file}\n"
         f"date: {day}\nsource: process.py (modelo local)\n---\n\n"
         f"> Proposta escrita por um modelo local a partir de uma transcricao. "
-        f"**Nao e fato ate voce aprovar.** Apague o que estiver errado, corrija o que "
-        f"valer, troque `status: draft` por `status: approved` e rode "
-        f"`python process.py review --apply`. Para descartar, apague este arquivo.\n\n"
+        f"**Nao e fato ate o Kelvin aprovar.** Ele NAO aprova aqui: a proposta e "
+        f"apresentada a ele NO CHAT pelo ledger de pendencias, e aplicada com "
+        f"`process.py review --approve <id>`. Editar este arquivo a mao e caminho "
+        f"de excecao, nao o fluxo (regra de 2026-08-31: o vault e registro, o chat "
+        f"e interacao).\n\n"
         f"{content}\n",
         encoding="utf-8",
     )
