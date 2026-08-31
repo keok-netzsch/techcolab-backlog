@@ -66,10 +66,14 @@ Action-Dashboard da Ana Leite. O mesmo parágrafo afirmava que a reunião discut
 criação de um quarto adequado". Ficou lá quase três meses, e a aba Team do app exibia
 como fato.
 
-Agora esses blocos param em `Team/<Pessoa>/_review/` como **proposta**, com
-`status: draft`. Só entram no arquivo real depois que um humano lê, corrige e marca
-`approved` (`process.py review --apply`). Silêncio não é consentimento: o que continua
-`draft` nunca é aplicado.
+Agora esses blocos param em `Team/<Pessoa>/_review/` como **proposta**. Só entram no
+arquivo real quando um humano aprova — e aprovar é uma **ação**
+(`process.py review --approve <id>`), não uma edição de arquivo. Regra do Kelvin
+(2026-08-31): *o vault é camada de registro, não camada de interação* — ele não aprova
+nada abrindo o Obsidian. Cada proposta também vira uma pendência no ledger, para aparecer
+na página de pendências do app e na rotina `pendencias-do-kelvin` das 08:30, que é onde
+ele de fato olha. Silêncio não é consentimento: proposta não aprovada nunca é aplicada, e
+descartar move para `_rejected/` em vez de apagar.
 
 Mesma forma do gate do Team Memory Agent, e pela mesma razão: **nada vira fato sobre uma
 pessoa sem alguém dizer que é.**

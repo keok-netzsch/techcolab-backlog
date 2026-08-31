@@ -43,6 +43,14 @@ RESPONSE = """### BLOCO 1on1
 """
 
 
+@pytest.fixture(autouse=True)
+def _no_real_ledger(monkeypatch):
+    """O staging registra a proposta no ledger de pendencias do Kelvin. Em teste isso
+    escreveria pendencia de verdade no vault dele — aconteceu (P-013/P-014, 31/08).
+    O gate e o objeto do teste; o ledger tem os seus."""
+    monkeypatch.setattr(process, "_register_pending", lambda *a, **k: None)
+
+
 @pytest.fixture
 def person(tmp_path):
     p = tmp_path / "Team" / "Ana-Leite"

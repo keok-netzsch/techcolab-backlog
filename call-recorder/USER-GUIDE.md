@@ -57,20 +57,27 @@ it works. Use `--topic` when you want a themed session.
 ## Aprovar o que o modelo escreveu sobre uma pessoa (desde 2026-08-31)
 
 PDI, OKR e Overview **não recebem mais texto do modelo direto**. O que ele propõe fica
-parado em `Team/<Pessoa>/_review/<data>-<bloco>.md` até você aprovar. O `1on1.md` continua
-automático — é log de sessão, não afirmação sobre a pessoa.
+parado até você aprovar. O `1on1.md` continua automático — é log de sessão, não afirmação
+sobre a pessoa.
 
 Por que existe: em 03/06 o modelo inventou uma "Daniela" como responsável por um objetivo
 da Ana, a partir de uma call sobre o projeto ENH, e isso entrou no PDI, no OKR, no
 Overview e no dashboard sem ninguém ver.
 
-O ritual, no Obsidian:
+**Você não precisa abrir o Obsidian.** Cada proposta vira uma pendência no ledger, então
+ela aparece onde você já olha: a página de pendências do app e a rotina
+`pendencias-do-kelvin` das 08:30. Aprovar ou descartar é uma ação:
 
-1. `python call-recorder/process.py review` — lista o que está esperando.
-2. Abra o arquivo. Apague o que estiver errado, corrija o que valer.
-3. Troque `status: draft` por `status: approved` e salve.
-4. `python call-recorder/process.py review --apply` — só o que está `approved` entra no
-   arquivo real; o resto continua parado. **Para descartar, apague o arquivo.**
+```
+python call-recorder/process.py review                                   # o que espera, com os ids
+python call-recorder/process.py review --approve Ana-Leite/2026-06-03-PDI
+python call-recorder/process.py review --reject  Ana-Leite/2026-06-03-PDI
+```
 
-O que você deixou escrito é exatamente o que entra — o gate aplica o texto revisado, não
-o original do modelo.
+Na prática você diz ao Claude "aprova o PDI da Ana" ou clica na pendência — o comando é o
+que roda por baixo. Aprovar aplica **só aquela** proposta; as outras continuam esperando.
+Descartar não apaga: o texto vai para `_rejected/`, caso você queira ver depois.
+
+Se quiser corrigir antes de aprovar, peça a correção ao Claude (ou edite o arquivo em
+`_review/`, se preferir) — o que entra no arquivo real é o texto revisado, não o original
+do modelo.
