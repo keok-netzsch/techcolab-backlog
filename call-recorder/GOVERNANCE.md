@@ -52,3 +52,28 @@ One question remains, and it is a policy call nobody else can make:
 
 Until it is answered, the mechanical defaults above stay as they are — they are an
 implementation state, not a policy.
+
+## Gate de aprovação para arquivos canônicos de pessoas (2026-08-31)
+
+`PDI.md`, `OKR.md` e `Overview.md` não são log: são o que o vault **afirma ser verdade**
+sobre uma pessoa, e alimentam decisão de carreira. Até esta data um modelo local de 7B
+escrevia neles sem revisão, direto de uma transcrição do Whisper.
+
+**O custo está documentado.** Em 2026-06-03, de uma call sobre o projeto ENH, o modelo
+produziu um objetivo cujo responsável era uma "Daniela" — nome que ninguém do time
+reconhece — e o pipeline gravou isso no PDI, no OKR, no Overview, no 1on1 e no
+Action-Dashboard da Ana Leite. O mesmo parágrafo afirmava que a reunião discutiu "a
+criação de um quarto adequado". Ficou lá quase três meses, e a aba Team do app exibia
+como fato.
+
+Agora esses blocos param em `Team/<Pessoa>/_review/` como **proposta**, com
+`status: draft`. Só entram no arquivo real depois que um humano lê, corrige e marca
+`approved` (`process.py review --apply`). Silêncio não é consentimento: o que continua
+`draft` nunca é aplicado.
+
+Mesma forma do gate do Team Memory Agent, e pela mesma razão: **nada vira fato sobre uma
+pessoa sem alguém dizer que é.**
+
+`1on1.md` fica de fora do gate de propósito — é registro datado do que foi dito numa
+sessão, não uma afirmação sobre a pessoa, e uma linha errada ali está visivelmente
+atrelada a um dia.

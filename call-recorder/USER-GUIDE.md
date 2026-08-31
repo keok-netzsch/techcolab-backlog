@@ -53,3 +53,24 @@ it works. Use `--topic` when you want a themed session.
 - **Nothing transcribed at 16:00:** normal — the batch runs at 20:00. Review is in the
   morning.
 - Logs: `autocapture.log` in this folder, and `logs/` in the repo root for coach/queue.
+
+## Aprovar o que o modelo escreveu sobre uma pessoa (desde 2026-08-31)
+
+PDI, OKR e Overview **não recebem mais texto do modelo direto**. O que ele propõe fica
+parado em `Team/<Pessoa>/_review/<data>-<bloco>.md` até você aprovar. O `1on1.md` continua
+automático — é log de sessão, não afirmação sobre a pessoa.
+
+Por que existe: em 03/06 o modelo inventou uma "Daniela" como responsável por um objetivo
+da Ana, a partir de uma call sobre o projeto ENH, e isso entrou no PDI, no OKR, no
+Overview e no dashboard sem ninguém ver.
+
+O ritual, no Obsidian:
+
+1. `python call-recorder/process.py review` — lista o que está esperando.
+2. Abra o arquivo. Apague o que estiver errado, corrija o que valer.
+3. Troque `status: draft` por `status: approved` e salve.
+4. `python call-recorder/process.py review --apply` — só o que está `approved` entra no
+   arquivo real; o resto continua parado. **Para descartar, apague o arquivo.**
+
+O que você deixou escrito é exatamente o que entra — o gate aplica o texto revisado, não
+o original do modelo.

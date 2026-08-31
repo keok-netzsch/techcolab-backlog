@@ -19,7 +19,7 @@ import os
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import date as _date, datetime
 from pathlib import Path
 
 import requests
@@ -66,6 +66,26 @@ SECTION_MODE = {
 
 MANAGER_SECTION_MAP  = {"1on1": "1on1.md", "Overview": "Overview.md"}
 MANAGER_SECTION_MODE = {"1on1": "prepend", "Overview": "append"}
+
+# ── Approval gate for canonical people files (2026-08-31) ─────────────────────
+# PDI.md, OKR.md and Overview.md are not a log: they are what the vault ASSERTS to
+# be true about a person, and they feed career decisions. Until this date a 7B local
+# model wrote into them unreviewed, straight off a Whisper transcript. The cost is on
+# record: Ana's PDI, OKR, Overview, 1on1 and the Action Dashboard all ended up naming
+# a "Daniela" as the owner of an objective and of an action item — a name the model
+# produced from a call about the ENH project and that nobody on the team recognises.
+# The same paragraph claimed the meeting discussed "a criação de um quarto adequado".
+#
+# So these blocks now land in Team/<Person>/_review/ as proposals. A human reads them,
+# deletes what is wrong, flips status to approved, and only then do they reach the real
+# file (`process.py review --apply`). Same shape as the Team Memory Agent's gate, and
+# for the same reason: nothing about a person becomes a fact without someone saying so.
+#
+# 1on1.md is deliberately NOT gated. It is a dated log of what was said in a session,
+# not an assertion about the person, and gating it would stall the flow Kelvin uses
+# daily. A wrong line there is visibly attached to one session.
+GATED_BLOCKS = {"OKR", "PDI", "Overview"}
+REVIEW_DIRNAME = "_review"
 
 # Standalone capture modes (idea-031) — sessions not tied to a person/stakeholder.
 # Each records → transcribes → Ollama structures the transcript into an Inbox note
@@ -404,7 +424,8 @@ def save_block(file_path: str, content: str, mode: str = "prepend"):
 
 
 def _parse_and_save(response: str, base_path: Path,
-                    section_map: dict, section_mode: dict) -> int:
+                    section_map: dict, section_mode: dict,
+                    date: str | None = None) -> int:
     """
     Parse BLOCO markers and save each block to the vault.
 
@@ -435,12 +456,44 @@ def _parse_and_save(response: str, base_path: Path,
 
     saved = 0
     for block_type, content in matches:
-        if block_type in section_map:
-            fpath = str(base_path / section_map[block_type])
-            save_block(fpath, content.strip(), mode=section_mode.get(block_type, "append"))
-            print(f"  [OK] Atualizado: {section_map[block_type]}")
+        if block_type not in section_map:
+            continue
+        if block_type in GATED_BLOCKS:
+            _stage_for_review(base_path, block_type, section_map[block_type],
+                              content.strip(), date=date)
             saved += 1
+            continue
+        fpath = str(base_path / section_map[block_type])
+        save_block(fpath, content.strip(), mode=section_mode.get(block_type, "append"))
+        print(f"  [OK] Atualizado: {section_map[block_type]}")
+        saved += 1
     return saved
+
+
+def _stage_for_review(base_path: Path, block_type: str, target_file: str,
+                      content: str, date: str | None = None) -> Path:
+    """Park a model-written block as a proposal instead of writing it to the real file.
+
+    One file per person per day per block type, so reprocessing the same session
+    overwrites its own proposal rather than stacking duplicates.
+    """
+    day = date or _date.today().isoformat()
+    review_dir = base_path / REVIEW_DIRNAME
+    review_dir.mkdir(parents=True, exist_ok=True)
+    out = review_dir / f"{day}-{block_type}.md"
+    out.write_text(
+        f"---\nstatus: draft\nblock: {block_type}\ntarget: {target_file}\n"
+        f"date: {day}\nsource: process.py (modelo local)\n---\n\n"
+        f"> Proposta escrita por um modelo local a partir de uma transcricao. "
+        f"**Nao e fato ate voce aprovar.** Apague o que estiver errado, corrija o que "
+        f"valer, troque `status: draft` por `status: approved` e rode "
+        f"`python process.py review --apply`. Para descartar, apague este arquivo.\n\n"
+        f"{content}\n",
+        encoding="utf-8",
+    )
+    print(f"  [REVISAR] {block_type} -> {out.relative_to(base_path.parent.parent)}"
+          if len(out.parts) > 3 else f"  [REVISAR] {block_type} -> {out}")
+    return out
 
 
 def _strip_dated_1on1(oneonone_path: Path, date: str) -> None:
@@ -486,6 +539,84 @@ def _fallback_1on1(oneonone_path: Path, date: str) -> None:
 
 
 # ── Commands ──────────────────────────────────────────────────────────────────
+
+def _read_review_file(p: Path) -> dict:
+    """Front matter + body of a staged proposal. Tolerant: a file a human edited by
+    hand in Obsidian must not fail to parse over whitespace."""
+    text = p.read_text(encoding="utf-8", errors="replace")
+    meta, body = {}, text
+    m = re.match(r"^---\n(.*?)\n---\n?(.*)$", text, re.DOTALL)
+    if m:
+        for line in m.group(1).splitlines():
+            if ":" in line:
+                k, v = line.split(":", 1)
+                meta[k.strip()] = v.strip()
+        body = m.group(2)
+    # Drop the instruction callout — it explains the gate, it is not content.
+    body = re.sub(r"^> Proposta escrita.*?(?:\n\n|\Z)", "", body, flags=re.DOTALL).strip()
+    return {"meta": meta, "body": body, "path": p}
+
+
+def cmd_review(person_folder: str = None, apply: bool = False) -> dict:
+    """The approval gate for model-written PDI/OKR/Overview blocks.
+
+    Without --apply: shows what is waiting. With --apply: writes the approved ones
+    into the real files and archives them. Anything still `draft` is left alone —
+    silence is not consent.
+    """
+    team_dir = Path(VAULT) / "Team"
+    stk_dir = Path(VAULT) / "Stakeholders"
+    if person_folder:
+        roots = [d / person_folder for d in (team_dir, stk_dir)
+                 if (d / person_folder).exists()]
+    else:
+        roots = []
+        for d in (team_dir, stk_dir):
+            if d.exists():
+                roots += [x for x in d.iterdir() if x.is_dir()]
+
+    pending, approved, applied = [], [], []
+    for root in roots:
+        rdir = root / REVIEW_DIRNAME
+        if not rdir.exists():
+            continue
+        for f in sorted(rdir.glob("*.md")):
+            item = _read_review_file(f)
+            item["person"] = root.name
+            status = (item["meta"].get("status") or "draft").lower()
+            if status == "approved":
+                approved.append(item)
+            else:
+                pending.append(item)
+
+    if not apply:
+        if not pending and not approved:
+            print("Nada aguardando revisao.")
+        for it in pending:
+            print(f"  [draft]    {it['person']:16} {it['meta'].get('block','?'):9} "
+                  f"{it['meta'].get('date','?')}  {it['path']}")
+        for it in approved:
+            print(f"  [approved] {it['person']:16} {it['meta'].get('block','?'):9} "
+                  f"{it['meta'].get('date','?')}  -> rode --apply")
+        return {"pending": len(pending), "approved": len(approved), "applied": 0}
+
+    for it in approved:
+        target = it["meta"].get("target")
+        if not target or not it["body"].strip():
+            print(f"  [SKIP] {it['path'].name}: sem target ou sem conteudo")
+            continue
+        dest = it["path"].parent.parent / target
+        save_block(str(dest), it["body"].strip(), mode="append")
+        done_dir = it["path"].parent / "_applied"
+        done_dir.mkdir(exist_ok=True)
+        it["path"].replace(done_dir / it["path"].name)
+        applied.append(it)
+        print(f"  [OK] {it['person']}: {it['meta'].get('block')} -> {target}")
+
+    if not applied:
+        print("Nada aprovado para aplicar.")
+    return {"pending": len(pending), "approved": len(approved), "applied": len(applied)}
+
 
 def cmd_agenda(person_folder: str):
     """Generate a 1:1 agenda suggestion for a team member (streamed to terminal)."""
@@ -1304,7 +1435,7 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
     response = _ollama_generate(prompt, stream=True)
 
     _strip_dated_1on1(team_path / "1on1.md", date)  # idempotent: replace, don't duplicate
-    saved = _parse_and_save(response, team_path, SECTION_MAP, SECTION_MODE)
+    saved = _parse_and_save(response, team_path, SECTION_MAP, SECTION_MODE, date=date)
     if saved == 0:
         _fallback_1on1(team_path / "1on1.md", date)
 
@@ -1378,7 +1509,7 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
     response = _ollama_generate(prompt, stream=True)
 
     _strip_dated_1on1(stk_path / "1on1.md", date)  # idempotent: replace, don't duplicate
-    saved = _parse_and_save(response, stk_path, MANAGER_SECTION_MAP, MANAGER_SECTION_MODE)
+    saved = _parse_and_save(response, stk_path, MANAGER_SECTION_MAP, MANAGER_SECTION_MODE, date=date)
     if saved == 0:
         _fallback_1on1(stk_path / "1on1.md", date)
 
@@ -2099,6 +2230,10 @@ def main():
     db = sub.add_parser("dashboard", help="Consolidate all open '- [ ]' tasks in the vault into Action-Dashboard.md")
     db.add_argument("--output", default=DASHBOARD_FILE, help=f"Output filename in vault root (default: {DASHBOARD_FILE})")
 
+    rv = sub.add_parser("review", help="Gate de aprovacao: blocos PDI/OKR/Overview escritos pelo modelo esperam revisao antes de entrar no arquivo real")
+    rv.add_argument("--person", default=None, help="Folder da pessoa (ex: Ana-Leite). Omitir = todos")
+    rv.add_argument("--apply", action="store_true", help="Aplica os que estao 'status: approved' e arquiva")
+
     dz = sub.add_parser("diarize", help="Rotula falantes numa transcricao (baseado em texto, aproximado — idea-031)")
     dz.add_argument("--transcript", required=True, help="Arquivo .txt da transcricao a rotular")
     dz.add_argument("--people", default=None, help="Nomes conhecidos, separados por virgula (ex: 'Kelvin Okuda,Ana Leite')")
@@ -2126,7 +2261,7 @@ def main():
         sys.exit(1)
 
     # sweep/queue/dashboard do their own thing; the rest need Ollama up.
-    if args.command not in ("sweep", "queue", "dashboard", "memory", "velocity", "alerts", "health"):
+    if args.command not in ("sweep", "queue", "dashboard", "memory", "velocity", "alerts", "health", "review"):
         _check_ollama()
 
     if args.command == "agenda":
@@ -2146,6 +2281,8 @@ def main():
         cmd_queue(args.dir, args.dry_run)
     elif args.command == "dashboard":
         cmd_dashboard(args.output)
+    elif args.command == "review":
+        cmd_review(args.person, args.apply)
     elif args.command == "diarize":
         cmd_diarize(args.transcript, args.people, args.output)
     elif args.command == "memory":
