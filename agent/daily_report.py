@@ -858,16 +858,23 @@ def main() -> int:
     except Exception as _e:
         safe_print(f"[agent] Recording prune skipped: {_e}")
 
-    # The 1:1 agenda pre-generation lived here and was removed with the Streamlit app
-    # on 2026-08-31. It existed to fill the Team tab, and that tab is gone. It was also
-    # the wrong thing to keep: a 7B local model wrote a generic agenda every morning
-    # ("review progress and discuss challenges") next to PDI data the app read straight
-    # from the vault without checking whether it was still true - deadlines two months
-    # past, 0% progress, contradicting a performance cycle that had already closed.
-    # A confident-looking agenda built on stale numbers is worse in a 1:1 than no agenda.
-    # If agenda prep comes back, it belongs where the real material is: the
-    # performance-cycle skill, reading current data, on demand - not a daily Ollama run
-    # writing into a page nobody opened.
+    # Log hygiene: truncate streamlit.log if it grew large (it is not rotated).
+    try:
+        _log = Path(__file__).parent.parent / "streamlit.log"
+        if _log.exists() and _log.stat().st_size > 20 * 1024 * 1024:  # > 20 MB
+            _log.write_text("", encoding="utf-8")
+            safe_print("[agent] Truncated streamlit.log (>20MB)")
+    except Exception:
+        pass
+
+    # Pre-generate 1:1 agendas for the Team tab (graceful if Ollama is down)
+    safe_print("[agent] Generating 1:1 agendas...")
+    try:
+        from team_agenda import generate_all
+        _ag = generate_all()
+        safe_print(f"[agent] Agendas: {len(_ag['ok'])} ok, {len(_ag['failed'])} skipped")
+    except Exception as _e:
+        safe_print(f"[agent] Agenda generation skipped: {_e}")
 
     # Action Dashboard: consolidate open action items into Action-Dashboard.md (idea-031).
     # Personal output only — a local vault note + the toast below (no team channel yet).

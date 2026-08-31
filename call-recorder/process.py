@@ -593,8 +593,7 @@ def _norm_text(s: str) -> str:
 def build_session_memory(text: str) -> list:
     """Parse every dated `## YYYY-MM-DD` session from a 1on1.md body into
     [{date, topics:[str], actions:[{text,done}]}], newest date first. Pure — this
-    generalizes the old team_agenda._parse_last_1on1 (removed with the app, 2026-08-31)
-    from the latest session to all of them."""
+    generalizes team_agenda._parse_last_1on1 from the latest session to all of them."""
     if not text or not text.strip():
         return []
     parts = _MEM_SESSION_RE.split(text)  # [pre, date1, content1, date2, content2, ...]

@@ -1,8 +1,6 @@
 # Personal Toolkit · Techco.lab
 
-Toolkit local de backlog e memória de trabalho sobre um vault **Obsidian**, operado por **CLI e por conversa**, com modelo de linguagem local via **Ollama**. Roda 100% offline — **nenhuma chave de API externa é necessária**.
-
-> **O app Streamlit foi aposentado em 2026-08-31.** Ele mostrava dado de pessoas desatualizado (PDI vencido a 0%, agenda de 1:1 escrita por um modelo 7B) ao lado de um ciclo de performance já apurado — tela confiante sobre número velho é pior que tela nenhuma. O que ficou é o produto de verdade: o BacklogStore, o CLI e o agente. Restaurar: `git checkout app-streamlit-final -- app.py views components backlog/cache.py`.
+Aplicativo local de gestão de backlog com inteligência artificial, construído com **Streamlit**, integrado ao **Obsidian** e rodando um modelo de linguagem local via **Ollama**. Roda 100% offline — **nenhuma chave de API externa é necessária**.
 
 > **Repositório PÚBLICO.** Contém apenas código. Os dados (vault Obsidian) vivem separados e nunca são versionados aqui — veja [SECURITY.md](SECURITY.md).
 
@@ -77,20 +75,16 @@ ollama list
 
 ---
 
-## Como usar
+## Iniciando o aplicativo
 
-```bash
-# cadastrar uma ideia (caminho normal)
-python agent/create_idea.py --title "..." --description "..." --todo "Primeiro passo"
+- **Duplo clique** em `start_silent.vbs` (ou `start_app.bat`), ou:
 
-# mudar status
-python agent/update_status.py idea-081 "em validação"
-
-# ingerir notas soltas do vault
-python main.py ingest
+```bat
+.venv\Scripts\activate
+streamlit run app.py
 ```
 
-Detalhes e o loop de decisão (weekly brief + Closer): `TUTORIAL.md`.
+Disponível em **http://localhost:8501**.
 
 ---
 
@@ -98,6 +92,7 @@ Detalhes e o loop de decisão (weekly brief + Closer): `TUTORIAL.md`.
 
 ```
 techcolab-backlog/
+├── app.py                # Aplicativo principal (Streamlit) — nav custom via ?page=
 ├── config.py             # Caminhos do vault (TECHCOLAB_VAULT) e settings
 ├── agent/                # Agente diário (Fase 1 análise → relatório; status)
 ├── backlog/              # Camada de dados (store/schema/daily_log) — markdown + YAML
@@ -131,9 +126,9 @@ Antes de criar qualquer página/seção nova, leia **`DESIGN_SYSTEM.md`** (palet
 | Sintoma | Solução |
 |---|---|
 | `Connection refused` / erro de modelo | Inicie o Ollama (bandeja do sistema); confirme em `http://localhost:11434` |
-| Ideia não aparece / caminho errado | confirme `TECHCOLAB_VAULT`; o status canônico é o idea file, mudado só por `update_status.py` |
+| App exibe dados antigos | F5 no navegador; confirme `TECHCOLAB_VAULT` correto |
+| `Port 8501 is already in use` | `netstat -ano \| findstr :8501` + `taskkill /PID <pid> /F`, ou `streamlit run app.py --server.port 8502` |
 | `python não é reconhecido` | Reinstale o Python com "Add Python to PATH" |
-| Erro no `pip install` | `python -m pip install --upgrade pip` |
+| Erro no `pip install` | Ative o venv primeiro; `python -m pip install --upgrade pip` |
 
-`CLAUDE_FAQ.md` guarda o histórico de erros do app Streamlit — mantido só como registro;
-o app não existe mais desde 2026-08-31.
+Erros recorrentes de Streamlit/CSS estão catalogados em `CLAUDE_FAQ.md`.

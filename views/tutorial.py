@@ -1,0 +1,278 @@
+"""views/tutorial.py — Installation Tutorial page."""
+
+import streamlit as st
+
+
+def render() -> None:
+    st.markdown('<h1 style="margin-bottom:0.4rem">Installation Tutorial</h1>', unsafe_allow_html=True)
+    st.caption("Complete guide to install and configure Personal Toolkit · Techco.lab on a new machine.")
+
+    st.info("**Source code:** [github.com/keok-netzsch/techcolab-backlog](https://github.com/keok-netzsch/techcolab-backlog)", icon="📦")
+
+    st.markdown("""
+## Prerequisites
+
+| Tool | Minimum version | Download |
+|---|---|---|
+| Python | 3.12 | python.org/downloads |
+| Ollama | Any recent | ollama.com/download |
+| Obsidian | Any recent | obsidian.md |
+| Git | Any recent | git-scm.com |
+
+> **Tip:** When installing Python on Windows, check the **"Add Python to PATH"** option before clicking Install Now.
+
+---
+
+## Installation
+
+### Step 1 — Clone the repository
+
+```bat
+git clone https://github.com/keok-netzsch/techcolab-backlog.git
+cd techcolab-backlog
+```
+
+### Step 2 — Install dependencies
+
+**Option A — Automatic script (recommended)**
+
+Double-click **`install.bat`** in the project folder.
+
+**Option B — Manual**
+
+```bat
+python -m venv .venv
+.venv\\Scripts\\activate
+pip install -r requirements.txt
+```
+
+---
+
+## Configuration
+
+Open **`config.py`** and set `VAULT_ROOT` to your Obsidian vault path:
+
+```python
+VAULT_ROOT = r"C:\\Users\\YourUser\\Documents\\MyVault"
+```
+
+Or set the environment variable `TECHCOLAB_VAULT` (takes precedence over `config.py`):
+
+```bat
+set TECHCOLAB_VAULT=C:\\Users\\YourUser\\Documents\\MyVault
+```
+
+**How to find the path:** Obsidian → Settings → About → Vault path.
+
+> Use `r"..."` before the quotes (raw string) to avoid issues with backslashes on Windows.
+
+---
+
+## Ollama model download
+
+```bat
+ollama pull llama3.2:3b
+```
+
+Download ~2 GB. To verify: `ollama list` — the model should appear in the list.
+
+---
+
+## Starting the app
+
+- **Easiest:** double-click **`start_app.bat`**
+- **Command line:**
+  ```bat
+  .venv\\Scripts\\activate
+  streamlit run app.py
+  ```
+- Access at: **http://localhost:8501**
+
+> After any code change (`app.py`, `config.py`, views, etc.) you must **restart the Streamlit process** completely — F5 only reloads the UI, not the Python code.
+
+---
+
+## Using the app
+
+The app has a **top navigation bar** with the logo on the left and page links across the top. Click any link to navigate. The 🔄 icon on the far right refreshes all data from disk.
+
+| Page | Purpose |
+|---|---|
+| Dashboard | Home — metrics overview, status/priority breakdown, to-dos due this week |
+| Backlog | Create, edit and view ideas (list or kanban view) |
+| To-Do List | All action items consolidated across all ideas, sortable and filterable |
+| Team | Direct reports — 1:1 tracker, OKR / PDI status, and Ollama agenda generation |
+| AI Usage | Current NETZSCH AI Gateway budget, rate limits, and local balance-check history |
+| Weekly Brief | Preparation panel for meetings with leadership (Developments, WIP, Team, Calls) |
+| English Coach | Progress tracker for AI-evaluated English practice sessions |
+| ⚙️ (Settings) | Configure Ollama URL, model, and Claude Pro start date |
+| 📖 (Tutorial) | This page |
+| 📚 (Documentation) | Technical architecture and system reference |
+
+---
+
+## Status flow
+
+Ideas move through the following statuses:
+
+```
+backlog → Under review → Approved → Waiting → In development → In validation → Done ✅
+                       └─► Rejected ⛔                                       └─► Discarded ⛔
+```
+
+| Status | Meaning |
+|---|---|
+| Backlog | Captured — not yet reviewed |
+| Under review | Being evaluated |
+| Approved | Approved, queued for development |
+| Waiting | Approved but blocked on something external |
+| In development | Actively being built |
+| In validation | Built — under testing or review |
+| Done | Completed ✅ |
+| Rejected / Discarded | Not going forward |
+
+> **Auto-advance:** when any to-do on a Backlog idea is set to "In progress" or "Done", the idea status automatically advances to "In development".
+
+---
+
+## Priority badges
+
+In the Backlog list view and To-Do List, priority is shown as a numbered circle:
+
+| Badge | Priority |
+|---|---|
+| ● 3 (dark) | Alta / High |
+| ● 2 (medium) | Média / Medium |
+| ● 1 (light) | Baixa / Low |
+
+---
+
+## To-do states
+
+Each to-do supports three states, toggled via the selectbox (To-Do List) or the state dropdown (Backlog card):
+
+| Symbol | Meaning |
+|---|---|
+| ⬜ | Open — not started |
+| 🔄 | In progress — started but not done |
+| ✅ | Done — completed (records `completed_at` date) |
+
+---
+
+## Agent authorisation per to-do
+
+The 🤖 checkbox on each to-do marks it as pre-approved for the daily agent.
+Pre-approved to-dos appear with `[x]` already checked in the agent report — no manual approval needed.
+You can set this during to-do creation or by editing the idea card later.
+
+---
+
+## Weekly Brief
+
+Open **Weekly Brief** before any meeting with Alberto Reuters or Stefan Lautenschlager.
+
+- Use the **period slider** (default 7 days) to set the reporting window
+- Toggle sections on/off: **Devs** (status changes), **WIP** (active ideas + in-progress to-dos), **Team** (1:1 snapshot), **Calls** (recent call notes)
+- Download the summary as `.md` for pasting into emails or Obsidian notes
+- **Calls** auto-populates from session notes generated by the call recorder — click ▼ to expand each call
+
+---
+
+## AI Usage
+
+Open **AI Usage** to check the balance associated with your NETZSCH AI Gateway key.
+
+- The page reads `NETZSCH_LLM_API_KEY` only from the Windows environment; it never displays or saves the key.
+- Select **Refresh balance** to retrieve current spend, available budget, reset date, and gateway rate limits.
+- Each manual check is stored locally in `logs/ai-usage-history.jsonl`, which is excluded from Git.
+- The top row shows three cards: a **donut** with percent of budget used and the spend amount in the center, **cost per million tokens** (Claude Opus estimate), and **consumption pace** (spend/day and days left).
+- **Gateway limits & budget reset** (RPM/TPM limits and the reset-date note) is collapsed in an expander below the top row — expand it to edit the reset note.
+- **Spend this month** charts cumulative spend for the current calendar-month cycle against the budget line, with a dashed projection based on the last 3 days' pace.
+- **Monthly history** compares total spend across calendar months — a proxy for the real billing cycle, since the gateway doesn't report the actual reset day.
+- If the page cannot find the environment variable, set it and fully restart the Toolkit.
+
+---
+
+## Call Recorder
+
+The recorder captures 1:1s and stakeholder calls, transcribes them locally (Whisper), and saves structured notes to the vault.
+
+**How to start a recording:**
+
+1. Trigger the **Call Recorder** shortcut (or run `call-recorder.ps1` directly)
+2. Select who the call is with — the menu shows all team members and stakeholders together
+3. Press **Enter** to start recording / **Enter** again to stop
+4. Choose **Process now** (runs immediately) or **Queue** (runs at 17:30 with the daily agent batch)
+
+**Language auto-detection:** language is detected automatically by Whisper — no need to select it manually. If the call is in English, the English Coach report is triggered automatically.
+
+**Output:** notes are saved to `{Vault}/Team/{Person}/1on1/` or `{Vault}/Stakeholders/{Person}/1on1/` depending on who the call was with.
+
+---
+
+## Raycast shortcuts
+
+All daily interactions are available directly via keyboard — no terminal needed.
+Scripts live in `%USERPROFILE%\\techcolab-backlog\\call-recorder\\` and are registered in Raycast → Settings → Script Commands.
+
+| Shortcut | Command | What it does |
+|---|---|---|
+| *(assign)* | **Call Recorder** | Opens menu: select contact → record → process or queue |
+| ⊞ Win + C | **Encerrar Sessão** | Runs tests, commits and pushes the repo |
+| *(assign)* | **Rodar Agente** | Runs Phase 1 — generates today's backlog report |
+| *(assign)* | **Executar Agente** | Copies Phase 2 command to clipboard + opens Claude Code |
+
+> **Note on Win+Space:** Windows reserves this for the keyboard-layout switcher — it intercepts before Raycast. Assign a different combo (e.g. `Ctrl+Alt+Space`) in Raycast → Settings → Script Commands.
+
+> **To assign a hotkey:** Raycast → Settings → Script Commands → click "Record Hotkey" next to the command.
+
+---
+
+## Daily agent
+
+The agent runs every morning at 07:00, analyses the backlog, and proposes actions.
+You interact with it in two steps:
+
+### Step 1 — Review the report (Obsidian)
+
+Open `agent-reports/report-YYYY-MM-DD.md` in the vault.
+
+The report is a **health check**: tests, vault reachability, backlog snapshot, alerts.
+It states status — it proposes nothing and has no boxes to tick.
+
+Decisions live in the **Weekly Brief** (`weekly-briefs/brief-YYYY-Wnn.md`): at most five
+lettered questions per week, answered in conversation ("discard A, reactivate C"), not by
+editing the file.
+
+The **Ideas under review** section holds the Phase 2 analysis. If it opens with a
+`Phase 2 DEGRADED` callout, the local model analysis crashed for the ideas listed there —
+those recommendations are missing, not empty. Check `logs/agent-last.log` for the cause.
+
+### Step 2 — Execute approved items (Claude Code)
+
+**Easiest way — Raycast:**
+Trigger **Executar Agente**. The command is copied to clipboard automatically — paste in Claude Code and press Enter.
+
+**Manual way:**
+1. Double-click **`execute_agent.bat`**
+2. Claude Code opens in the project directory
+3. Type: `Execute the approved items from today's agent report`
+4. Claude reads the report, lists the approved to-dos, and asks you to confirm before acting
+
+---
+
+## Troubleshooting
+
+| Issue | Solution |
+|---|---|
+| Connection error when suggesting to-dos | Start Ollama (tray icon) |
+| Report shows "Phase 2 DEGRADED" | The analysis workers crashed — read `logs/agent-last.log`, then rerun `run_agent.bat` |
+| App shows stale data | Click **🔄** in the top navigation bar |
+| Port 8501 in use | `streamlit run app.py --server.port 8502` |
+| "python not recognized" | Reinstall Python with "Add to PATH" checked |
+| pip install error | Activate `.venv` first: `.venv\\Scripts\\activate` |
+| Agent report not found | Run `run_agent.bat` manually |
+| `TECHCOLAB_VAULT` error | Restart the app — the env var needs a new process |
+| Code changes not reflected | Restart Streamlit — F5 alone does not reload Python code |
+| Expander content disappears on hover | Restart Streamlit to reload CSS from `assets/brand.css` |
+""")
