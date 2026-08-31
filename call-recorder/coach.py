@@ -221,15 +221,45 @@ def _transcript_stats(transcript: str) -> dict:
     return {"words": word_count, "duration_min": round(duration_sec / 60, 1), "lines": len(lines)}
 
 
-def _sample_excerpt(transcript: str, target_chars: int = 5000) -> str:
+def _budget_chars() -> int:
+    """Quantos caracteres da fala do Kelvin vão para a avaliação.
+
+    Decisão dele em 2026-08-31, ao ver que só ~20% de uma call longa era avaliada:
+    **"sim. cubra 100%"**. O corte de 5.000 foi dimensionado quando o avaliador era
+    o qwen2.5-coder local de 7B; com o `claude-sonnet-5` pelo gateway o orçamento é
+    outra ordem de grandeza. Medida real: 24.339 caracteres no Jour Fixe com o
+    Alberto — ~6k tokens, trivial para o Sonnet, inviável para o 7B.
+
+    Por isso o orçamento segue o provedor, e não uma constante: cair para o Ollama
+    (sem saldo, chave expirada, rede) com 120k caracteres transformaria degradação
+    em travamento. O teto remoto existe só como para-quedas — e quando corta, diz.
+    """
+    try:
+        import coach_llm
+        return 120_000 if coach_llm.active_provider("coach") == "gateway" else 5_000
+    except Exception:
+        return 5_000
+
+
+def _sample_excerpt(transcript: str, target_chars: int | None = None) -> str:
     """Return a representative sample: first half + middle half.
 
     Taking only the first N chars biases against speakers who warm up slowly
     and undersamples vocabulary used later in the conversation.
     For short transcripts the full text is returned unchanged.
+
+    Com o gateway, o orçamento (`_budget_chars`) cobre a call inteira e este
+    caminho de amostragem praticamente não roda — ele fica para o fallback local.
     """
+    if target_chars is None:
+        target_chars = _budget_chars()
     if len(transcript) <= target_chars:
         return transcript
+    # Cortar tem que ser visível: 20 sessões foram avaliadas parcialmente sem que
+    # nada além de um marcador no meio do texto dissesse isso.
+    print(f"[coach] AVISO: transcricao com {len(transcript)} chars excede o "
+          f"orcamento de {target_chars} — avaliando uma AMOSTRA (inicio + meio), "
+          f"nao a call inteira.")
     half = target_chars // 2
     # Beginning slice
     beginning = transcript[:half]
