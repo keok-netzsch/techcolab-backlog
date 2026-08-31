@@ -273,8 +273,9 @@ def main(argv=None) -> int:
 
     idea = store.create(**payload)
     path = store._path(idea.id)
-    # Same reason as in update_status.py: only the Streamlit app used to regenerate the
-    # vault index, and Toolkit 2.0 moved capture to this CLI. Best-effort, never fatal.
+    # Same reason as in update_status.py: the app also refreshes the index, but
+    # capture happens through this CLI and must not wait for the app to be opened.
+    # Best-effort, never fatal.
     try:
         generate_index(store.load_all(), Path(BACKLOG_INDEX))
     except Exception as e:  # noqa: BLE001
