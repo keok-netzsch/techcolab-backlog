@@ -37,15 +37,10 @@ Write-Host ""
 Write-Host "  Criando atalhos em: $folder" -ForegroundColor Cyan
 Write-Host ""
 
-# ── 1. Iniciar App ─────────────────────────────────────────────────────────────
-# Abre o Personal Toolkit · Techco.lab no navegador (http://localhost:8501)
-New-Shortcut `
-    -Name        "1. Iniciar App" `
-    -Target      "wscript.exe" `
-    -Arguments   "`"$TB\start_silent.vbs`"" `
-    -WorkDir     $TB `
-    -Description "Inicia o Personal Toolkit Techco.lab (Streamlit, porta 8501)" `
-    -Icon        "shell32.dll,13"
+# ── 1. Iniciar App — REMOVIDO em 2026-08-31 ────────────────────────────────────
+# O app Streamlit foi aposentado (ADR 2026-08-31-aposentar-app-streamlit.md). Nao
+# recriar este atalho: nao ha mais servidor para iniciar. A numeracao dos demais foi
+# mantida de proposito — o Kelvin os conhece por numero.
 
 # ── 2. Call Recorder ───────────────────────────────────────────────────────────
 # Abre o menu: [1] 1on1 com time  [2] English Coach
