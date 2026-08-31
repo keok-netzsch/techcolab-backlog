@@ -133,3 +133,59 @@ def test_ref_guarda_o_arquivo_que_a_decisao_destrava(tmp_path, monkeypatch):
     item = json.loads((tmp_path / "pendencias.json").read_text(encoding="utf-8"))["itens"][0]
     assert item["ref"].endswith("2026-06-03-PDI.md")
     assert item["prioridade"] == "media"
+
+
+# ── remove: lixo sai, decisao real nao ───────────────────────────────────────
+
+def test_remove_apaga_e_nao_deixa_no_historico(tmp_path, monkeypatch):
+    """resolve vira historico; remove some. Lixo de teste marcado como
+    'resolvido' poluiria justamente o historico que ele quer consultar."""
+    import json
+    p = _mod(tmp_path, monkeypatch)
+    p.main(["add", "--tipo", "decisao", "--texto", "Decisao real"])
+    p.main(["add", "--tipo", "decisao", "--texto", "Lixo de teste"])
+    assert p.main(["remove", "P-002", "--motivo", "artefato de teste"]) == 0
+
+    d = json.loads((tmp_path / "pendencias.json").read_text(encoding="utf-8"))
+    assert [i["id"] for i in d["itens"]] == ["P-001"]
+    md = (tmp_path / "Pendencias.md").read_text(encoding="utf-8")
+    assert "Lixo de teste" not in md
+    assert "## Resolvidas (0)" in md
+
+
+def test_remove_exige_motivo_e_id_valido(tmp_path, monkeypatch):
+    p = _mod(tmp_path, monkeypatch)
+    p.main(["add", "--tipo", "decisao", "--texto", "x"])
+    assert p.main(["remove", "P-001", "--motivo", "   "]) == 1
+    assert p.main(["remove", "P-404", "--motivo", "qualquer"]) == 1
+    import json
+    assert len(json.loads((tmp_path / "pendencias.json").read_text(encoding="utf-8"))["itens"]) == 1
+
+
+def test_item_legado_sem_prioridade_nao_quebra_a_ordenacao(tmp_path, monkeypatch, capsys):
+    """Itens criados antes do campo existir tem prioridade None. `.get(k, default)`
+    devolve None quando a chave EXISTE com valor None - o default so vale para
+    chave ausente."""
+    import json
+    p = _mod(tmp_path, monkeypatch)
+    p.main(["add", "--tipo", "decisao", "--texto", "Alta", "--prioridade", "alta"])
+    p.main(["add", "--tipo", "decisao", "--texto", "Legado"])
+    d = json.loads((tmp_path / "pendencias.json").read_text(encoding="utf-8"))
+    d["itens"][1]["prioridade"] = None
+    (tmp_path / "pendencias.json").write_text(json.dumps(d), encoding="utf-8")
+
+    capsys.readouterr()
+    assert p.main(["list"]) == 0
+    saida = capsys.readouterr().out
+    assert "Alta" in saida and "Legado" in saida
+    assert saida.index("Alta") < saida.index("Legado")
+
+
+def test_teste_nao_escreve_no_ledger_real(monkeypatch):
+    """A guarda que impede a repeticao do incidente P-013/P-014: teste que
+    esqueceu de isolar o STORE falha alto em vez de sujar o vault do Kelvin."""
+    import pytest
+    import agent.pending as pending
+    monkeypatch.setattr(pending, "STORE", pending._STORE_REAL)
+    with pytest.raises(RuntimeError, match="ledger REAL"):
+        pending._save({"seq": 0, "itens": []})

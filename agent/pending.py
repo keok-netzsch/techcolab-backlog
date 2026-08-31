@@ -19,6 +19,7 @@ Uso:
 
 import argparse
 import json
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -29,6 +30,9 @@ sys.path.insert(0, str(ROOT))
 from config import VAULT_ROOT  # noqa: E402
 
 STORE = VAULT_ROOT / "pendencias.json"
+# Congelado no import: os testes trocam STORE por um tmp_path, e a guarda de
+# _save compara contra ESTE valor para saber se o alvo e o vault de verdade.
+_STORE_REAL = STORE
 VIEW = VAULT_ROOT.parent.parent / "Pendencias.md"  # raiz do vault, ao lado do Action-Dashboard
 
 # "graduacao" = nota candidata ao vault central (10_2ndBrain), só o Kelvin aprova.
@@ -44,6 +48,21 @@ def _load() -> dict:
 
 
 def _save(data: dict) -> None:
+    # Trava: teste nunca escreve no ledger REAL do Kelvin.
+    #
+    # O ledger é chamado por código de produção (`_stage_for_review` no
+    # process.py), então qualquer teste que passe por esse caminho e esqueça de
+    # isolar o STORE acaba criando pendência de mentira no vault dele —
+    # aconteceu em 31/08 (P-013/P-014, removidas). Uma fixture `autouse` resolve
+    # só o arquivo de teste onde ela mora; esta guarda vale para todos, agora e
+    # para os que ainda não existem. Falha alto, não em silêncio: teste que
+    # escreveria no vault real é bug do teste.
+    if os.environ.get("PYTEST_CURRENT_TEST") and STORE == _STORE_REAL:
+        raise RuntimeError(
+            "teste tentou escrever no ledger REAL do Kelvin "
+            f"({STORE}). Isole com monkeypatch de pending.STORE e pending.VIEW, "
+            "ou faça monkeypatch de process._register_pending."
+        )
     STORE.parent.mkdir(parents=True, exist_ok=True)
     STORE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     _render(data)
@@ -133,6 +152,32 @@ def cmd_resolve(args) -> int:
     return 1
 
 
+def cmd_remove(args) -> int:
+    """Apagar do ledger o que NUNCA foi pendencia de verdade.
+
+    Diferente de `resolve`: resolvida virou historico consultavel; removida some.
+    Existe porque o ledger e chamado por codigo de producao (`_stage_for_review`)
+    e um teste que passe por ali cria item no ledger REAL do Kelvin - aconteceu em
+    31/08 (P-013/P-014). Marcar lixo de teste como "resolvido" polui justamente o
+    historico que ele quer poder consultar. Nao e para descartar decisao que ele
+    nao quis tomar: para isso existe resolve (com o motivo) ou snooze.
+    """
+    data = _load()
+    alvo = next((i for i in data["itens"] if i["id"] == args.id), None)
+    if alvo is None:
+        print(f"[ERRO] {args.id} nao encontrada")
+        return 1
+    if not args.motivo.strip():
+        print("[ERRO] --motivo e obrigatorio: remover sem dizer por que e como "
+              "nunca ter registrado")
+        return 1
+    data["itens"] = [i for i in data["itens"] if i["id"] != args.id]
+    _save(data)
+    print(f"[OK] {args.id} REMOVIDA ({args.motivo.strip()})")
+    print(f"     texto: {alvo['texto'][:70]}")
+    return 0
+
+
 def cmd_snooze(args) -> int:
     """Adiar sem fechar. Sem isto so existem dois estados - gritando ou morta - e
     o que ele nao quer decidir HOJE fica pesando na lista todo dia ate ele parar
@@ -174,8 +219,11 @@ def cmd_list(args) -> int:
         itens = [i for i in data["itens"]
                  if not i.get("resolvida_em")
                  and (args.incluir_adiadas or not _adiada(i))]
+    # (i.get("prioridade") or "media"): item antigo tem a chave com valor None, e
+    # .get(k, default) devolve None nesse caso - o default so vale se a chave
+    # nao existe.
     ordem = {"alta": 0, "media": 1, "baixa": 2}
-    itens = sorted(itens, key=lambda i: (ordem.get(i.get("prioridade", "media"), 1),
+    itens = sorted(itens, key=lambda i: (ordem.get(i.get("prioridade") or "media", 1),
                                          i.get("criada_em", "")))
     if args.json:
         print(json.dumps(itens, ensure_ascii=False))
@@ -215,6 +263,10 @@ def main(argv=None) -> int:
     # que ele disse, nao o meu resumo do que ele disse.
     r.add_argument("--como", default="", help="qual foi a resolução (palavras do Kelvin, literal)")
 
+    rm = sub.add_parser("remove", help="apagar lixo que nunca foi pendencia real")
+    rm.add_argument("id")
+    rm.add_argument("--motivo", required=True)
+
     z = sub.add_parser("snooze", help="adiar sem fechar")
     z.add_argument("id")
     z.add_argument("--dias", type=int, help="adiar N dias (padrão 7)")
@@ -227,7 +279,7 @@ def main(argv=None) -> int:
 
     args = ap.parse_args(argv)
     return {"add": cmd_add, "resolve": cmd_resolve, "snooze": cmd_snooze,
-            "list": cmd_list}[args.cmd](args)
+            "remove": cmd_remove, "list": cmd_list}[args.cmd](args)
 
 
 if __name__ == "__main__":
