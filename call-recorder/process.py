@@ -423,6 +423,23 @@ def save_block(file_path: str, content: str, mode: str = "prepend"):
     p.write_text(new, encoding="utf-8")
 
 
+_TEMPLATE_ECHO = re.compile(r"\[(?:resumo|contexto)\s+\w*\s*\]", re.IGNORECASE)
+
+
+def _is_template_echo(content: str) -> bool:
+    """O bloco e so o gabarito do prompt de volta?
+
+    Verdadeiro quando, tirando o cabecalho `## Atualizacao <data>` e os
+    marcadores `[resumo X]` / `[contexto ...]`, nao sobra texto nenhum. Um bloco
+    que TEM conteudo e apenas cita um marcador de passagem continua valendo — o
+    criterio e "sobrou alguma coisa", nao "aparece a palavra".
+    """
+    resto = _TEMPLATE_ECHO.sub("", content or "")
+    resto = re.sub(r"^\s*##\s*Atualiza\w*\s*[\d/-]*\s*$", "", resto,
+                   flags=re.MULTILINE | re.IGNORECASE)
+    return not resto.strip()
+
+
 def _parse_and_save(response: str, base_path: Path,
                     section_map: dict, section_mode: dict,
                     date: str | None = None) -> int:
@@ -457,6 +474,17 @@ def _parse_and_save(response: str, base_path: Path,
     saved = 0
     for block_type, content in matches:
         if block_type not in section_map:
+            continue
+        if _is_template_echo(content):
+            # O modelo copiou o gabarito do prompt em vez de omitir a categoria.
+            # `[resumo PDI]` e `[resumo OKR]` sao literais do TEMPLATE, nao texto
+            # gerado: o prompt pede blocos so "para cada categoria COM conteudo",
+            # e quando nao ha o que dizer o modelo devolve o marcador. Isso ja
+            # entrou duas vezes no PDI da Ana como `## Atualizacao <data>` com
+            # corpo vazio — uma secao datada que parece registro e nao diz nada.
+            # Categoria sem conteudo tem que virar ausencia, nao entrada vazia.
+            print(f"  [IGNORADO] {block_type}: modelo devolveu o gabarito do "
+                  f"prompt, sem conteudo")
             continue
         if block_type in GATED_BLOCKS:
             _stage_for_review(base_path, block_type, section_map[block_type],
