@@ -11,7 +11,7 @@ unless noted. This is the "production = hardened local" record required by the A
 |---|---|---|
 | `CallRecorder-AutoCapture` | resident (auto-start) | `call-recorder/autocapture.py` — records when Teams takes the mic |
 | `CallRecorder-Queue` | daily 20:00 | `scripts/run-queue.ps1` — classifies pendings, transcribes, parks autocapture jobs for routing, then sweeps failed transcripts. Single-flight: `recordings/.queue.lock` (PID); a second queue exits without touching anything |
-| `CallRecorder-Triage-Reminder` | weekdays 09:00 | `scripts/triage-reminder.ps1` — morning review prompt |
+| `CallRecorder-Triage-Reminder` | weekdays 09:00 | `scripts/notify.ps1 -Profile triage-reminder` — morning review prompt; silent when nothing is parked |
 
 ## Team Memory Agent (docs: `~/TeamMemoryAgent/README.md` + GOVERNANCE + USER-GUIDE)
 
@@ -24,8 +24,8 @@ unless noted. This is the "production = hardened local" record required by the A
 
 | Task | When | Runs |
 |---|---|---|
-| `D&A Vault - Morning Reminder` | weekdays 07:35 | `scripts/send-morning-reminder.ps1` |
-| `D&A Vault - Evening Push` | weekdays 16:30 | `scripts/send-evening-push.ps1` |
+| `D&A Vault - Morning Reminder` | weekdays 07:35 | `scripts/notify.ps1 -Profile morning-reminder` |
+| `D&A Vault - Evening Push` | weekdays 16:30 | `scripts/notify.ps1 -Profile evening-push` |
 | `D&A Vault - Weekly Digest` | Fri 16:00 | `scripts/generate-weekly-vault-digest.ps1` |
 | `D&A Vault Central Consolidation` | daily 08:15 | `scripts/vault-central-consolidation-agent.ps1` — read-only watch of 10_2ndBrain graduation |
 | `D&A Vault Central Sensitive Scan` | 08:25 + hourly | `scripts/vault-central-sensitive-scan.ps1` vs `vault-central-sensitive-baseline.json` |
@@ -54,9 +54,36 @@ unless noted. This is the "production = hardened local" record required by the A
   `run_agent.bat`; the duplication starved the transcription queue). Definition backed up
   at `vault/rollback/techcolab-daily-agent-2026-08-29/` in the personal vault.
 
+## Notification engine (P3, since 2026-08-30)
+
+Reminders no longer have one script each. They are profiles in
+`scripts/notify-config.json`, fired by `scripts/notify.ps1 -Profile <name>`:
+
+```
+scripts\notify.ps1 -List                          # what profiles exist
+scripts\notify.ps1 -Profile triage-reminder -WhatIf   # resolve and print, open no window
+```
+
+Two window modes, and the choice is not cosmetic. `messagebox` (WinForms, TopMost,
+blocking) is the right mode for a reminder that must not be missed — it bypasses Focus
+Assist, which in 2026-08-11 was silently swallowing toasts while the API reported success.
+`balloon` (tray NotifyIcon) is less intrusive and *can* be suppressed; it exists because
+the study reminders use it today.
+
+A profile's body is either fixed (`message`) or generated (`messageScript` → a script in
+`scripts/notify-body/` that prints the body). **A generator that prints nothing produces
+no window** — a reminder that fires on an empty day stops being read.
+
+Still on their own scripts, by design (see `_pendentes` in the config): `CDMP Daily Study
+Reminder` (also sends e-mail via Outlook COM — migrating needs a decision on the e-mail)
+and `study-notify-diario` (active work of another session; migrate only as its opt-in).
+
+Old scripts are kept in `scripts/_retired-notify-2026-08-30/` for rollback.
+
 ## Rules for changing anything here
 
 - New scheduled job → add it to this table in the same change.
+- New reminder → add a **profile** to `notify-config.json`; do not write another script.
 - A task that touches a window/foreground: check for a live Teams call first
   (2026-08-28 incident: a task stole focus mid-call with camera on).
 - The vault is on OneDrive: clock skew has bitten before — verify dates with

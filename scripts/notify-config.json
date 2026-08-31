@@ -1,0 +1,40 @@
+{
+  "_comment": "Perfis do motor unico de notificacao (P3, PM review 2026-08-29). Texto e horario sao migracao 1:1 dos scripts antigos - mudar conteudo aqui e outra decisao, nao parte da migracao. Horarios ficam na tarefa agendada (Task Scheduler), nao aqui; ver docs/scheduled-automation.md.",
+  "profiles": {
+    "morning-reminder": {
+      "mode": "messagebox",
+      "title": "Second Brain - captura matinal",
+      "message": "Hora de registrar no Daily/ do seu vault pessoal: decisoes, aprendizados, perguntas em aberto.",
+      "_source": "scripts/send-morning-reminder.ps1 (aposentado 2026-08-30)",
+      "_task": "D&A Vault - Morning Reminder (weekdays 07:35)"
+    },
+    "evening-push": {
+      "mode": "messagebox",
+      "title": "Second Brain - hora de graduar",
+      "message": "Revise as notas de hoje. Algo pronto para o vault central? Peca ao seu Claude para checar as regras e copiar.",
+      "_source": "scripts/send-evening-push.ps1 (aposentado 2026-08-30)",
+      "_task": "D&A Vault - Evening Push (weekdays 16:30)"
+    },
+    "triage-reminder": {
+      "mode": "messagebox",
+      "title": "Call Recorder - gravacoes esperando destino",
+      "messageScript": "scripts/notify-body/triage-body.ps1",
+      "_source": "scripts/triage-reminder.ps1 (aposentado 2026-08-30)",
+      "_task": "CallRecorder-Triage-Reminder (weekdays 09:00)",
+      "_nota": "Silencioso quando nao ha nada a rotear - o gerador devolve vazio."
+    }
+  },
+  "_pendentes": {
+    "_comment": "Perfis prontos para migrar, mas a troca depende de decisao do Kelvin - ver docs/scheduled-automation.md e o relatorio do P3.",
+    "cdmp-reminder": {
+      "mode": "balloon",
+      "title": "(dinamico: dias restantes)",
+      "_bloqueio": "vault/cdmp-notify.ps1 tambem envia e-mail via Outlook COM. O motor so notifica; migrar exigiria decidir o que fazer com o e-mail."
+    },
+    "study-reminder": {
+      "mode": "balloon",
+      "title": "(dinamico: alerta ou bloco da tarde)",
+      "_bloqueio": "vault/study-notify.ps1 e trabalho ativo da sessao 'Plano de skills por area de estudo' (criado 2026-08-29). Migrar so como opt-in dela."
+    }
+  }
+}
