@@ -312,3 +312,13 @@ Impactos aqui:
   (captura / transcricao / avaliacao) ao refatorar.
 - Task agendada mudou? Atualizar docs/scheduled-automation.md na mesma mudanca.
 - Hosting: local-por-design permanente. Nao propor cloud.
+
+## Falha de estruturacao nao e conteudo (2026-08-31)
+
+`_fallback_1on1` grava `<!-- unparsed -->` + uma linha de aviso, **sem lista de
+topicos**. Antes ele escrevia `- (auto) Modelo nao estruturou em blocos` como
+TOPICO, e a aba Team exibia isso como o assunto do ultimo 1:1 da pessoa.
+
+Regra: erro de processamento tem que parecer erro. Nao escreva diagnostico
+tecnico em campo que o consumidor renderiza como conteudo. Notas antigas com o
+formato velho ainda existem — quem consome deve reconhecer os dois.

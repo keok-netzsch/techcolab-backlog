@@ -100,6 +100,7 @@ The app has a **top navigation bar** with the logo on the left and page links ac
 |---|---|
 | Dashboard | Home — metrics overview, status/priority breakdown, to-dos due this week |
 | Backlog | Create, edit and view ideas (list or kanban view) |
+| Pending | Everything waiting on YOU (decisions, graduation approvals, verifications) with age badges, resolve-in-place, and resolved history. Fed by `agent/pending.py`; the vault file is a generated mirror |
 | To-Do List | All action items consolidated across all ideas, sortable and filterable |
 | Team | Direct reports — 1:1 tracker, OKR / PDI status, and Ollama agenda generation |
 | AI Usage | Current NETZSCH AI Gateway budget, rate limits, and local balance-check history |
