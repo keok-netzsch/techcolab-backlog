@@ -17,9 +17,18 @@ perguntas ABERTAS que so o Kelvin responde; nao fechar nem assumir resposta) e
 `docs/scheduled-automation.md`. Hosting: local-por-design PERMANENTE (hardware
 de audio + dado sensivel) — nao propor migracao para cloud.
 
-**Interface externa (P1):** o Team Memory Agent consome transcripts das Daily
-BIZ/PM e parseia o formato `[012.4s] Kelvin: ...`. Mudanca de formato de
-transcript e mudanca de contrato — coordenar antes.
+**Interface externa (P1 — IMPLEMENTADO 2026-08-30):** o Team Memory Agent
+consome transcripts das Daily BIZ e parseia o formato `[012.4s] Kelvin: ...`
+(`tma_capture.py`, rota `callrec-transcript`). Consequencias concretas:
+
+- **Formato de transcript e contrato.** Mudar o prefixo `[tempo] Falante:` quebra
+  o parser do TMA. Coordenar antes; ele ja aceita o legado 1-canal sem falante.
+- **O TMA le, nunca move.** Ele nao arquiva nem apaga transcript — o dono do
+  arquivo continua sendo o recorder, e o `route.py` segue lendo o mesmo arquivo.
+- **A serie sai do titulo da janela do Teams** (campo `meeting` do job), nunca da
+  fala. Se o titulo deixar de vir, o TMA para de reconhecer a Daily.
+- Ele so cria registro quando **nao ha** resumo do Facilitator para aquele dia, e
+  nao infere decisao/acao a partir da fala.
 
 ## Call Recorder 2.0 (2026-08-26) — READ THIS FIRST
 
