@@ -23,6 +23,17 @@ several destinations (a 1:1 note, an OKR mention, a backlog idea). Remember:
 - A recording that should not exist (personal call, sensitive matter): delete it at
   triage. Nothing has been filed yet — that is the point of parking.
 
+## What the routing session extracts for you (since 2026-08-31)
+
+While routing, the 09:00 session also pulls two things out of each call:
+
+- **Commitments** — written into the routed notes as `- [ ] (Owner) text @YYYY-MM-DD`.
+  These feed `Action-Dashboard.md` and the **08:45 weekday reminder**, which pops only
+  when something is overdue or due today (silent otherwise).
+- **Opportunities** — filed into the backlog with status *em análise*. That status IS
+  your curation queue: approve or reject them in the app (or tell Claude), and the
+  08:45 reminder shows the pending count.
+
 ## Manual recording
 
 Start one yourself (Raycast launcher / `call-recorder.ps1`) when you already know the

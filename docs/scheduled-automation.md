@@ -35,6 +35,7 @@ unless noted. This is the "production = hardened local" record required by the A
 | Task | When | Runs |
 |---|---|---|
 | `TechColab Backlog Agent` | daily 07:00 | `run_agent_silent.vbs` — daily agent run + recording-queue health check (flags pendings >36h, jobs >36h, parked routing >72h, `.exhausted`) |
+| `TechColab Todo Reminder` | weekdays 08:45 | `notify.ps1 -Profile todo-reminder` — overdue/due-today action items extracted from calls (+ curation count); silent on empty days |
 | `triagem-gravacoes` | weekdays 09:00 | Claude scheduled routine (not Task Scheduler) — reads `route.py --json` and proposes content-based routing slices |
 | `closer-semanal` | Mon 08:30 | Claude scheduled routine (not Task Scheduler) — reads weekly brief + backlog, drafts actions for one-line approval |
 | `TechColab Opus Price Recalc` | Mon 08:35 | `recalc_opus_price.bat` → `scripts/recalc_opus_price.py` |

@@ -30,6 +30,14 @@
       "_source": "vault/study-notify.ps1 (aposentado 2026-08-30; opt-in da sessao de skills de estudo)",
       "_task": "study-notify-diario (daily 15:40)",
       "_nota": "Modo messagebox e nao balloon (o original era balloon): lembrete de estudo perdido em silencio pelo Focus Assist quebra o proposito do monitor - mesmo racional de 2026-08-11. Silencioso quando todas as areas ativas ja tiveram sessao hoje."
+    },
+    "todo-reminder": {
+      "mode": "messagebox",
+      "title": "Compromissos - vencidos e de hoje",
+      "messageScript": "scripts/notify-body/todo-body.ps1",
+      "_source": "novo em 2026-08-31 (pedido do Kelvin: monitorar to-dos extraidos das conversas)",
+      "_task": "TechColab Todo Reminder (weekdays 08:45)",
+      "_nota": "Le o que a rotina de roteamento das 09:00 extraiu para o vault ('- [ ] (Dono) texto @data') e o backlog (curadoria). Silencioso quando nada vence e nada aguarda curadoria."
     }
   },
   "_pendentes": {

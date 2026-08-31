@@ -92,6 +92,27 @@ transcribed to read. Review belongs in the morning, after the 20:00 batch.
   `route.py` e aparece na propria listagem (humana e `--json`, campo `rule`) -
   a sessao que roteia a ve sem depender deste arquivo.
 
+### Extracao de compromissos e oportunidades (2026-08-31)
+
+A sessao de roteamento das 09:00 tambem EXTRAI de cada transcricao (contrato em
+`EXTRACT_CONTRACT` no `route.py`, carregado na listagem humana e no `--json`):
+
+- **Compromissos** -> `- [ ] (Dono) texto @YYYY-MM-DD` nas notas roteadas. A
+  sintaxe e a que `process.py dashboard` coleta - sem dono E sem data a linha e
+  filtrada como ruido, entao compromisso mal formatado nao e "feio", e
+  INVISIVEL ao monitor. Testado em `tests/test_extraction_contract.py`.
+- **Oportunidades** -> `create_idea.py --status "em analise" --origin <transcricao>`.
+  "em analise" e o estagio de curadoria do schema (aprovado/rejeitado sao os
+  proximos); titulo duplicado e recusado pelo proprio create_idea - e o dedup
+  entre conversas.
+- **Cruzar antes de criar**: Action-Dashboard.md + backlog. Recorrencia
+  consolida o item existente (importancia), nao duplica.
+
+Monitoramento: tarefa `TechColab Todo Reminder` (seg-sex 08:45) via
+`notify.ps1 -Profile todo-reminder` - mostra vencidos/vencendo hoje + contagem
+de curadoria; silenciosa em dia vazio. Corpo em `scripts/notify-body/todo-body.ps1`
+(deterministico, sem LLM - le o que a rotina extraiu, nao decide nada).
+
 ### Consent
 
 Recording now captures the other person's voice, not just Kelvin's. He chose to

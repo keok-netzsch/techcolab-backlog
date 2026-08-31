@@ -100,6 +100,35 @@ ROUTING_RULES = [
 ]
 
 
+# ── Contrato de extracao (2026-08-31, pedido do Kelvin) ──────────────────────
+# Alem de rotear, a sessao das 09:00 EXTRAI de cada transcricao:
+#
+# 1. COMPROMISSOS -> linhas `- [ ] (Dono) texto @YYYY-MM-DD` DENTRO das notas
+#    roteadas. Essa sintaxe nao e estilo: e o formato que process.py dashboard
+#    coleta (dono entre parenteses no inicio, @data em qualquer lugar; sem dono
+#    E sem data a linha e ignorada como ruido). O monitoramento inteiro - o
+#    Action-Dashboard e o lembrete diario de vencidos - le SO esse formato.
+#
+# 2. OPORTUNIDADES -> BacklogStore via create_idea.py, status "em analise"
+#    (e o estagio de curadoria do schema: Kelvin aprova ou rejeita), com
+#    --origin apontando a transcricao. Titulo duplicado e recusado pelo
+#    proprio create_idea (exit 2) - e o dedup entre conversas.
+#
+# Antes de criar, CRUZAR: conferir o Action-Dashboard.md (acoes ja abertas) e
+# o backlog (ideias ja registradas) - compromisso repetido em duas calls e
+# sinal de importancia, nao motivo para duplicar o item.
+EXTRACT_CONTRACT = (
+    "EXTRAIR desta transcricao, alem de rotear: "
+    "(1) compromissos -> escrever nas notas roteadas como "
+    "'- [ ] (Dono) texto @YYYY-MM-DD' (sintaxe exata do dashboard; sem dono e "
+    "sem data a linha e invisivel ao monitor); "
+    "(2) oportunidades -> python agent/create_idea.py --title ... "
+    "--status \"em analise\" --origin <transcricao> (curadoria do Kelvin); "
+    "(3) antes de criar, cruzar com Action-Dashboard.md e o backlog - "
+    "recorrencia consolida o item existente, nao duplica."
+)
+
+
 def rule_for(meeting: str) -> str:
     m = (meeting or "").lower()
     for keys, guidance in ROUTING_RULES:
@@ -124,6 +153,7 @@ def listar(as_json=False):
             "words": len(text.split()),
             "transcript": j.get("transcript", ""),
             "rule": rule_for(_meeting(j)),
+            "extract": EXTRACT_CONTRACT,
         })
     if as_json:
         print(json.dumps(rows, ensure_ascii=False))
@@ -140,6 +170,11 @@ def listar(as_json=False):
         if r["rule"]:
             print(f"     REGRA: {r['rule']}")
         print()
+    print("EXTRACAO (para cada gravacao roteada):")
+    print("   - compromissos -> '- [ ] (Dono) texto @YYYY-MM-DD' nas notas roteadas")
+    print("   - oportunidades -> create_idea.py --status \"em analise\" --origin <transcricao>")
+    print("   - cruzar antes com Action-Dashboard.md e o backlog (nao duplicar)")
+    print()
     print("Para rotear:")
     print("   python route.py <trecho> --para person:Ana-Leite --assunto \"...\"")
     print("   python route.py <trecho> --descartar")
