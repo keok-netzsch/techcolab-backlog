@@ -500,23 +500,29 @@ def _stage_for_review(base_path: Path, block_type: str, target_file: str,
     # it on the app page and in the 08:45 reminder. Best-effort: the gate must hold
     # even if the ledger is unavailable.
     try:
-        _register_pending(base_path.name, block_type, day)
+        _register_pending(base_path.name, block_type, day, out)
     except Exception as exc:  # noqa: BLE001
         print(f"  [WARN] pendencia nao registrada ({exc}) — a proposta segue em _review/")
     return out
 
 
-def _register_pending(person: str, block_type: str, day: str) -> None:
+def _register_pending(person: str, block_type: str, day: str,
+                     draft_path: Path | None = None) -> None:
+    # --ref aponta o rascunho: a sessao que apresenta a pendencia LE esse arquivo
+    # e mostra o texto proposto no chat. Sem isso o Kelvin teria de abrir o vault
+    # para saber o que esta aprovando - exatamente o que a regra proibe.
+    # --prioridade alta: enquanto pendente, o arquivo real da pessoa esta sem uma
+    # informacao que ja foi extraida; e o tipo de coisa que envelhece mal.
     import subprocess as _sp
     repo = Path(__file__).resolve().parent.parent
-    _sp.run(
-        [sys.executable, str(repo / "agent" / "pending.py"), "add",
-         "--tipo", "decisao",
-         "--texto", f"Revisar {block_type} proposto para {person} ({day}) — "
-                    f"escrito por modelo local, aguarda aprovacao",
-         "--origem", f"call-recorder/process.py review --approve {person}/{day}-{block_type}"],
-        capture_output=True, text=True, timeout=30,
-    )
+    args = [sys.executable, str(repo / "agent" / "pending.py"), "add",
+            "--tipo", "decisao", "--prioridade", "alta",
+            "--texto", f"Revisar {block_type} proposto para {person} ({day}) — "
+                       f"escrito por modelo local, aguarda aprovacao",
+            "--origem", f"call-recorder/process.py review --approve {person}/{day}-{block_type}"]
+    if draft_path:
+        args += ["--ref", str(draft_path)]
+    _sp.run(args, capture_output=True, text=True, timeout=30)
 
 
 def _strip_dated_1on1(oneonone_path: Path, date: str) -> None:
