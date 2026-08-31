@@ -1,12 +1,6 @@
 # FAQ — Techco.lab · Claude Code
 
-Erros recorrentes, gotchas e situações-chave documentados durante o desenvolvimento do
-Personal Toolkit.
-
-> **Aviso (2026-08-31):** o app Streamlit foi aposentado. As entradas sobre Streamlit,
-> CSS e a porta 8501 ficam aqui apenas como **registro histórico** — não há mais app
-> para iniciar, e nenhuma delas deve ser usada como instrução. Ver
-> `vault/decisions/2026-08-31-aposentar-app-streamlit.md`.
+Erros recorrentes, gotchas e situações-chave documentados durante o desenvolvimento do Personal Toolkit.
 
 ---
 
