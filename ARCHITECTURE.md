@@ -43,6 +43,7 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 |---|---|---|
 | Backlog / status de ideia | `{VAULT_ROOT}/backlog items/idea-NNN.md` | **só** `create_idea.py` e `update_status.py` |
 | Pendências do Kelvin | `agent/pending.py` (JSON) → visão .md gerada | `pending.py`; nunca editar o .md |
+| Fatia acionável do backlog | derivada, não armazenada — `agent/curadoria.py` | ninguém escreve: lê o BacklogStore e reusa `weekly_brief.collect_decisions` |
 | Compromissos extraídos de call | notas roteadas → `Action-Dashboard.md` | a **sessão** das 09:00 escreve nas notas; `process.py dashboard` consolida |
 | Verdade sobre uma pessoa | `Team/<Pessoa>/PDI.md`, `OKR.md`, `Overview.md` | **só via gate** (`process.py review --approve`) |
 | Log de sessão 1:1 | `Team/<Pessoa>/1on1.md` | `process.py` direto (é log, não afirmação) |
