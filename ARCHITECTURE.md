@@ -43,10 +43,12 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 |---|---|---|
 | Backlog / status de ideia | `{VAULT_ROOT}/backlog items/idea-NNN.md` | **só** `create_idea.py` e `update_status.py` |
 | Pendências do Kelvin | `agent/pending.py` (JSON) → visão .md gerada | `pending.py`; nunca editar o .md |
-| Compromissos extraídos de call | notas roteadas → `Action-Dashboard.md` | `route.py` extrai, `process.py dashboard` consolida |
+| Compromissos extraídos de call | notas roteadas → `Action-Dashboard.md` | a **sessão** das 09:00 escreve nas notas; `process.py dashboard` consolida |
 | Verdade sobre uma pessoa | `Team/<Pessoa>/PDI.md`, `OKR.md`, `Overview.md` | **só via gate** (`process.py review --approve`) |
 | Log de sessão 1:1 | `Team/<Pessoa>/1on1.md` | `process.py` direto (é log, não afirmação) |
 | Registro do time | `10_2ndBrain/Team Memory/Topics/` | **só via gate** do TMA (aprovação semanal) |
+| Plano de estudo (sessões, prazos, next_focus) | `{VAULT_ROOT}/study-plan.json` | **só** `study-log.ps1` (sessions/next_focus) e a skill `/study` (areas/deadlines) |
+| Trackers de estudo por área (SRS, scores) | `{VAULT_ROOT}/cdmp-tracker.json`, `deutsch-tracker.json`, … | **só** o recorder da área (`cdmp-record-answer.ps1`, `deutsch-record.ps1`); o monitor `/study` lê tudo e não escreve em nenhum |
 
 ### O que roda sozinho
 
@@ -113,8 +115,20 @@ Técnica (como funciona) · Negócio (por que existe, risco, dono) · Usuário (
 No `call-recorder/` são três arquivos e é obrigatório mexer nos três na mesma entrega.
 
 ### 10. Teste não escreve no vault real
-Fixture `autouse` isolando o que grava. *Custo:* testes do gate criaram duas pendências
-reais no ledger do Kelvin (P-013, P-014) antes de alguém perceber.
+A guarda vai **na fonte**, não só no arquivo de teste: `pending._save` levanta erro se
+`PYTEST_CURRENT_TEST` está no ambiente e o alvo é o ledger real. Fixture `autouse` protege
+só o arquivo onde ela mora — e o ledger é chamado por *código de produção*
+(`_stage_for_review`), então esse caminho volta a ser exercitado por testes que ainda nem
+existem. Use as duas: guarda na fonte, fixture por conveniência.
+*Custo:* testes do gate criaram duas pendências reais no ledger do Kelvin (P-013, P-014).
+
+### 11. Antes de escrever "aguarda o Kelvin", procure se ele já decidiu
+Uma pendência falsa custa mais que nenhuma: ele olha a lista, não reconhece o item e passa
+a duvidar da lista inteira. Cabeçalho `OPEN` num documento **não é evidência** de questão
+aberta — pode ser texto que envelheceu.
+*Custo:* em 31/08 esta sessão leu um `GOVERNANCE.md` desatualizado e abriu `P-004` para o
+consentimento do autocapture, decidido pelo Kelvin em 26/08 e já registrado no `CLAUDE.md`.
+Removida com `pending.py remove --motivo`, que existe exatamente para isso.
 
 ---
 
@@ -127,11 +141,15 @@ reais no ledger do Kelvin (P-013, P-014) antes de alguém perceber.
 | 2026-08-26 | Autocapture ligado por padrão; o Kelvin divulga a gravação caso a caso | `call-recorder/GOVERNANCE.md` |
 | 2026-08-28 | Roteamento por assunto, depois da transcrição — uma call tem N destinos | ADR `2026-08-28-roteamento-por-assunto.md` |
 | 2026-08-29 | Daily BIZ/PM são território do TMA, não do roteamento direto | `ROUTING_RULES` em `route.py` |
+| 2026-08-31 | **Log semanal do time NÃO gradua para o vault central.** Palavras dele: *"isso é de minha propriedade (vault pessoal). para o central, devem ir as notas já categorizadas, não o log"* | ledger P-002 |
+| 2026-08-31 | Retenção do call recorder confirmada: 7 dias para áudio transcrito, indefinido para transcript. *"por mim ok"* | ledger P-005, `call-recorder/GOVERNANCE.md` |
+| 2026-08-31 | Compromissos e oportunidades saem da call na sessão das 09:00 — `- [ ] (Dono) … @data` nas notas, oportunidade em `em análise` | `EXTRACT_CONTRACT` em `route.py` |
 | 2026-08-29 | Produção = local-por-design ou SharePoint. **Nunca free tier externo** para dado NETZSCH | ADR `2026-08-29-doc-triad-e-producao.md` |
 | 2026-08-29 | Tudo compartilhado entre as 2 contas do CLI; artefato vive no filesystem | idem, ponto 6 |
 | 2026-08-31 | **O app Streamlit fica.** O problema é utilidade, não existência | `2026-08-31-app-streamlit-diagnostico.md` |
 | 2026-08-31 | O vault é registro; a interação é no chat | `~/.claude/CLAUDE.md` (global) |
 | 2026-08-31 | PDI/OKR/Overview só recebem texto de modelo via gate | `call-recorder/GOVERNANCE.md` |
+| 2026-08-31 | Sistema de estudo MDM: estado no vault com 1 escritor por arquivo; monitor `/study` read-only sobre trackers; conteúdo da transição (não anunciada) nunca roda no gateway — só na conta Max; áudio de alemão é o P6 (deutsch v2), não uma 2ª solução | ADR `2026-08-31-sistema-de-estudo-mdm.md` |
 
 **Decisão de ciclo de pessoas não se retoma aqui.** Mérito, bônus, promoção e IDP do FY26
 estão em `Team/FY26 - Assessment Findings & Cross-Manager Calibration.md`, com a seção

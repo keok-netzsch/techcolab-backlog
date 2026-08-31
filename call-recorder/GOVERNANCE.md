@@ -39,19 +39,29 @@ considered sufficient — the `autocapture.paused` file and `CAPTURE_SYSTEM_AUDI
 of research, not a gap in the decision: the answer was already in `CLAUDE.md`. Corrected
 2026-08-30.)
 
-## OPEN — needs Kelvin's answer before this document is complete
+## Retention — DECIDED 2026-08-31
 
-One question remains, and it is a policy call nobody else can make:
+Kelvin confirmed the current numbers as policy (ledger `P-005`, his words: *"por mim
+ok"*). They are no longer an implementation state:
 
-1. **Retention:** how long SHOULD raw audio and transcripts be kept? What runs today
-   (fact, not the answer): audio that was **successfully transcribed** is deleted after
-   7 days (`RECORDINGS_RETENTION_DAYS`, enforced by the 07:00 agent); audio that never
-   produced a usable transcript is quarantined into `failed/`, not deleted; transcripts
-   themselves are kept indefinitely. Whether 7 days / indefinitely are the RIGHT numbers
-   — and what the rule for transcripts should be — is Kelvin's call.
+- Audio that was **successfully transcribed** is deleted after **7 days**
+  (`RECORDINGS_RETENTION_DAYS`, enforced by the 07:00 agent).
+- Audio that never produced a usable transcript is **quarantined into `failed/`**, not
+  deleted — deleting it would destroy the only copy of a call the pipeline failed on.
+- **Transcripts are kept indefinitely.**
 
-Until it is answered, the mechanical defaults above stay as they are — they are an
-implementation state, not a policy.
+Changing any of these is a policy change: ask him, do not infer it from a cleanup task.
+
+## Nothing open
+
+Both policy questions this document used to carry are decided: consent (2026-08-26) and
+retention (2026-08-31), above.
+
+A note worth keeping, because it cost twice: this doc listed consent as "open" after the
+decision already existed in `CLAUDE.md`, and a session (this one, 2026-08-31) read the
+stale text and filed `P-004` in the pending ledger — a pendência for a decision Kelvin had
+already made. **Before writing that something "awaits Kelvin", check whether he already
+decided it**; a stale "OPEN" heading is not evidence of an open question.
 
 ## Gate de aprovação para arquivos canônicos de pessoas (2026-08-31)
 
