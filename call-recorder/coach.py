@@ -221,6 +221,45 @@ def _transcript_stats(transcript: str) -> dict:
     return {"words": word_count, "duration_min": round(duration_sec / 60, 1), "lines": len(lines)}
 
 
+def _context_summary(full_transcript: str, max_chars: int = 12_000) -> str:
+    """Duas frases dizendo do que era a call — geradas LOCALMENTE, no Ollama.
+
+    Pedido do Kelvin (P-012): "gostaria de um resumo do contexto da call, no
+    começo, para entender melhor o teor da conversa e colocações". A avaliação só
+    vê a fala dele, então hoje o relatório julga frases sem dizer a que se
+    respondia.
+
+    Ele autorizou ampliar "a menos que haja algum risco ou problema" — e há. O
+    resumo precisa do transcript COMPLETO, com a fala do interlocutor, e mandar
+    isso ao gateway sairia da fronteira atual: hoje só a fala dele deixa a
+    máquina. `maybe_run_coach` dispara por IDIOMA, nunca por tipo de call, e há
+    1:1 com o time na fila — um 1:1 em inglês mandaria fala de PDI/carreira de
+    outra pessoa para fora. Por isso `purpose="transcript"`: a allowlist do
+    coach_llm força Ollama e uma edição futura que tente mandar isso para o
+    gateway levanta ProviderError em vez de vazar em silêncio.
+
+    Falha vira string vazia: o relatório sai sem contexto, nunca sem relatório.
+    """
+    if not full_transcript.strip():
+        return ""
+    try:
+        import coach_llm
+        prompt = (
+            "Abaixo esta a transcricao de uma reuniao de trabalho, com os dois "
+            "lados da conversa. Em NO MAXIMO 2 frases, em portugues, diga do que "
+            "tratava a conversa e qual era o papel do Kelvin nela (apresentou algo? "
+            "pediu algo? decidiu? ouviu?). Nao avalie o ingles de ninguem, nao cite "
+            "nomes de terceiros, nao liste topicos - so o contexto.\n\n"
+            f"{full_transcript[:max_chars]}"
+        )
+        txt = coach_llm.generate(prompt, purpose="transcript", expect_json=False,
+                                 max_tokens=300, timeout=300)
+        return " ".join((txt or "").split())[:600]
+    except Exception as e:  # noqa: BLE001
+        print(f"[coach] contexto nao gerado ({e}) - o relatorio segue sem ele.")
+        return ""
+
+
 def _budget_chars() -> int:
     """Quantos caracteres da fala do Kelvin vão para a avaliação.
 
@@ -419,7 +458,7 @@ def _score_bar(score) -> str:
     return "█" * filled + "░" * (10 - filled)
 
 
-def _render_session(ev: dict, transcript: str, topic: str, session_dt: datetime, topic_type: str = "") -> str:
+def _render_session(ev: dict, transcript: str, topic: str, session_dt: datetime, topic_type: str = "", contexto: str = "") -> str:
     stats = _transcript_stats(transcript)
     excerpt = _sample_excerpt(transcript)
     excerpt_stats = _transcript_stats(excerpt)
@@ -442,6 +481,12 @@ def _render_session(ev: dict, transcript: str, topic: str, session_dt: datetime,
         "",
         f"# English Coach Session — {session_dt.strftime('%Y-%m-%d')}",
         "",
+    ]
+    # Contexto ANTES da avaliacao: sem ele o relatorio julga frases sem dizer a
+    # que se respondia (pedido do Kelvin, P-012). Gerado localmente no Ollama.
+    if contexto:
+        lines += [f"**Contexto da call:** {contexto}", ""]
+    lines += [
         f"> {ev['summary']}",
         "",
         f"**Recording:** {stats['duration_min']} min · {stats['words']} words total · "
@@ -663,7 +708,12 @@ def main():
     import coach_guards as guards
     import coach_llm
 
+    contexto = ""
     if "Kelvin:" in transcript:          # dual-channel capture: keep only our side
+        # O resumo de contexto sai daqui, do transcript COMPLETO, e e gerado
+        # LOCALMENTE — ver _context_summary. Depois desta linha o outro lado nao
+        # existe mais para o resto do coach.
+        contexto = _context_summary(transcript)
         own = [ln for ln in transcript.splitlines() if "Kelvin:" in ln]
         print(f"[coach] Dual-channel transcript: evaluating {len(own)} of "
               f"{len(transcript.splitlines())} lines (Kelvin only).")
@@ -769,7 +819,7 @@ def main():
     # Save session note
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     session_file = SESSIONS_DIR / f"{session_dt}_english-coach.md"
-    session_md = _render_session(ev, transcript, args.topic, now, args.topic_type)
+    session_md = _render_session(ev, transcript, args.topic, now, args.topic_type, contexto)
     session_file.write_text(session_md, encoding="utf-8")
     print(f"[coach] Session note saved: {session_file}")
 

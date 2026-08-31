@@ -41,6 +41,15 @@ destination — manual recordings skip the parking and route straight through.
 
 ## English coach
 
+Since 2026-08-31 the session note opens with **Contexto da call** — two sentences
+on what the conversation was about, so the feedback is not judging sentences with
+no idea what they answered. It is generated on your machine (Ollama); only your
+own speech ever leaves it.
+
+Long calls are now evaluated **in full**. Before that a 5.000-character cap —
+sized for the old local model — meant a long call was graded on about a fifth of
+what you said.
+
 Mondays 08:30 (`TechColab English Coach`) the coach evaluates your English calls against
 B2 business level — see `docs/english-practice-architecture.md` in the repo root for how
 it works. Use `--topic` when you want a themed session.
