@@ -167,6 +167,24 @@ When the user opens a Claude Code session via `execute_agent.bat`, follow this p
 
 ---
 
+## Pendências do Kelvin — registrar no ledger, não só no ADR
+
+Anything that ends a session as "waiting for Kelvin" (a decision, a graduation
+approval, something only he can verify) MUST be registered in the ledger — an ADR
+section alone is where pendências go to be forgotten (his words, 2026-08-31:
+too many sessions, no single list, no history of what was resolved):
+
+```bash
+python ~/techcolab-backlog/agent/pending.py add --tipo decisao|graduacao|verificacao --texto "..." --origem "ADR/sessão"
+```
+
+When he resolves one in conversation, close it with
+`python agent/pending.py resolve P-NNN --como "..."` — the resolution becomes
+consultable history in `{VAULT}/Pendencias.md` (view is generated; never edit
+it by hand). The 08:45 reminder shows the open count. Duplicate open text is
+refused (exit 2) — two sessions registering the same pendência is the expected
+case, not an error.
+
 ## Capturing a new idea — never hand-write the frontmatter
 
 Ideas are born in a chat, not inside the app. When any conversation produces something

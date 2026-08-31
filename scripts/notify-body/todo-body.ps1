@@ -60,6 +60,18 @@ try:
 except Exception:
     pass
 
+try:
+    pend_store = Path(os.environ["TOOLKIT_REPO"]).parent
+    import importlib
+    sys.path.insert(0, os.environ["TOOLKIT_REPO"])
+    from agent import pending as _pend
+    _abertas = [i for i in _pend._load()["itens"] if not i.get("resolvida_em")]
+    if _abertas:
+        lines.append(f"PENDENCIAS: {len(_abertas)} esperando voce (graduar/decidir) "
+                     f"- Pendencias.md no vault.")
+except Exception:
+    pass
+
 if lines:
     lines.append("")
     lines.append("Detalhe completo: Action-Dashboard.md no vault.")
