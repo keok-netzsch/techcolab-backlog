@@ -290,9 +290,116 @@ code { background: #2D3748 !important; color: #E2E8F0 !important; }
 </style>
 """
 
+_LIGHT_CSS = """
+<style>
+/* ── Light mode (counterpart of _DARK_CSS; the Streamlit base theme is dark in
+   .streamlit/config.toml, so WITHOUT these overrides "light" was light nav on a
+   dark body - broken since the theme toggle existed, noticed 2026-08-31) ──── */
+html, body { background-color: #FFFFFF !important; color: #111827 !important; }
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"] { background-color: #FFFFFF !important; }
+[data-testid="stColumn"] { background-color: #FFFFFF; }
+
+.cc-sc { background: #F9FAFB !important; border-color: #E5E7EB !important; }
+.cc-sl { color: #6B7280 !important; }
+.cc-sv { color: #111827 !important; }
+
+.stMarkdown p, .stMarkdown span, .stMarkdown li { color: #111827 !important; }
+[data-testid="stCaption"] p { color: #6B7280 !important; }
+h2, h3, h4 { color: #111827 !important; }
+
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea {
+    background: #FFFFFF !important;
+    border-color: #D1D5DB !important;
+    color: #111827 !important;
+}
+[data-testid="stTextInput"] input:disabled {
+    background: #F3F4F6 !important;
+    border-color: #E5E7EB !important;
+    color: #9CA3AF !important;
+    -webkit-text-fill-color: #9CA3AF !important;
+    opacity: 1 !important;
+}
+[data-testid="stTextArea"] textarea:disabled {
+    background: #F9FAFB !important;
+    border-color: #E5E7EB !important;
+    color: #374151 !important;
+    -webkit-text-fill-color: #374151 !important;
+    opacity: 1 !important;
+    font-family: monospace !important;
+    font-size: 0.82rem !important;
+    line-height: 1.6 !important;
+    resize: none !important;
+}
+[data-testid="stTextInput"] label p,
+[data-testid="stTextArea"] label p,
+[data-testid="stSelectbox"] label p,
+[data-testid="stMultiSelect"] label p,
+[data-testid="stDateInput"] label p,
+[data-testid="stNumberInput"] label p,
+[data-testid="stSlider"] label p { color: #6B7280 !important; }
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stMultiSelect"] > div > div,
+[data-baseweb="select"] > div {
+    background: #FFFFFF !important;
+    border-color: #D1D5DB !important;
+    color: #111827 !important;
+}
+[data-baseweb="select"] svg { fill: #6B7280 !important; }
+[data-baseweb="popover"] ul, [data-baseweb="menu"] {
+    background: #FFFFFF !important;
+    color: #111827 !important;
+}
+[data-baseweb="menu"] li { color: #111827 !important; }
+[data-testid="stDateInput"] input {
+    background: #FFFFFF !important;
+    border-color: #D1D5DB !important;
+    color: #111827 !important;
+}
+
+button[data-testid="stBaseButton-secondary"] {
+    background: #FFFFFF !important;
+    border-color: #D1D5DB !important;
+    color: #111827 !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+}
+button[data-testid="stBaseButton-secondary"]:hover {
+    background: #F0FDF9 !important;
+    border-color: #02B793 !important;
+}
+[data-testid="stColumn"] button[data-testid="stBaseButton-secondary"] {
+    background: transparent !important;
+    border: none !important;
+    color: #374151 !important;
+}
+[data-testid="stColumn"] button[data-testid="stBaseButton-secondary"]:hover {
+    background: rgba(2,183,147,0.10) !important;
+    color: #007167 !important;
+    border: none !important;
+}
+
+.sidebar-footer button {
+    color: rgba(60,70,80,0.5) !important;
+    border-color: rgba(60,70,80,0.15) !important;
+}
+
+hr { border-color: #E5E7EB !important; }
+
+[data-testid="stExpander"] { background: #F9FAFB !important; border-color: #E5E7EB !important; }
+[data-testid="stExpander"] summary { color: #111827 !important; background: #F9FAFB !important; }
+[data-testid="stExpander"] summary:hover { background: #F0FDF9 !important; }
+[data-testid="stExpanderDetails"] { background: #F9FAFB !important; padding-bottom: 0.75rem !important; }
+</style>
+"""
+
 st.markdown(_BRAND_CSS, unsafe_allow_html=True)
 if _dark_mode:
     st.markdown(_DARK_CSS, unsafe_allow_html=True)
+else:
+    st.markdown(_LIGHT_CSS, unsafe_allow_html=True)
 # Favicon: base64-encoded SVG (raw angle brackets in data URIs break the HTML parser)
 _FAVICON_B64 = "PHN2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAzMiAzMic+PHJlY3Qgd2lkdGg9JzMyJyBoZWlnaHQ9JzMyJyByeD0nNicgZmlsbD0nIzAyQjc5MycvPjx0ZXh0IHg9JzE2JyB5PScyMicgdGV4dC1hbmNob3I9J21pZGRsZScgZm9udC1mYW1pbHk9J0ludGVyLHNhbnMtc2VyaWYnIGZvbnQtc2l6ZT0nMTQnIGZvbnQtd2VpZ2h0PSc3MDAnIGZpbGw9J3doaXRlJz50YzwvdGV4dD48L3N2Zz4="
 st.markdown(
