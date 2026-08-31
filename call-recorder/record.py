@@ -35,9 +35,19 @@ RECORDINGS_RETENTION_DAYS = 7   # áudios em recordings/ mais antigos que isto s
 # exact instead of something an LLM has to guess from the text afterwards.
 CAPTURE_SYSTEM_AUDIO = os.environ.get("CAPTURE_SYSTEM_AUDIO", "1") != "0"
 # INTERFACE EXTERNA desde 2026-08-29 (P1 do PM review): o Team Memory Agent
-# consome transcripts das Daily BIZ/PM via discover_sources() e parseia o
-# formato de linha `[012.4s] Kelvin: ...`. Mudar rotulo, timestamp ou separador
-# quebra um consumidor FORA deste repo - coordenar antes.
+# consome transcripts das Daily BIZ via discover_sources() e parseia cada linha
+# com  ^\[\s*[\d.]+s\]\s*([^:]{1,40}):\s*(.*)$  (tma_capture.py, verbatim;
+# aceita tambem o legado 1-canal sem falante). Mudar rotulo, timestamp ou
+# separador quebra um consumidor FORA deste repo - coordenar antes. O contrato
+# e testado do lado produtor em tests/test_transcript_interface.py.
+#
+# Duas dependencias do TMA que este arquivo NAO pode quebrar em silencio:
+# - Ele aponta para o PATH ABSOLUTO do transcript no job: o recorder nunca
+#   move nem apaga transcript (a retencao poda so .wav; falha vai p/ failed/).
+#   Se isso mudar um dia, coordenar antes.
+# - Ele reconhece a serie (Daily BIZ) pelo TITULO da janela (campo `meeting`
+#   do job), nunca pela fala - titulo vazio faz a Daily sumir do registro do
+#   time em silencio. O health check do daily_report vigia isso.
 SPEAKER_LABELS = ("Kelvin", "Interlocutor")
 
 # Spool: during capture each channel streams to disk incrementally instead of

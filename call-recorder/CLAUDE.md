@@ -23,10 +23,15 @@ consome transcripts das Daily BIZ e parseia o formato `[012.4s] Kelvin: ...`
 
 - **Formato de transcript e contrato.** Mudar o prefixo `[tempo] Falante:` quebra
   o parser do TMA. Coordenar antes; ele ja aceita o legado 1-canal sem falante.
+  O lado produtor e testado em `tests/test_transcript_interface.py` (regex do
+  `tma_capture.py` verbatim) - mudanca de formato quebra AQUI, no pytest, e nao
+  dali a uma semana no registro semanal do time.
 - **O TMA le, nunca move.** Ele nao arquiva nem apaga transcript — o dono do
   arquivo continua sendo o recorder, e o `route.py` segue lendo o mesmo arquivo.
 - **A serie sai do titulo da janela do Teams** (campo `meeting` do job), nunca da
-  fala. Se o titulo deixar de vir, o TMA para de reconhecer a Daily.
+  fala. Se o titulo deixar de vir, o TMA para de reconhecer a Daily — em
+  silencio. Defesa: o health check do `daily_report` (07:00) aponta jobs de
+  autocapture recentes (<72h) com `meeting` vazio.
 - Ele so cria registro quando **nao ha** resumo do Facilitator para aquele dia, e
   nao infere decisao/acao a partir da fala.
 

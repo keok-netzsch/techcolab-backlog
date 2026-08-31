@@ -813,6 +813,26 @@ def main() -> int:
                 safe_print(f"[agent] !! Fila engasgada - {_label}: {len(_names)}")
                 for _n in _names[:6]:
                     safe_print(f"[agent]    {_n}")
+
+        # O Team Memory Agent reconhece a Daily BIZ pelo TITULO da janela
+        # (campo `meeting` do job). Titulo vazio nao e erro em nenhum lugar -
+        # a call transcreve e roteia normalmente - mas a Daily some do registro
+        # do time EM SILENCIO. Vigiar aqui e a unica defesa barata.
+        import json as _json
+        _sem_titulo = []
+        for _p in list(_rdir.glob("*.job.json")) + list(_rdir.glob("*.job.json.routing")):
+            try:
+                _j = _json.loads(_p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if _j.get("source") == "autocapture" and not (_j.get("meeting") or "").strip()                     and _age_h(_p) < 72:
+                _sem_titulo.append(_p.name)
+        if _sem_titulo:
+            safe_print(f"[agent] !! {len(_sem_titulo)} gravacao(oes) recente(s) SEM titulo "
+                       f"de janela - o TMA nao reconhece a serie por fala, so por titulo; "
+                       f"se alguma for Daily BIZ, ela esta fora do registro do time:")
+            for _n in _sem_titulo[:6]:
+                safe_print(f"[agent]    {_n}")
     except Exception as _e:
         safe_print(f"[agent] Queue health check failed: {_e}")
 
