@@ -151,7 +151,11 @@ def main(argv=None) -> int:
 
     r = sub.add_parser("resolve", help="marcar como resolvida")
     r.add_argument("id")
-    r.add_argument("--como", default="", help="qual foi a resolução")
+    # A resolucao entra LITERAL, nas palavras do Kelvin. Parafrasear aqui apaga
+    # o registro dele e deixa a minha leitura no lugar - foi o que aconteceu na
+    # P-002 em 31/08 e ele cobrou. O historico so serve para consulta se for o
+    # que ele disse, nao o meu resumo do que ele disse.
+    r.add_argument("--como", default="", help="qual foi a resolução (palavras do Kelvin, literal)")
 
     l = sub.add_parser("list", help="listar")
     l.add_argument("--json", action="store_true")

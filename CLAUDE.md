@@ -179,7 +179,10 @@ python ~/techcolab-backlog/agent/pending.py add --tipo decisao|graduacao|verific
 ```
 
 When he resolves one in conversation, close it with
-`python agent/pending.py resolve P-NNN --como "..."` — the resolution becomes
+`python agent/pending.py resolve P-NNN --como "..."` — pass **his own words,
+verbatim**, never your paraphrase (2026-08-31: a paraphrase replaced his stated
+policy in P-002 and he caught it; the history is only consultable if it records
+what he said). The resolution becomes
 consultable history in `{VAULT}/Pendencias.md` (view is generated; never edit
 it by hand). The 08:45 reminder shows the open count. Duplicate open text is
 refused (exit 2) — two sessions registering the same pendência is the expected
