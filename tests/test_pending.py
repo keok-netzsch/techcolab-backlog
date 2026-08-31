@@ -72,3 +72,64 @@ def test_resolve_id_inexistente_e_dupla_resolucao(tmp_path, monkeypatch):
     p.main(["add", "--tipo", "decisao", "--texto", "y"])
     p.main(["resolve", "P-001"])
     assert p.main(["resolve", "P-001"]) == 2
+
+
+# ── Snooze e prioridade (2026-08-31) ─────────────────────────────────────────
+
+def test_adiada_some_da_lista_ate_a_data(tmp_path, monkeypatch, capsys):
+    """O ponto do snooze: some da lista. Se continuar aparecendo, adiar nao
+    adiou nada e ele volta a olhar uma lista que nao muda."""
+    p = _mod(tmp_path, monkeypatch)
+    p.main(["add", "--tipo", "decisao", "--texto", "Decidir depois"])
+    p.main(["add", "--tipo", "decisao", "--texto", "Decidir agora"])
+    p.main(["snooze", "P-001", "--dias", "7"])
+    capsys.readouterr()
+
+    p.main(["list"])
+    saida = capsys.readouterr().out
+    assert "Decidir agora" in saida
+    assert "Decidir depois" not in saida, "adiada nao pode aparecer na lista normal"
+
+    p.main(["list", "--incluir-adiadas"])
+    assert "Decidir depois" in capsys.readouterr().out
+
+
+def test_adiada_volta_sozinha_quando_a_data_chega(tmp_path, monkeypatch):
+    from datetime import date, timedelta
+    p = _mod(tmp_path, monkeypatch)
+    ontem = (date.today() - timedelta(days=1)).isoformat()
+    assert p._adiada({"adiada_ate": ontem}) is False
+    amanha = (date.today() + timedelta(days=1)).isoformat()
+    assert p._adiada({"adiada_ate": amanha}) is True
+    assert p._adiada({}) is False
+
+
+def test_snooze_recusa_data_no_passado_e_id_inexistente(tmp_path, monkeypatch):
+    p = _mod(tmp_path, monkeypatch)
+    p.main(["add", "--tipo", "decisao", "--texto", "x"])
+    assert p.main(["snooze", "P-001", "--ate", "2020-01-01"]) == 1
+    assert p.main(["snooze", "P-001", "--dias", "0"]) == 1
+    assert p.main(["snooze", "P-404", "--dias", "3"]) == 1
+
+
+def test_lista_ordena_por_prioridade(tmp_path, monkeypatch, capsys):
+    p = _mod(tmp_path, monkeypatch)
+    p.main(["add", "--tipo", "decisao", "--texto", "Baixa coisa", "--prioridade", "baixa"])
+    p.main(["add", "--tipo", "decisao", "--texto", "Alta coisa", "--prioridade", "alta"])
+    p.main(["add", "--tipo", "decisao", "--texto", "Media coisa"])
+    capsys.readouterr()
+    p.main(["list"])
+    linhas = [l for l in capsys.readouterr().out.splitlines() if l.startswith("[")]
+    assert [l.split("(")[1][0] for l in linhas] == ["A", "M", "B"]
+
+
+def test_ref_guarda_o_arquivo_que_a_decisao_destrava(tmp_path, monkeypatch):
+    # --ref e o que evita mandar o Kelvin ao vault: a sessao le esse arquivo e
+    # mostra o conteudo no chat.
+    import json
+    p = _mod(tmp_path, monkeypatch)
+    p.main(["add", "--tipo", "decisao", "--texto", "Aprovar PDI",
+            "--ref", r"C:\vault\Team\Ana\_review\2026-06-03-PDI.md"])
+    item = json.loads((tmp_path / "pendencias.json").read_text(encoding="utf-8"))["itens"][0]
+    assert item["ref"].endswith("2026-06-03-PDI.md")
+    assert item["prioridade"] == "media"

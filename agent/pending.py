@@ -165,8 +165,18 @@ def cmd_snooze(args) -> int:
 
 def cmd_list(args) -> int:
     data = _load()
-    itens = data["itens"] if args.todas else \
-        [i for i in data["itens"] if not i.get("resolvida_em")]
+    if args.todas:
+        itens = data["itens"]
+    else:
+        # Adiada some da lista ate a data chegar. Esse e o ponto do snooze: o que
+        # ele nao quer decidir hoje nao pode pesar na lista todo dia, senao ele
+        # para de olhar a lista inteira.
+        itens = [i for i in data["itens"]
+                 if not i.get("resolvida_em")
+                 and (args.incluir_adiadas or not _adiada(i))]
+    ordem = {"alta": 0, "media": 1, "baixa": 2}
+    itens = sorted(itens, key=lambda i: (ordem.get(i.get("prioridade", "media"), 1),
+                                         i.get("criada_em", "")))
     if args.json:
         print(json.dumps(itens, ensure_ascii=False))
         return 0
