@@ -26,20 +26,29 @@ the other person talking — was simply missing.
 - Transcripts land in the personal vault, which is local-only and never pushed to a
   remote (vault git rule).
 
+## Consent — decided, not open
+
+Kelvin decided this on 2026-08-26, and the decision is recorded in `CLAUDE.md`:
+**autocapture stays on by default, and he discloses the recording himself, case by case.**
+
+What that means for anyone touching this code: do **not** add prompts, banners or nags on
+his behalf, and do **not** quietly disable capture either. The existing controls are
+considered sufficient — the `autocapture.paused` file and `CAPTURE_SYSTEM_AUDIO=0`.
+
+(An earlier version of this document listed consent as an open question. That was an error
+of research, not a gap in the decision: the answer was already in `CLAUDE.md`. Corrected
+2026-08-30.)
+
 ## OPEN — needs Kelvin's answer before this document is complete
 
-These two facts cannot be written by anyone but Kelvin, and this doc is explicitly
-incomplete without them:
+One question remains, and it is a policy call nobody else can make:
 
-1. **Consent/awareness:** how are the other parties informed that calls with Kelvin may
-   be recorded and transcribed? (Standing notice to the team? Per-call? Not yet done?)
-2. **Retention:** how long SHOULD raw audio and transcripts be kept? What runs today
+1. **Retention:** how long SHOULD raw audio and transcripts be kept? What runs today
    (fact, not the answer): audio that was **successfully transcribed** is deleted after
    7 days (`RECORDINGS_RETENTION_DAYS`, enforced by the 07:00 agent); audio that never
    produced a usable transcript is quarantined into `failed/`, not deleted; transcripts
    themselves are kept indefinitely. Whether 7 days / indefinitely are the RIGHT numbers
    — and what the rule for transcripts should be — is Kelvin's call.
 
-Until (1) is answered, treat recordings of anyone outside the direct team as
-review-before-filing. Until (2) is answered, the current mechanical defaults above stay
-as-is — they are an implementation state, not a policy.
+Until it is answered, the mechanical defaults above stay as they are — they are an
+implementation state, not a policy.
