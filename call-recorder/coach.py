@@ -820,6 +820,25 @@ def main():
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
     session_file = SESSIONS_DIR / f"{session_dt}_english-coach.md"
     session_md = _render_session(ev, transcript, args.topic, now, args.topic_type, contexto)
+
+    # Targets: carry the suggestion forward and measure it next time. Inserted
+    # here rather than inside _render_session so the ledger is written once, from
+    # the same place that decides the session is worth recording at all.
+    # `transcript` is already Kelvin-only at this point.
+    try:
+        import coach_targets
+        _tblock = coach_targets.run(COACH_DIR, transcript, ev, session_dt,
+                                    now.date().isoformat())
+        if _tblock:
+            _marker = "## Evaluated excerpt"
+            _text = chr(10).join(_tblock) + chr(10)
+            if _marker in session_md:
+                session_md = session_md.replace(_marker, _text + _marker, 1)
+            else:
+                session_md = session_md.rstrip() + chr(10) * 2 + _text
+    except Exception as _e:  # noqa: BLE001 - never lose a session over the ledger
+        print(f"[targets] skipped: {_e}")
+
     session_file.write_text(session_md, encoding="utf-8")
     print(f"[coach] Session note saved: {session_file}")
 

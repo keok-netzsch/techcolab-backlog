@@ -312,6 +312,7 @@ routing and self-tests without revealing the key.
 |---|---|
 | `coach_guards.py` | Input/output integrity: text-based language gate (Whisper's own `.lang` said `en` for Portuguese calls), artifact filter by repetition coverage, quote-grounding for **errors and strengths**, prompt-echo guard, backchannel allowlist, CEFR one-step clamp + rolling window. `python coach_guards.py` self-tests |
 | `coach_patterns.py` | Personal error inventory: deterministic PT-L1 interference rules (certain) + narrow yes/no probes for false friends (`actually`, `realize`, `support`, `until`). Reframes the task from open-ended grading to grounded detection. `python coach_patterns.py` self-tests |
+| `coach_targets.py` | **Prescribe-then-verify (2026-09-01).** Turns the session's own suggestions into a small ledger of targets (`{COACH_DIR}/targets.json`) and measures them against the next sessions. Two kinds: `use` (a phrase to start using, retires after 2 sessions that contain it) and `avoid` (a habit to drop, retires after 2 clean sessions). Matching is a word-boundary regex over Kelvin's own lines — the model proposes, it never judges whether he complied. Capped at 6 active so it stays a plan, not a backlog; one alternative per habit, and a habit reported as both a vocab upgrade and an error takes one slot. A target with no progress is flagged `stuck`, never silently dropped. Called from `coach.py` right before the session note is written; a failure here never loses a session. |
 
 ---
 

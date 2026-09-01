@@ -63,6 +63,24 @@ def _error_categories(sessions_dir) -> Counter:
     return cats
 
 
+def _load_targets(ec_dir) -> dict:
+    """The prescribe-then-verify ledger written by call-recorder/coach_targets.py.
+
+    Read-only here. The page shows what was assigned and whether it is being
+    used; nothing on this screen edits the ledger.
+    """
+    import json
+    p = ec_dir / "targets.json"
+    if not p.exists():
+        return {"targets": []}
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"targets": []}
+    data.setdefault("targets", [])
+    return data
+
+
 def render() -> None:
     dark_mode    = st.query_params.get("dark", "1") == "1"
     _EC_DIR      = EC_DIR
@@ -242,6 +260,60 @@ def render() -> None:
                 f"**{_level}** is **{_weak[0]}** and **{_weak[1]}** — that is where the "
                 f"next level is won, not in more practice hours."
             )
+
+            # ── Targets: the "how", and whether it is happening ───────────────
+            _tdata   = _load_targets(_EC_DIR)
+            _active  = [t for t in _tdata["targets"] if t.get("status") == "active"]
+            _done    = [t for t in _tdata["targets"] if t.get("status") == "achieved"]
+            if _active or _done:
+                st.markdown("**What to do about it**")
+                st.caption(
+                    "Assigned by the coach after a session, then checked against the "
+                    "words you actually said in the next ones. Counting is a literal "
+                    "match on your own lines — no model decides whether you used it."
+                )
+                _trows = ""
+                for _t in sorted(_active, key=lambda x: -len(x.get("sessions", []))):
+                    _need  = 2
+                    _hits  = _t.get("streak", 0)
+                    _label = (f"Use <strong>{_t['target']}</strong>" if _t["kind"] == "use"
+                              else f"Stop saying <strong>{_t['target']}</strong>")
+                    if _t.get("instead_of"):
+                        _label += (f" <span style='color:{_fg_sub}'>"
+                                   f"{'instead of' if _t['kind'] == 'use' else '→'} "
+                                   f"{_t['instead_of']}</span>")
+                    _pips = "".join(
+                        f'<span style="display:inline-block;width:9px;height:9px;'
+                        f'border-radius:50%;margin-right:4px;background:'
+                        f'{_accent if i < _hits else "rgba(148,163,184,0.3)"}"></span>'
+                        for i in range(_need)
+                    )
+                    _n_sessions = len(_t.get("sessions", []))
+                    _note = (f'<span style="color:#EF4444">not moving after '
+                             f'{_n_sessions} sessions</span>' if _t.get("stuck")
+                             else f'<span style="color:{_fg_sub}">{_n_sessions} '
+                                  f'session(s) checked</span>')
+                    _trows += (f'<tr><td style="{_td}">{_label}</td>'
+                               f'<td style="{_td};white-space:nowrap">{_pips}</td>'
+                               f'<td style="{_td};font-size:12px">{_note}</td></tr>')
+                if _trows:
+                    st.markdown(
+                        f'<table style="width:100%;border-collapse:collapse;'
+                        f'margin-bottom:10px"><thead><tr>'
+                        f'<th style="{_th}">Target</th>'
+                        f'<th style="{_th}">Progress</th>'
+                        f'<th style="{_th}"></th>'
+                        f'</tr></thead><tbody>{_trows}</tbody></table>',
+                        unsafe_allow_html=True,
+                    )
+                if _done:
+                    st.caption("Retired (used consistently): "
+                               + " · ".join(f"**{t['target']}**" for t in _done[-8:]))
+            else:
+                st.caption(
+                    "No targets assigned yet — the coach starts one after the next "
+                    "session it evaluates."
+                )
 
             # Recurring error categories — countable, no LLM involved.
             _cats = _error_categories(_EC_SESSIONS)
