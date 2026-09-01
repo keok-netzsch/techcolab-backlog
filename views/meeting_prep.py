@@ -48,6 +48,35 @@ def _team_members() -> list[dict]:
     ]
 
 
+def _calls_in_flight() -> dict:
+    """Recordings that exist but have not become vault notes yet.
+
+    The Calls list below is built from Team/ and Stakeholders/ notes, so it only
+    ever shows what completed the pipeline. That made the page quietly wrong:
+    on 2026-09-01 the newest call it could show for Ana Leite was 27/08, while
+    8 recordings from 28/08 sat held for review and 3 from that morning had not
+    been through the 20:00 queue. Kelvin read the page as stale; the page was
+    accurate and incomplete, which is worse.
+
+    ARCHITECTURE.md pattern 6: a screen that shows a number shows how old it is.
+
+    Read-only. agent/daily_report.py has its own check over the same folder, but
+    it answers a different question (is the queue choking, by age) and writes to
+    the agent log, not here.
+    """
+    rdir = Path(__file__).parent.parent / "call-recorder" / "recordings"
+    if not rdir.exists():
+        return {}
+    counts = {
+        "awaiting the nightly queue": len(list(rdir.glob("*.pending.json"))),
+        "awaiting transcription":     len(list(rdir.glob("*.job.json"))),
+        "awaiting your routing":      len(list(rdir.glob("*.job.json.routing"))),
+        "held for review":            len(list(rdir.glob("*.job.json.routing.hold"))),
+        "failed permanently":         len(list(rdir.glob("*.job.json.exhausted"))),
+    }
+    return {k: v for k, v in counts.items() if v}
+
+
 def _parse_1on1(path: Path):
     if not path.exists():
         return None
@@ -405,6 +434,18 @@ def render() -> None:
     # ── Section 4: Calls ──────────────────────────────────────────────────────
     if _show_calls:
         st.subheader("Calls this period")
+        _inflight = _calls_in_flight()
+        if _inflight:
+            _parts = " · ".join(f"**{v}** {k}" for k, v in _inflight.items())
+            st.warning(
+                f"This list shows only calls that already became vault notes. "
+                f"Recorded but not there yet: {_parts}.",
+                icon="⏳",
+            )
+            _export.append(
+                "> Not in this list yet: "
+                + ", ".join(f"{v} {k}" for k, v in _inflight.items())
+            )
         _export.append("## Calls")
         _calls = []
         # Team AND leadership. Scanning only Team/ meant a 1:1 with Stefan never
