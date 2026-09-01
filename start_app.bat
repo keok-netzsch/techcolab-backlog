@@ -1,17 +1,7 @@
 @echo off
-cd /d "%USERPROFILE%\techcolab-backlog"
-
-:: Ensure vault path is set even if env var wasn't inherited
-if "%TECHCOLAB_VAULT%"=="" (
-    set "TECHCOLAB_VAULT=%USERPROFILE%\OneDrive - NETZSCH\Documents\TechColab_D&A_KO\App\Personal toolkit"
-)
-
-:: Ensure the AI Gateway key is set even if the launcher's process tree
-:: (e.g. an Explorer session started before the user env var existed)
-:: hasn't picked it up yet. Read it straight from the registry as a fallback.
-if "%NETZSCH_LLM_API_KEY%"=="" (
-    for /f "tokens=2,*" %%A in ('reg query "HKCU\Environment" /v NETZSCH_LLM_API_KEY 2^>nul ^| findstr /i "NETZSCH_LLM_API_KEY"') do set "NETZSCH_LLM_API_KEY=%%B"
-)
-
-call .venv\Scripts\activate.bat
-streamlit run app.py --server.port 8501 >> "%~dp0streamlit.log" 2>&1
+:: Entry point kept for the desktop shortcuts, Raycast and install.bat that
+:: already point here. The logic lives in scripts\start-app.ps1 — one place that
+:: decides, instead of every launcher blindly running `streamlit run` and hoping
+:: the port is free. See the header of that script for why.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-app.ps1" %*
+exit /b %ERRORLEVEL%

@@ -127,7 +127,12 @@ After updating the app pages, also check if `README.md` needs updating.
 ## Environment
 
 - **Python:** 3.13 (system) — no venv needed for running Claude Code tools
-- **Streamlit:** runs inside `.venv` via `start_app.bat`
+- **Streamlit:** runs inside `.venv` via `start_app.bat`, which delegates to
+  `scripts/start-app.ps1` — the single idempotent entry point. It reuses a healthy
+  instance, kills a wedged one holding the port, binds 8501 strictly (never drifts to
+  another port), and opens the browser only after `/_stcore/health` answers 200.
+  Every launcher (desktop shortcut, Raycast, `start_silent.vbs`, `install.bat`) goes
+  through it — do not add a second path that runs `streamlit run` directly.
 - **Vault env var:** `TECHCOLAB_VAULT` — set as a permanent user env var on this machine
 - **Agent schedule:** Windows Task Scheduler task **"TechColab Backlog Agent"**, daily at 07:00,
   runs `run_agent_silent.vbs` -> `run_agent.bat` (hidden window). The VBS waits for the agent and

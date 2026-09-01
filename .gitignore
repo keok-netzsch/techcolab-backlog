@@ -11,6 +11,7 @@ venv/
 # ── Streamlit ───────────────────────────────────────────────
 .streamlit/secrets.toml
 streamlit.log
+streamlit.log.*
 
 # ── Local settings & secrets (per-machine, may hold credentials) ────
 .claude/settings.local.json
