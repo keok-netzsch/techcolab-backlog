@@ -137,6 +137,44 @@ keep autocapture on by default and to disclose it himself, case by case
 and do not quietly disable capture either. The controls that exist are enough:
 `autocapture.paused` and `CAPTURE_SYSTEM_AUDIO=0`.
 
+### Objecao do interlocutor: manter e marcar (2026-09-01)
+
+Quando alguem recusa ser gravado, a politica escolhida pelo Kelvin (ledger
+`P-017`, palavras dele: **"manter e marcar"**) e: o audio **nao e apagado e nao e
+transcrito**.
+
+```powershell
+python process.py objecao [--alvo ultima|<parte-do-nome>|<caminho>] [--motivo "..."]
+python process.py objecao --listar        # o que esta marcado
+python process.py objecao --desfazer      # marquei a call errada
+```
+
+O marcador e um sidecar `<base>.no-consent.json` ao lado do `.wav`
+(`record.mark_no_consent`), e **nao** um campo dentro do job: a objecao pode
+chegar antes do job existir (`.pending.json`), depois dele virar
+`.job.json.routing`, ou sem sidecar nenhum. Arquivo separado com o mesmo prefixo
+e o unico marcador que os quatro estados enxergam.
+
+Quem respeita a marca — os quatro pontos, e mexer em um sem os outros deixa um
+buraco por onde a call passa:
+
+| Estagio | Comportamento |
+|---|---|
+| `classify.py` | nao converte o `.pending.json` em job, nem com `--apply` |
+| `process.py queue` | nao transcreve; renomeia o job para `.job.json.no-consent` (sai da fila de vez, em vez de ser reavaliado toda noite). Vale tambem em `--dry-run` |
+| `record.prune_old_recordings` | nao poda e nao quarentena |
+| `record._recording_state` | devolve `no-consent` **antes** de qualquer outro veredito |
+
+Essa ordem em `_recording_state` e o ponto sensivel: um `.wav` marcado nao tem
+`.job.json` nem `.pending.json`, entao pela regra anterior ele era `orphan` — e
+orphan e apagado aos 7 dias. Sem o ramo novo, "manter e marcar" viraria "marcar e
+apagar na semana seguinte", em silencio. Coberto por
+`tests/test_no_consent.py::test_retention_keeps_a_marked_recording_forever`.
+
+A marca **nao apaga nada**. Se a call ja tinha sido transcrita, o comando avisa em
+voz alta e deixa transcript e nota onde estao — o que fazer com o que ja foi
+produzido e decisao do Kelvin, caso a caso.
+
 ---
 
 ## File map

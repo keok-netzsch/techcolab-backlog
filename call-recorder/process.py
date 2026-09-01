@@ -2150,6 +2150,128 @@ def acquire_queue_lock(rdir: Path):
     return lock
 
 
+def _is_no_consent(wav) -> bool:
+    """Esta gravacao foi marcada como nao-transcrevivel?
+
+    Delega para `record` em vez de recalcular o nome do sidecar: dois lugares
+    montando ".no-consent.json" na mao e como uma metade da regra deixa de valer
+    sem ninguem notar. O import e barato — record.py so carrega Whisper dentro
+    das funcoes que transcrevem.
+    """
+    import record
+    return record.is_no_consent(str(wav))
+
+
+def cmd_no_consent(target: str = "", motivo: str = "", desfazer: bool = False,
+                   listar: bool = False, recordings_dir: str = None) -> dict:
+    """Marca (ou desmarca) uma gravacao como nao-transcrevivel.
+
+    Existe para o caso que o Kelvin levantou em 31/08 e decidiu em 01/09: alguem
+    na call recusa ser gravado. A politica que ele escolheu e **manter e marcar**
+    — o audio nao e destruido, so deixa de ser materia-prima para a maquina.
+
+    O comando e o caminho por CLI da regra "o vault e registro, o chat e
+    interacao": ele nao vai a pasta renomear arquivo, e ninguem precisa saber
+    onde o sidecar mora.
+    """
+    import record
+    rdir = Path(recordings_dir) if recordings_dir else (Path(__file__).parent / "recordings")
+    out = {"marcadas": [], "desmarcadas": [], "avisos": []}
+
+    # Comando pelado (`objecao`, sem nada) LISTA: um comando sem argumento mostra
+    # estado, nao muda estado. Mas `--motivo "..."` sozinho e intencao inequivoca
+    # de marcar — ninguem escreve o motivo de uma recusa para ver uma lista — e
+    # cair na listagem ali faria o comando dizer "nenhuma gravacao marcada"
+    # exatamente quando o Kelvin acabou de tentar marcar uma.
+    if listar or (not target and not motivo and not desfazer):
+        marcadas = sorted(p for p in rdir.glob("*.wav") if record.is_no_consent(str(p)))
+        if not marcadas:
+            print("nenhuma gravacao marcada.")
+            return out
+        print(f"{len(marcadas)} gravacao(oes) marcada(s) como nao-transcrevivel:")
+        for w in marcadas:
+            meta = record.read_no_consent(str(w))
+            mb = w.stat().st_size / 1048576
+            print(f"  {w.name}  ({mb:.0f} MB, marcada em {meta.get('marcado_em', '?')})"
+                  + (f"\n      motivo: {meta['motivo']}" if meta.get("motivo") else ""))
+        out["marcadas"] = [w.name for w in marcadas]
+        return out
+
+    wav = _resolve_recording(target, rdir)
+    if wav is None:
+        print(f"[ERRO] gravacao nao encontrada: {target!r}. "
+              f"Use --alvo ultima, ou parte do nome do arquivo.")
+        out["avisos"].append("nao encontrada")
+        return out
+
+    if desfazer:
+        if record.clear_no_consent(str(wav)):
+            # Devolve o job a fila: sem isto, desmarcar nao desfaz nada de fato.
+            parked = wav.with_suffix(".job.json.no-consent")
+            if parked.exists():
+                parked.rename(wav.with_suffix(".job.json"))
+                print(f"[ok] {wav.name}: marca removida, job devolvido a fila.")
+            else:
+                print(f"[ok] {wav.name}: marca removida.")
+            out["desmarcadas"].append(wav.name)
+        else:
+            print(f"{wav.name} nao estava marcada.")
+        return out
+
+    record.mark_no_consent(str(wav), motivo)
+    # Tira da fila agora, sem esperar a proxima rodada das 20:00.
+    for suffix in (".job.json", ".job.json.routing"):
+        job = wav.with_suffix(suffix)
+        if job.exists():
+            job.rename(wav.with_suffix(".job.json.no-consent"))
+            print(f"[ok] job {job.name} parqueado - nao entra mais na fila.")
+    print(f"[ok] {wav.name} marcada. O audio fica em recordings/ e a retencao "
+          f"nao vai poda-lo.")
+
+    # Se ja existe transcricao, avisar em voz alta: a marca nao apaga o que ja
+    # foi produzido, e fingir que apaga seria pior que nao ter marca nenhuma.
+    done = wav.with_suffix(".job.json.done")
+    if done.exists():
+        try:
+            tpath = json.loads(done.read_text(encoding="utf-8")).get("transcript", "")
+        except (OSError, ValueError):
+            tpath = ""
+        if tpath and Path(tpath).exists():
+            print(f"[ATENCAO] esta call JA foi transcrita: {tpath}")
+            print("          a marca nao apaga transcript nem nota no vault - "
+                  "decida o que fazer com eles.")
+            out["avisos"].append(f"transcript existente: {tpath}")
+
+    out["marcadas"].append(wav.name)
+    return out
+
+
+def _resolve_recording(target: str, rdir: Path):
+    """Aceita 'ultima', um nome parcial ou um caminho. None se nada casar.
+
+    'ultima' e o caso real: a objecao acontece na call que acabou de terminar, e
+    exigir que ele digite `2026-09-01_14-32_auto.wav` seria transformar uma
+    decisao de dois segundos em consulta a pasta.
+    """
+    wavs = sorted(rdir.glob("*.wav"), key=lambda p: p.stat().st_mtime)
+    if not wavs:
+        return None
+    if not target or target.lower() in ("ultima", "última", "last"):
+        return wavs[-1]
+    p = Path(target)
+    if p.exists() and p.suffix.lower() == ".wav":
+        return p
+    hits = [w for w in wavs if target.lower() in w.name.lower()]
+    if len(hits) == 1:
+        return hits[0]
+    if len(hits) > 1:
+        print(f"[ERRO] {target!r} casa com {len(hits)} gravacoes:")
+        for h in hits:
+            print(f"   {h.name}")
+        return None
+    return None
+
+
 def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
     """Process queued recordings produced by the decoupled recorder: a `<base>.wav`
     plus a `<base>.job.json` sidecar. Transcribes with Whisper, then routes to the
@@ -2214,6 +2336,17 @@ def _queue_run(jobs, result, rdir, dry_run):
             wav = rdir / wav.name
         if not wav.exists():
             jf.unlink()  # orphan job (wav pruned/missing) — drop it
+            result["skipped"].append(jf.name)
+            continue
+        # Objecao do interlocutor (decisao do Kelvin, 2026-09-01: "manter e
+        # marcar"). A fila NAO transcreve, e o job sai da fila de vez em vez de
+        # ser reavaliado toda noite. O .wav fica intacto — a retencao tambem o
+        # reconhece e nao o poda. Vale ate em dry_run: simulacao que mostra a
+        # gravacao como "seria processada" e pior que nao simular nada.
+        if _is_no_consent(wav):
+            print(f"[queue] {wav.name}: objecao registrada - nao sera transcrita.")
+            if not dry_run:
+                jf.rename(jf.with_suffix(".json.no-consent"))
             result["skipped"].append(jf.name)
             continue
         if dry_run:
@@ -2360,13 +2493,24 @@ def main():
     hl.add_argument("--person", default=None, help="Folder do liderado (ex: Ana-Leite). Omitir = todos + rollup")
     hl.add_argument("--output", default=None, help="Saida (padrao: Team/<folder>/health.md ou Team-Health.md)")
 
+    nc = sub.add_parser("objecao", help="Alguem recusou ser gravado: marca a gravacao como nao-transcrevivel (audio preservado)")
+    nc.add_argument("--alvo", default="", metavar="ALVO",
+                    help="'ultima' (padrao), parte do nome do arquivo, ou caminho do .wav")
+    nc.add_argument("--motivo", default="", help="Fica registrado no marcador (ex: 'Fulano pediu para nao gravar')")
+    nc.add_argument("--desfazer", action="store_true", help="Remove a marca e devolve o job a fila")
+    nc.add_argument("--listar", action="store_true", help="Lista as gravacoes marcadas")
+    nc.add_argument("--dir", default=None, help="recordings dir (default: ./recordings)")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         sys.exit(1)
 
     # sweep/queue/dashboard do their own thing; the rest need Ollama up.
-    if args.command not in ("sweep", "queue", "dashboard", "memory", "velocity", "alerts", "health", "review"):
+    # `objecao` so renomeia arquivo: exigir Ollama para registrar uma recusa de
+    # gravacao seria travar a resposta a uma objecao por causa de um servico.
+    if args.command not in ("sweep", "queue", "dashboard", "memory", "velocity",
+                            "alerts", "health", "review", "objecao"):
         _check_ollama()
 
     if args.command == "agenda":
@@ -2384,6 +2528,9 @@ def main():
         cmd_sweep(args.dir, args.min_age_min, args.dry_run, args.lang, args.max_age_days)
     elif args.command == "queue":
         cmd_queue(args.dir, args.dry_run)
+    elif args.command == "objecao":
+        cmd_no_consent(args.alvo, args.motivo, desfazer=args.desfazer,
+                       listar=args.listar, recordings_dir=args.dir)
     elif args.command == "dashboard":
         cmd_dashboard(args.output)
     elif args.command == "review":

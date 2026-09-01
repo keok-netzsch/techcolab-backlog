@@ -38,11 +38,34 @@ considered sufficient — the `autocapture.paused` file and `CAPTURE_SYSTEM_AUDI
 **How he does it (his words, 2026-08-31):** *"Eu irei informar as pessoas."* Disclosure is
 his, spoken, per situation — not a banner this software puts on the screen.
 
-**If someone objects:** he asked whether the other party's audio could be discarded. It can
-— capture is 2-channel and `ch1` is the other side, so dropping it is a file operation, not
-a re-recording. What that should *do* (drop the channel and keep his own, or delete the
-whole call) is his call, open in the ledger as `P-017`. Until he decides, handle an
-objection by deleting the recording.
+**If someone objects — DECIDED 2026-09-01: keep and mark.** He asked in August whether the
+other party's audio could be discarded (it can — capture is 2-channel and `ch1` is the
+other side). Offered the three options, his words were **"manter e marcar"** (ledger
+`P-017`, after resolving it with *"ok, concordo"*).
+
+So the recording is **not deleted and not transcribed**. The `.wav` stays in `recordings/`
+with a `<base>.no-consent.json` sidecar next to it, and every stage that would have
+consumed that audio stops consuming it: `classify.py` does not create a job, the 20:00
+queue does not transcribe (the job is parked as `.job.json.no-consent`), and retention
+neither prunes nor quarantines it.
+
+```powershell
+python "$env:USERPROFILE\techcolab-backlog\call-recorder\process.py" objecao --motivo "Fulano pediu para nao gravar"
+```
+
+Two properties of this policy that are deliberate, not oversights:
+
+- **The mark deletes nothing** — not the audio, and not a transcript that already exists.
+  If the call had already been transcribed, the command says so out loud and leaves the
+  transcript alone: what to do with something already produced is his decision, per case.
+  A command that silently destroyed prior output would be worse than no command.
+- **The audio is kept indefinitely**, outside the 7-day rule. It never gets a transcript,
+  so under the previous logic it would have been read as an orphan and deleted within the
+  week — which is the opposite of what he chose. `_recording_state` returns `no-consent`
+  before any other verdict for exactly this reason.
+
+Reversible with `--desfazer` (marked the wrong call), which also returns the job to the
+queue. `--listar` shows what is currently marked.
 
 (An earlier version of this document listed consent as an open question. That was an error
 of research, not a gap in the decision: the answer was already in `CLAUDE.md`. Corrected
@@ -57,14 +80,16 @@ ok"*). They are no longer an implementation state:
   (`RECORDINGS_RETENTION_DAYS`, enforced by the 07:00 agent).
 - Audio that never produced a usable transcript is **quarantined into `failed/`**, not
   deleted — deleting it would destroy the only copy of a call the pipeline failed on.
+- Audio marked after an objection (`no-consent`, 2026-09-01) is **kept indefinitely and
+  never transcribed** — it is neither pruned nor quarantined. See the consent section.
 - **Transcripts are kept indefinitely.**
 
 Changing any of these is a policy change: ask him, do not infer it from a cleanup task.
 
 ## Nothing open
 
-Both policy questions this document used to carry are decided: consent (2026-08-26) and
-retention (2026-08-31), above.
+Every policy question this document has carried is decided: consent (2026-08-26),
+retention (2026-08-31) and what to do when someone objects (2026-09-01), above.
 
 A note worth keeping, because it cost twice: this doc listed consent as "open" after the
 decision already existed in `CLAUDE.md`, and a session (this one, 2026-08-31) read the

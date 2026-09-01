@@ -34,6 +34,27 @@ While routing, the 09:00 session also pulls two things out of each call:
   your curation queue: approve or reject them in the app (or tell Claude), and the
   08:45 reminder shows the pending count.
 
+## Someone refuses to be recorded
+
+One command, right after the call — it does not matter that the recording already
+happened:
+
+```powershell
+python "$env:USERPROFILE\techcolab-backlog\call-recorder\process.py" objecao --motivo "Fulano pediu para nao gravar"
+```
+
+With no `--alvo` it marks the **last** recording, which is the usual case. You can also
+pass part of the filename (`--alvo Ana-Leite`) or a full path.
+
+What that does: the audio **stays** on disk and is **never transcribed** — no job, no
+Whisper, no vault note, and the 7-day cleanup leaves it alone. Nothing is deleted, so
+there is no way to lose the wrong call by acting fast.
+
+- `--listar` — what is currently marked
+- `--desfazer` — marked the wrong one; the recording goes back into the queue
+- If that call had *already* been transcribed, the command says so and leaves the
+  transcript alone. Deleting it is your call, and you can just ask Claude.
+
 ## Manual recording
 
 Start one yourself (Raycast launcher / `call-recorder.ps1`) when you already know the

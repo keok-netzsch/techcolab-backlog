@@ -43,6 +43,20 @@ def _fold(s: str) -> str:
                    if unicodedata.category(c) != "Mn")
 
 
+def _is_no_consent(wav: Path) -> bool:
+    """Gravacao marcada como nao-transcrevivel (ver record.mark_no_consent).
+
+    Importa `record` em vez de remontar o nome do sidecar: a regra tem um dono
+    so. record.py carrega Whisper/PortAudio dentro das funcoes, entao importar
+    aqui nao pesa e nao exige as libs de audio instaladas.
+    """
+    try:
+        import record
+    except ImportError:
+        return False
+    return record.is_no_consent(str(wav))
+
+
 def _people(folder: Path) -> list:
     """Folder names under Team/ or Stakeholders/ — the only valid targets."""
     if not folder.exists():
@@ -194,6 +208,16 @@ def main():
         wav = RECORDINGS / pend["wav"]
         if not wav.exists():
             print(f"{pend['wav'][:28]:28s} SEM WAV - pulando")
+            continue
+
+        # Objecao do interlocutor ("manter e marcar", decisao do Kelvin em
+        # 2026-09-01): nao vira job, nem com --apply. Este e o ponto mais a
+        # montante em que a marca pega — o autocapture ja gravou, e sem esta
+        # guarda a classificacao criaria o job que a fila usaria para
+        # transcrever a call que alguem pediu para nao gravar.
+        if _is_no_consent(wav):
+            print(f"{pend['wav'][:28]:28s} {'OBJECAO':8s} {'-':22s} "
+                  f"marcada como nao-transcrevivel - nao vira job")
             continue
 
         v = classify(pend, team, stake)

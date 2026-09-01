@@ -328,8 +328,81 @@ def capture_dual(stop_flag):
 MIN_TRANSCRIPT_BYTES = 200   # below this, treat the transcript as a failure
 
 
+# ── Objecao do interlocutor: MANTER E MARCAR (decisao do Kelvin, 2026-09-01) ──
+# Se alguem recusa ser gravado, a call nao e apagada e nao e transcrita: o .wav
+# fica onde esta com um sidecar `<base>.no-consent.json` ao lado, e todo estagio
+# que consumiria aquele audio para de consumi-lo. Palavras dele ao escolher entre
+# apagar o ch1, gravar so o ch0 ou marcar o arquivo: *"manter e marcar"* (ledger
+# P-017, decidido depois de resolver a pendencia com "ok, concordo").
+#
+# Por que um sidecar e nao um campo dentro do .job.json: a objecao pode chegar
+# antes do job existir (autocapture escreve .pending.json), depois dele virar
+# .job.json.routing, ou quando nao ha sidecar nenhum. Um arquivo separado, com o
+# mesmo prefixo do .wav, e o unico marcador que os quatro estados enxergam.
+#
+# A marca NAO apaga nada, nem o audio nem transcript que ja exista - decidir isso
+# e do Kelvin, caso a caso. Ela so impede que a maquina siga em frente sozinha.
+NO_CONSENT_SUFFIX = ".no-consent.json"
+
+
+def no_consent_path(wav_path: str) -> str:
+    """Caminho do marcador de objecao para este .wav (existindo ou nao)."""
+    return os.path.splitext(wav_path)[0] + NO_CONSENT_SUFFIX
+
+
+def is_no_consent(wav_path: str) -> bool:
+    """True se esta gravacao foi marcada como nao-transcrevivel."""
+    return os.path.exists(no_consent_path(wav_path))
+
+
+def read_no_consent(wav_path: str) -> dict:
+    """Conteudo do marcador, ou {} se nao houver / estiver ilegivel."""
+    import json as _json
+    try:
+        with open(no_consent_path(wav_path), encoding="utf-8") as fh:
+            data = _json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def mark_no_consent(wav_path: str, motivo: str = "") -> str:
+    """Marca a gravacao como nao-transcrevivel e devolve o caminho do marcador.
+
+    Idempotente: marcar duas vezes preserva o `marcado_em` original, porque a
+    data em que a pessoa objetou e o fato — nao a data em que alguem rodou o
+    comando de novo.
+    """
+    import json as _json
+    path = no_consent_path(wav_path)
+    prev = read_no_consent(wav_path)
+    data = {
+        "wav": os.path.basename(wav_path),
+        "marcado_em": prev.get("marcado_em") or datetime.now().isoformat(timespec="seconds"),
+        "motivo": motivo or prev.get("motivo", ""),
+        "politica": "manter e marcar - audio preservado, nunca transcrever",
+    }
+    if prev.get("marcado_em"):
+        data["remarcado_em"] = datetime.now().isoformat(timespec="seconds")
+    with open(path, "w", encoding="utf-8") as fh:
+        _json.dump(data, fh, ensure_ascii=False, indent=2)
+    _log(f"objecao: {os.path.basename(wav_path)} marcado como nao-transcrevivel"
+         + (f" - {motivo}" if motivo else ""))
+    return path
+
+
+def clear_no_consent(wav_path: str) -> bool:
+    """Remove a marca (engano na hora de marcar). True se havia algo a remover."""
+    path = no_consent_path(wav_path)
+    if not os.path.exists(path):
+        return False
+    os.remove(path)
+    _log(f"objecao: marca removida de {os.path.basename(wav_path)}")
+    return True
+
+
 def _recording_state(wav_path: str):
-    """Classify a recording as ('done'|'pending'|'failed'|'orphan', detail).
+    """Classify a recording as ('no-consent'|'done'|'pending'|'failed'|'orphan', detail).
 
     The old policy deleted by mtime alone, so a recording whose transcription had
     been failing for a week was destroyed exactly like one that succeeded. Two
@@ -343,6 +416,20 @@ def _recording_state(wav_path: str):
     import json as _json
 
     base = os.path.splitext(wav_path)[0]
+
+    # Objecao antes de tudo: uma gravacao marcada nao e "pendente" (ninguem vai
+    # transcreve-la) nem "falha" (nada falhou) nem "orfa" (o marcador a
+    # referencia). Sem este ramo a retencao a trataria como orfa e a apagaria em
+    # 7 dias — exatamente o oposto de "manter e marcar".
+    if os.path.exists(base + NO_CONSENT_SUFFIX):
+        motivo = ""
+        try:
+            with open(base + NO_CONSENT_SUFFIX, encoding="utf-8") as fh:
+                motivo = (_json.load(fh) or {}).get("motivo", "")
+        except (OSError, ValueError):
+            pass
+        return "no-consent", ("objecao registrada - nunca transcrever"
+                              + (f" ({motivo})" if motivo else ""))
 
     # Awaiting classification (autocapture) or awaiting transcription (queue):
     # unprocessed work, regardless of age.
@@ -398,6 +485,11 @@ def prune_old_recordings(directory: str, days: int = RECORDINGS_RETENTION_DAYS) 
             continue
 
         state, detail = _recording_state(path)
+        if state == "no-consent":
+            # Nao apaga e nao quarentena: o arquivo fica visivel em recordings/,
+            # do lado do marcador, para quem o Kelvin decidir depois.
+            _log(f"retencao: {name} mantido (objecao) - {detail}")
+            continue
         if state == "pending":
             _log(f"retencao: {name} mantido - {detail}")
             continue

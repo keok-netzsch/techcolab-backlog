@@ -144,6 +144,7 @@ Removida com `pending.py remove --motivo`, que existe exatamente para isso.
 | 2026-08-29 | Daily BIZ/PM são território do TMA, não do roteamento direto | `ROUTING_RULES` em `route.py` |
 | 2026-08-31 | **Log semanal do time NÃO gradua para o vault central.** Palavras dele: *"isso é de minha propriedade (vault pessoal). para o central, devem ir as notas já categorizadas, não o log"* | ledger P-002 |
 | 2026-08-31 | Retenção do call recorder confirmada: 7 dias para áudio transcrito, indefinido para transcript. *"por mim ok"* | ledger P-005, `call-recorder/GOVERNANCE.md` |
+| 2026-09-01 | **Objeção do interlocutor: manter e marcar.** Palavras dele: *"manter e marcar"* — o áudio não é apagado nem transcrito; `<base>.no-consent.json` e `process.py objecao` | ledger P-017, `call-recorder/GOVERNANCE.md` |
 | 2026-08-31 | Compromissos e oportunidades saem da call na sessão das 09:00 — `- [ ] (Dono) … @data` nas notas, oportunidade em `em análise` | `EXTRACT_CONTRACT` em `route.py` |
 | 2026-08-29 | Produção = local-por-design ou SharePoint. **Nunca free tier externo** para dado NETZSCH | ADR `2026-08-29-doc-triad-e-producao.md` |
 | 2026-08-29 | Tudo compartilhado entre as 2 contas do CLI; artefato vive no filesystem | idem, ponto 6 |
