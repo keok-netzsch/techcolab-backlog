@@ -35,13 +35,28 @@ $arg = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $scrip
 $acao = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg
 $gatilho = New-ScheduledTaskTrigger -Daily -At "20:00"
 
-# 6h de limite: 4h de audio a ~2x tempo real cabem, e um travamento nao segura a
-# maquina ate o dia seguinte. StartWhenAvailable para que noite com a maquina
-# desligada nao vire gravacao perdida - o guard de horario dentro do
-# daily_report ja impede que a recuperacao caia no meio do expediente.
+# 12h de limite (era 6h ate 2026-09-01). O teto de 6h nao era folgado: era
+# menor que o lote. O run de 31/08 foi MORTO nele (LastTaskResult 0x41306,
+# SCHED_S_TASK_TERMINATED) e levou junto a "BIA War Room" de 27/08, que ficou
+# como .job.json por dois dias sem que nada acusasse - a tarefa so reporta o
+# codigo de termino, e ninguem le codigo de termino de tarefa agendada.
+#
+# O erro do calculo antigo foi dimensionar pelo dia tipico (4h de audio) e nao
+# pelo acumulo. Fila que atrasa uma noite acumula a noite seguinte, e o teto
+# que cabia no dia tipico passa a garantir que ela nunca alcance o atraso: em
+# 01/09 eram 398 min de audio em 2 canais, ~6,6h, com o teto em 6h. A fila
+# estava matematicamente impedida de se recuperar sozinha.
+#
+# Continua finito de proposito: Whisper travado segurando o lock bloquearia a
+# noite seguinte, e a limpeza de lock orfao so cobre processo morto, nao
+# processo vivo e pendurado.
+#
+# StartWhenAvailable para que noite com a maquina desligada nao vire gravacao
+# perdida - o guard de horario dentro do daily_report ja impede que a
+# recuperacao caia no meio do expediente.
 $cfg = New-ScheduledTaskSettingsSet -StartWhenAvailable `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 6)
+    -ExecutionTimeLimit (New-TimeSpan -Hours 12)
 
 Register-ScheduledTask -TaskName $nome -Action $acao -Trigger $gatilho `
     -Settings $cfg -Force `

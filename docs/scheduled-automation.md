@@ -10,7 +10,7 @@ unless noted. This is the "production = hardened local" record required by the A
 | Task | When | Runs |
 |---|---|---|
 | `CallRecorder-AutoCapture` | resident (auto-start) | `call-recorder/autocapture.py` — records when Teams takes the mic |
-| `CallRecorder-Queue` | daily 20:00 | `scripts/run-queue.ps1` — classifies pendings, transcribes, parks autocapture jobs for routing, then sweeps failed transcripts. Single-flight: `recordings/.queue.lock` (PID); a second queue exits without touching anything |
+| `CallRecorder-Queue` | daily 20:00, **12h limit** | `scripts/run-queue.ps1` — classifies pendings, transcribes, parks autocapture jobs for routing, then sweeps failed transcripts. Single-flight: `recordings/.queue.lock` (PID); a second queue exits without touching anything. Limit raised from 6h on 2026-09-01: the 31/08 run was **killed** by the old cap (`0x41306`), which is how a 27/08 recording sat unprocessed for two days with nothing reporting it. A cap sized for the typical day guarantees the queue can never catch up on a backlog — the 01/09 batch was 6.6h of work against a 6h cap. Still finite: a hung Whisper holding the lock would block the following night, and orphan-lock cleanup only covers a dead PID |
 | `CallRecorder-Triage-Reminder` | weekdays 09:00 | `scripts/notify.ps1 -Profile triage-reminder` — morning review prompt; silent when nothing is parked |
 
 ## Team Memory Agent (docs: `~/TeamMemoryAgent/README.md` + GOVERNANCE + USER-GUIDE)
