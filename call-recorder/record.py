@@ -614,7 +614,7 @@ def _transcribe_dual(model, audio_path: str, language: str | None):
     import soundfile as sf
 
     data, sr = sf.read(audio_path, dtype="float32")
-    rows, detected = [], None
+    rows, per_channel = [], []
 
     for idx, label in enumerate(SPEAKER_LABELS):
         track = np.ascontiguousarray(data[:, idx])
@@ -622,10 +622,30 @@ def _transcribe_dual(model, audio_path: str, language: str | None):
             print(f"[WARN] canal {idx} ({label}) esta mudo - pulando.")
             continue
         print(f"[INFO] Transcrevendo canal {idx} ({label})...")
-        segments, info = model.transcribe(track, language=language)
+        # Mesmo vad_filter do caminho de 1 canal, pela mesma razao. Ele faltava
+        # AQUI, e por isso a correcao de 26/08 nunca alcancou a captura de 2
+        # canais. Medido em 01/09 sobre as calls de 27-28/08: 23 dos 26 canais
+        # degeneraram. Um canal que abre em silencio (o mic do Kelvin abre mudo
+        # com frequencia) leva o decoder a um laco que dura o resto da call -
+        # "." 218 vezes, "Mm-hmm" 22 vezes - e as vezes a um idioma inteiro
+        # errado, com nn/nl/sv gravados nos job files de tres calls reais.
+        segments, info = model.transcribe(
+            track, language=language,
+            vad_filter=True, vad_parameters={"min_silence_duration_ms": 700},
+        )
+        words = 0
         for seg in segments:
-            rows.append((seg.start, label, seg.text.strip()))
-        detected = detected or getattr(info, "language", None)
+            text = seg.text.strip()
+            rows.append((seg.start, label, text))
+            words += len(text.split())
+        per_channel.append((words, getattr(info, "language", None)))
+
+    # O idioma da call e o do canal que mais falou, nao o do canal 0. Deixar o
+    # primeiro canal decidir foi como a call do OKR 05 foi marcada "nn"
+    # (nynorsk) no vault: o mic do Kelvin estava mudo nos primeiros 15 min e a
+    # deteccao rodou em cima de silencio.
+    per_channel.sort(key=lambda pc: pc[0], reverse=True)
+    detected = next((lang for _, lang in per_channel if lang), None)
 
     rows.sort(key=lambda r: r[0])
     lines = [f"[{t:05.1f}s] {label}: {text}" for t, label, text in rows]

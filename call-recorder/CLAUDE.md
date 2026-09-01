@@ -188,12 +188,12 @@ produzido e decisao do Kelvin, caso a caso.
 | `install-autocapture.ps1` | Registers/removes the `CallRecorder-AutoCapture` scheduled task (at logon, no window, no execution time limit). `-Remove` uninstalls. |
 | `classify.py` | Turns a `.pending.json` into a `.job.json` so `process.py queue` transcribes it. Consults `meeting-aliases.json` first (recurring meeting → fixed destination), then name matching. Sets `route_after_transcript: True` on everything it emits — see `route.py`. What it decides is *whether to transcribe*, no longer *where to file*. |
 | `route.py` | **Routing by subject (2026-08-28).** Lists jobs that are transcribed and parked (`.job.json.routing`), and files each one into **N destinations**, each receiving only its own slice of the transcript. `--para kind[:alvo] --assunto "..."` (repeatable), `--texto` to read the transcript, `--descartar` when the call is not worth filing. Slices are saved next to the transcript, so the exact text behind any note stays on disk. ADR: `vault/decisions/2026-08-28-roteamento-por-assunto.md`. |
-| `record.py` | Capture + faster-whisper transcription (CPU, int8). Saves audio to `recordings/*.wav` (7-day retention). **2.0:** `capture_dual()` records mic (`sounddevice`, the proven path — the WASAPI route to this mic returns digital silence) and system loopback (`soundcard`, WASAPI) on two threads, returning separate channels; falls back to mic-only and says so when `soundcard` or a loopback endpoint is missing. Disable with `CAPTURE_SYSTEM_AUDIO=0`. `transcribe()` detects a 2-channel file and routes to `_transcribe_dual()`, which transcribes each channel and interleaves by timestamp, labelling with `SPEAKER_LABELS`. A channel that is silent is skipped with a warning. **File Processing (idea-031):** `--input <file>` transcribes an existing audio/video file (mp4/mov/mkv/wav/m4a/…) instead of the mic — faster-whisper decodes the container via ffmpeg/PyAV, so a video's audio track is transcribed directly. Writes the same `.txt` + `.lang` sidecar. `--language auto` lets Whisper detect. Runs without PortAudio (mic imports are skipped in `--input` mode). |
+| `record.py` | Capture + faster-whisper transcription (CPU, int8). Saves audio to `recordings/*.wav` (7-day retention). **2.0:** `capture_dual()` records mic (`sounddevice`, the proven path — the WASAPI route to this mic returns digital silence) and system loopback (`soundcard`, WASAPI) on two threads, returning separate channels; falls back to mic-only and says so when `soundcard` or a loopback endpoint is missing. Disable with `CAPTURE_SYSTEM_AUDIO=0`. `transcribe()` detects a 2-channel file and routes to `_transcribe_dual()`, which transcribes each channel and interleaves by timestamp, labelling with `SPEAKER_LABELS`. A channel that is silent is skipped with a warning. **Corrigido 2026-09-01:** `_transcribe_dual` rodava sem `vad_filter` (a correcao de 26/08 pegou so o ramo de 1 canal) e deixava o canal 0 definir o idioma da call — 23 de 26 canais degeneraram nas calls de 27-28/08. Agora tem o mesmo `vad_filter` do ramo mono, e o idioma vem do canal que mais falou. Ver a secao dedicada abaixo. **File Processing (idea-031):** `--input <file>` transcribes an existing audio/video file (mp4/mov/mkv/wav/m4a/…) instead of the mic — faster-whisper decodes the container via ffmpeg/PyAV, so a video's audio track is transcribed directly. Writes the same `.txt` + `.lang` sidecar. `--language auto` lets Whisper detect. Runs without PortAudio (mic imports are skipped in `--input` mode). |
 | `coach.py` | Avaliacao de ingles. Le a fala do Kelvin, escreve no vault. **Cobertura (31/08):** `_budget_chars()` da 120k chars no gateway e 5k no Ollama — o corte fixo de 5k era dimensionado para o 7B local e fazia call longa ser avaliada em ~20% (24.339 chars no Jour Fixe com o Alberto). Orcamento segue o PROVEDOR porque o fallback existe: cair para o Ollama com 120k trocaria degradacao por travamento. Quando corta, avisa. **Contexto (31/08):** `_context_summary()` gera 2 frases sobre do que era a call, a partir do transcript COMPLETO — com `purpose="transcript"`, que a allowlist forca para Ollama local. Ver a nota de fronteira abaixo. |
 | `process.py` | Processes transcripts → vault notes. Subcommands: `transcript` (Team 1:1), `manager` (Stakeholder), `note` (Outro → `Inbox/<date>_<time>_nota-avulsa.md`), `capture --mode {project,retro,idea,requirements,learning}` (idea-031 standalone sessions → `Inbox/<date>_<time>_{project-meeting,retrospective,idea-capture,requirements,learning-capture}.md`, status `a-triar`), `agenda`, `sweep`, `queue`, `dashboard` (idea-031 → consolida todos os `- [ ]` com dono/prazo do vault em `Action-Dashboard.md`, agrupado por status de prazo; gitignored), `diarize` (**LEGADO desde 2.0** — só para `.wav` de 1 canal gravados antes de 2026-08-26; arquivo de 2 canais já vem com falante exato, não passe por aqui. idea-031 → **speaker labeling por TEXTO**, interino: `--transcript <file> [--people "Kelvin Okuda,Ana Leite"] [--output]` pede ao Ollama para atribuir falantes pelo contexto e grava `<nome>.diarized.txt`. Aproximado — sem sinal de voz, não distingue falantes com confiança; passo separado pois é um 2º passe de LLM), `diarize`... , `memory` (idea-031 → **Cross-Session Memory**, determinístico/sem LLM: `--person <folder>` gera `Team/<folder>/memory.md` com ações ainda abertas acumuladas entre sessões + tópicos recorrentes (>=2 sessões); sem `--person` gera todos + `Cross-Session-Memory.md` na raiz com tópicos compartilhados entre pessoas), `velocity` (idea-031 → **Action Velocity**, determinístico/sem LLM: rastreia cada action item de `[ ]`→`[x]` pelas sessões datadas do `1on1.md`, mede tempo-de-fechamento (avg/median), sinaliza abertas `stale` (>30d). `--person` → `Team/<folder>/velocity.md`; sem `--person` → todos + rollup `Action-Velocity.md`), `alerts` (idea-031 → **PDI/OKR Alerts**, determinístico/sem LLM: varre `OKR.md`+`PDI.md` por prazos vencidos (`YYYY-MM-DD` e `DD/MM/YYYY`), marcadores `OVERDUE`/`ALERTA` e progresso zero, ignorando seções Completed/Concluídos e itens ✅/`[x]`; dedup dos blocos repetidos. `--person` → `Team/<folder>/alerts.md`; sem `--person` → todos + `PDI-OKR-Alerts.md`), `health` (idea-031 → **Team Health Metrics**, determinístico/sem LLM: consolida recência do último 1:1 + carga de ações abertas/stale + alertas PDI/OKR num score 0-100 por pessoa (sinal, não veredito). `--person` → `Team/<folder>/health.md`; sem `--person` → todos + `Team-Health.md` (tabela worst-first)). |
 | `capture_multi.py` | **Captura redundante (2026-08-28).** Grava TODAS as entradas presentes e TODOS os endpoints de saida ao mesmo tempo, e escolhe no fim pela ATIVIDADE DE FALA — nao pelo nivel. Existe porque toda falha medida veio de escolher um dispositivo no inicio e estar errado na hora da call. Nao deduplica por nome: o mesmo microfone entregou 79% de fala no WASAPI e 0% no DirectSound, e a dedup ficava com o errado. Abre na taxa NATIVA do dispositivo (WASAPI recusa 16 kHz e some da captura em silencio). WDM-KS fica de fora de proposito — abre em modo exclusivo e poderia roubar o mic do Teams. Custo ~12 MB/hora, apagado apos a escolha. |
 | `which_mic.py` | Diagnostico: grava TODAS as entradas por N segundos enquanto o Kelvin fala e diz qual ouviu a voz dele. Dirigido por VOZ HUMANA de proposito — um teste com tom sintetico declarou o microfone bom quando o que a entrada captava era crosstalk eletrico do proprio jack, e as tres calls seguintes gravaram zumbido. Reporta tambem as entradas que NAO ABRIRAM, com o codigo do PortAudio: engolir esse erro faz "nem abriu" parecer "gravou e nao ouviu nada". Salva em `which_mic_result.txt`. |
-| `transcript_quality.py` | **Gate de qualidade por TRECHO (2026-08-28).** Complementa `audit_transcripts.py`, nao substitui: aquele julga o arquivo inteiro por palavras-por-minuto e pega "tudo degenerado"; este pega "estes 15 minutos degeneraram". Sinal principal e ESTRUTURAL — o Whisper decodifica em janelas de 30 s e, em janela sem fala, emite algo que cai em 0.0/30.0/60.0; tres seguidas e conclusivo, em qualquer idioma. Reporta POR FALANTE, porque a falha do OKR 05 era de um canal so. Advisory: nunca bloqueia. `--todos` audita tudo, `--limpar` grava versao limpa. |
+| `transcript_quality.py` | **Gate de qualidade por TRECHO (2026-08-28).** Complementa `audit_transcripts.py`, nao substitui: aquele julga o arquivo inteiro por palavras-por-minuto e pega "tudo degenerado"; este pega "estes 15 minutos degeneraram". Sinal principal e ESTRUTURAL — o Whisper decodifica em janelas de 30 s e, em janela sem fala, emite algo que cai em 0.0/30.0/60.0; tres seguidas e conclusivo, em qualquer idioma. Reporta POR FALANTE, porque a falha do OKR 05 era de um canal so. Advisory: nunca bloqueia. `--todos` audita tudo, `--limpar` grava versao limpa. **Lacuna conhecida (01/09):** nao olha idioma nem repeticao ENTRE linhas, entao deu `0 suspeitas` no arquivo do OKR 05 que tinha 26 linhas em cirilico e 46 de laco. Ver a secao dedicada abaixo. |
 | `triage.py` | O Kelvin classifica o que a maquina nao soube. Gravacao marcada `needs_review` espera aqui em vez de ser arquivada sob palpite. `--lembrar` grava o titulo em `meeting-aliases.json`, entao reuniao recorrente se classifica sozinha da segunda vez — a decisao humana e tomada uma vez, nao toda semana. `--json` para consumo por script (o lembrete grafico lia o texto formatado com regex e passou a achar ZERO pendentes quando o formato mudou por um espaco). |
 | `process.py queue` (trava) | A fila e **single-flight**: `recordings/.queue.lock` com o PID. Segunda fila sai sem tocar em nada, e os jobs continuam intactos para o proximo lote. Existe desde 2026-08-29, quando a fila ganhou tarefa propria as 20:00 (`CallRecorder-Queue`) — um lote manual iniciado de dia ainda pode estar rodando na hora do gatilho, e as duas leem a MESMA lista de `.job.json`: a nota iria ao vault duas vezes e dois Whisper disputariam a mesma CPU. Trava de processo morto e tratada como orfa e removida (reboot no meio do lote nao pode impedir o lote seguinte). |
 | `process_one.py` | Processa UM job pelo nome. `cmd_queue` e tudo-ou-nada, o que e certo para o lote noturno e errado quando se quer uma call especifica agora: 45 min de audio sao ~1,5 h de Whisper nesta maquina, e transcrever dez gravacoes para chegar em uma nao e opcao durante o expediente. |
@@ -366,6 +366,52 @@ Impactos aqui:
   (captura / transcricao / avaliacao) ao refatorar.
 - Task agendada mudou? Atualizar docs/scheduled-automation.md na mesma mudanca.
 - Hosting: local-por-design permanente. Nao propor cloud.
+
+## O vad_filter faltava no caminho de 2 canais (2026-09-01)
+
+Em 26/08 uma call degenerou em 98% de "." e a correcao foi ligar `vad_filter` no
+`model.transcribe`. Ela foi aplicada **so no ramo de 1 canal**. `_transcribe_dual`
+ficou sem, e como a captura 2.0 e sempre de 2 canais, na pratica a correcao nunca
+rodou em call nenhuma.
+
+Medido em 01/09 sobre as 13 calls de 27-28/08: **23 dos 26 canais degeneraram.**
+Dois canais do Kelvin sao 100% laco (`.` x218, `...` x108). Em tres calls o
+decoder trocou de idioma inteiro — os job files registram `nn`, `nl` e `sv`, e a
+call do OKR 05 saiu com a fala do Kelvin **em russo** e foi encaminhada a uma
+colega antes de alguem notar.
+
+Duas coisas mudaram em `_transcribe_dual`:
+
+1. **`vad_filter=True`**, igual ao ramo de 1 canal. Canal que abre em silencio (o
+   mic do Kelvin abre mudo com frequencia) levava o decoder a um laco que durava o
+   resto da call.
+2. **O idioma vem do canal que mais falou**, nao do canal 0. Era
+   `detected = detected or ...`, entao um canal quase vazio decidia pela call
+   inteira: foi assim que a OKR 05 ficou marcada `nn` (nynorsk) no vault.
+
+**A correcao vale para transcricao NOVA.** Texto ja gerado nao melhora sozinho —
+os 10 jobs de 27-28/08 estao segurados em `.job.json.routing.hold`, com o motivo
+em `recordings/LEIA-ANTES-DE-ROTEAR.md` e um aviso `[HOLD]` na listagem do
+`route.py`.
+
+Licao que vale alem deste bug: **a correcao de 26/08 foi dada como feita sem
+nunca ter rodado no caminho real.** O ADR de 29/08 olhou esta mesma call, viu as
+30 linhas alucinadas, construiu o `transcript_quality.py` para detecta-las — e
+nao procurou a causa. Detector do sintoma nao substitui a correcao.
+
+## `transcript_quality.py` nao olha idioma — de proposito, e essa e a lacuna
+
+O gate foi desenhado com o principio "o sinal que funciona e estrutural, nao
+linguistico". Rodando no arquivo que chegou na Ana: **`0 suspeitas`**, com 26
+linhas em cirilico e 46 linhas de laco dentro. Ele so pega repeticao DENTRO de
+uma linha e fronteira de janela de 30 s.
+
+O que fecharia isso ja existe no repo e nao esta ligado aqui: `coach_guards.py`
+tem `language_gate()` (por TEXTO, nao pelo `.lang` do Whisper — *a coisa que
+falhou nao pode ser a juiza*) e `clean_transcript()` (repeticao ENTRE linhas).
+Testados contra o arquivo real em 01/09: `language_gate` reprova, e
+`clean_transcript` descarta 79 linhas. **Ligar os dois no `transcript_quality.py`
+esta pendente** — nao foi autorizado ainda.
 
 ## Falha de estruturacao nao e conteudo (2026-08-31)
 

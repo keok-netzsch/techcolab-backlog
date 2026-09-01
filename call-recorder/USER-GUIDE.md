@@ -82,6 +82,15 @@ it works. Use `--topic` when you want a themed session.
   mics with your real voice only; synthetic tones pick up jack crosstalk and lie.
 - **Nothing transcribed at 16:00:** normal — the batch runs at 20:00. Review is in the
   morning.
+- **The transcript repeats itself, or is in a language nobody spoke.** That is Whisper
+  degenerating on silence, not a mis-heard word. Do not forward it and do not treat it
+  as a record of what was said — the text tracks the real speech loosely enough to look
+  plausible while being wrong. The cause was fixed on 2026-09-01 (`vad_filter` was
+  missing on the 2-channel path), so new transcripts should not do this. If one still
+  does, say so instead of cleaning it by hand.
+- **`route.py` prints `[HOLD] N job(s) segurado(s)`:** those recordings were pulled out
+  of the routing queue on purpose because their transcripts are not trustworthy. Read
+  `recordings/LEIA-ANTES-DE-ROTEAR.md` before releasing them — it says why and how.
 - Logs: `autocapture.log` in this folder, and `logs/` in the repo root for coach/queue.
 
 ## Aprovar o que o modelo escreveu sobre uma pessoa (desde 2026-08-31)

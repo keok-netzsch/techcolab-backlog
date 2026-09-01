@@ -86,6 +86,32 @@ ok"*). They are no longer an implementation state:
 
 Changing any of these is a policy change: ask him, do not infer it from a cleanup task.
 
+## Accuracy is part of the posture (2026-09-01)
+
+This document promises exact attribution: ch0 is Kelvin, ch1 is the other party, and
+no voice identification is guessed. That promise held. What did not hold is the
+assumption sitting underneath it — that a line attributed to someone is something
+they said.
+
+On 2026-09-01 a defect in `_transcribe_dual` was found and fixed: it ran without
+`vad_filter`, so a channel opening in silence sent the decoder into a loop for the
+rest of the call. Across the 13 calls of 27-28/08, 23 of 26 channels carry invented
+text. Three calls came out in a language nobody spoke. One of them, the OKR 05 call,
+was forwarded to a colleague with Kelvin's own speech rendered in Russian.
+
+Two consequences that are governance, not engineering:
+
+- **A transcript is evidence only after it is checked.** Correct speaker labels made
+  the invented lines look attributed. Anyone reading a recorder transcript as the
+  record of a meeting should confirm it is not degenerate first.
+- **Wrong text about a person is a people-data problem**, not just a quality one.
+  Three of the held jobs were queued to write into `Team/` and `Stakeholders/`
+  person notes. The approval gate covers `PDI.md`, `OKR.md` and `Overview.md`; it
+  does not cover everything else that routing writes.
+
+Nothing here changes what is recorded, kept, or shared. It changes how much a
+transcript is worth as a claim.
+
 ## Nothing open
 
 Every policy question this document has carried is decided: consent (2026-08-26),

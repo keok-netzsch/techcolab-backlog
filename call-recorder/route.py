@@ -52,6 +52,18 @@ def _parked():
     return sorted(RECORDINGS.glob("*.job.json.routing"))
 
 
+def _held():
+    """Jobs deliberadamente segurados fora da fila de roteamento.
+
+    Um job vira `.routing.hold` quando a transcricao dele nao e confiavel e
+    rotea-la sujaria o vault. Sao contados e anunciados porque a alternativa e
+    pior: dez gravacoes somem da listagem e `listar()` responde "nada
+    aguardando destino", que le como "tudo em dia". O repo ja pagou por um
+    zero-pendentes silencioso uma vez.
+    """
+    return sorted(RECORDINGS.glob("*.job.json.routing.hold"))
+
+
 def _load(p):
     try:
         return json.loads(p.read_text(encoding="utf-8"))
@@ -155,11 +167,23 @@ def listar(as_json=False):
             "rule": rule_for(_meeting(j)),
             "extract": EXTRACT_CONTRACT,
         })
+    # O aviso vai para stderr no caminho --json: o consumidor espera uma LISTA em
+    # stdout, e embrulhar isso num objeto para caber um contador quebraria ele.
+    held = _held()
+    if held:
+        aviso = (f"[HOLD] {len(held)} job(s) segurado(s) fora desta listagem "
+                 f"(*.job.json.routing.hold). Motivo e como soltar: "
+                 f"recordings/LEIA-ANTES-DE-ROTEAR.md")
     if as_json:
+        if held:
+            print(aviso, file=sys.stderr)
         print(json.dumps(rows, ensure_ascii=False))
         return 0
+    if held:
+        print(aviso + "\n")
     if not rows:
-        print("nada transcrito aguardando destino.")
+        print("nada transcrito aguardando destino."
+              if not held else "nada aguardando destino ALEM dos segurados acima.")
         return 0
     print(f"{len(rows)} gravacao(oes) transcrita(s) aguardando destino:\n")
     for r in rows:

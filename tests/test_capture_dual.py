@@ -349,3 +349,74 @@ def test_loopback_inicializa_com_na_propria_thread(monkeypatch, tmp_path):
     record.capture_dual(_stop_after(2))
     assert chamadas["init"] == 1, "loopback tem que inicializar COM na sua thread"
     assert chamadas["uninit"] == 1, "COM inicializado tem que ser liberado"
+
+
+# ── Regressao: o vad_filter que faltava no caminho de 2 canais ────────────────
+#
+# Em 26/08 uma call degenerou em 98% de "." e a correcao foi ligar vad_filter.
+# Ela foi aplicada so no ramo de 1 canal. Como a captura 2.0 e SEMPRE de 2
+# canais, a correcao nunca rodou em call nenhuma: em 27-28/08, 23 dos 26 canais
+# degeneraram, e tres calls sairam num idioma que ninguem falou (nn, nl, sv).
+# A do OKR 05 saiu com a fala do Kelvin em russo e foi parar com uma colega.
+
+class _FakeSeg:
+    def __init__(self, start, text):
+        self.start, self.text = start, text
+
+
+class _FakeInfo:
+    def __init__(self, language):
+        self.language = language
+
+
+class _FakeModel:
+    """Grava os kwargs de cada chamada para o teste inspecionar."""
+
+    def __init__(self, por_canal):
+        self.por_canal, self.chamadas = por_canal, []
+
+    def transcribe(self, track, **kw):
+        self.chamadas.append(kw)
+        segs, lang = self.por_canal[len(self.chamadas) - 1]
+        return iter([_FakeSeg(s, t) for s, t in segs]), _FakeInfo(lang)
+
+
+def _stereo_curto(monkeypatch, sr=16000, segundos=2):
+    """Audio de 2 canais audiveis e curto demais para o _sanity_check julgar."""
+    import soundfile as sf
+    data = np.full((sr * segundos, 2), 0.1, dtype=np.float32)
+    monkeypatch.setattr(sf, "read", lambda *a, **k: (data, sr))
+
+
+def test_dual_usa_vad_filter_em_todos_os_canais(monkeypatch):
+    _stereo_curto(monkeypatch)
+    model = _FakeModel([([(0.0, "ola")], "pt"), ([(1.0, "hello")], "pt")])
+
+    record._transcribe_dual(model, "qualquer.wav", None)
+
+    assert len(model.chamadas) == 2, "os dois canais tem que ser transcritos"
+    for i, kw in enumerate(model.chamadas):
+        assert kw.get("vad_filter") is True, (
+            f"canal {i} sem vad_filter: sem ele um canal que abre em silencio "
+            f"leva o decoder a um laco que dura o resto da call"
+        )
+
+
+def test_idioma_vem_do_canal_que_mais_falou_nao_do_canal_zero(monkeypatch):
+    """O mic do Kelvin (canal 0) abre mudo com frequencia.
+
+    Deixar o canal 0 decidir sozinho foi como a call do OKR 05 acabou marcada
+    'nn' (nynorsk) no vault: a deteccao rodou em cima de 15 min de silencio.
+    """
+    _stereo_curto(monkeypatch)
+    model = _FakeModel([
+        ([(0.0, "hm")], "nn"),                                  # canal 0: 1 palavra
+        ([(1.0, "this is the actual conversation")], "en"),      # canal 1: 5 palavras
+    ])
+
+    _, detected = record._transcribe_dual(model, "qualquer.wav", None)
+
+    assert detected == "en", (
+        "o idioma da call e o do canal que mais falou; um canal quase vazio "
+        "nao pode carimbar o idioma da call inteira"
+    )
