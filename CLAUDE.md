@@ -118,7 +118,7 @@ and/or the Documentation (`📚 Documentation` page) accordingly:
 | New page added to sidebar | Tutorial → Using the app table |
 | Planned phases changed | Documentation → Planned next phases |
 | Architecture changed | Documentation → System architecture |
-| Team structure changed | CLAUDE.md → Project context + Weekly Brief page |
+| Team structure changed | CLAUDE.md → Project context + Meeting Prep page |
 
 After updating the app pages, also check if `README.md` needs updating.
 

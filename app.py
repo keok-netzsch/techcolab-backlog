@@ -427,10 +427,15 @@ st.markdown(
 )
 
 # ── Top navigation (pure HTML — full height control) ───────────────────────
-_PAGES_MAIN = ["Dashboard", "Pending", "Backlog", "To-Do List", "Team", "AI Usage", "Weekly Brief", "English Coach"]
+_PAGES_MAIN = ["Dashboard", "Pending", "Backlog", "To-Do List", "Team", "AI Usage", "Meeting Prep", "English Coach"]
 _ALL_PAGES  = _PAGES_MAIN + ["FAQ", "Tutorial", "Documentation", "Settings"]
 
 _qpage = st.query_params.get("page", "Dashboard")
+# Old bookmarks/links still say "Weekly Brief" — that page is now "Meeting Prep"
+# (the brief itself is agent/weekly_brief.py, a different thing). Map instead of
+# silently dumping the user on the Dashboard.
+_LEGACY_PAGE_NAMES = {"Weekly Brief": "Meeting Prep"}
+_qpage = _LEGACY_PAGE_NAMES.get(_qpage, _qpage)
 if _qpage not in _ALL_PAGES:
     _qpage = "Dashboard"
 page = _qpage
@@ -532,11 +537,11 @@ elif page == "Dashboard":
     from views.dashboard import render as _render_dashboard
     _render_dashboard()
 
-# PAGE 5 — WEEKLY BRIEF
+# PAGE 5 — MEETING PREP
 # ══════════════════════════════════════════════════════════════════════════════
-elif page == "Weekly Brief":
-    from views.weekly_brief import render as _render_weekly_brief
-    _render_weekly_brief()
+elif page == "Meeting Prep":
+    from views.meeting_prep import render as _render_meeting_prep
+    _render_meeting_prep()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 4 — TUTORIAL

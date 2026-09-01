@@ -104,7 +104,7 @@ The app has a **top navigation bar** with the logo on the left and page links ac
 | To-Do List | All action items consolidated across all ideas, sortable and filterable |
 | Team | Direct reports — 1:1 tracker, OKR / PDI status, and Ollama agenda generation |
 | AI Usage | Current NETZSCH AI Gateway budget, rate limits, and local balance-check history |
-| Weekly Brief | Preparation panel for meetings with leadership (Developments, WIP, Team, Calls) |
+| Meeting Prep | Preparation panel for meetings with leadership (Developments, WIP, Team, Calls) |
 | English Coach | Progress tracker for AI-evaluated English practice sessions |
 | ⚙️ (Settings) | Configure Ollama URL, model, and Claude Pro start date |
 | 📖 (Tutorial) | This page |
@@ -168,9 +168,9 @@ You can set this during to-do creation or by editing the idea card later.
 
 ---
 
-## Weekly Brief
+## Meeting Prep
 
-Open **Weekly Brief** before any meeting with Alberto Reuters or Stefan Lautenschlager.
+Open **Meeting Prep** before any meeting with Alberto Reuters or Stefan Lautenschlager.
 
 - Use the **period slider** (default 7 days) to set the reporting window
 - Toggle sections on/off: **Devs** (status changes), **WIP** (active ideas + in-progress to-dos), **Team** (1:1 snapshot), **Calls** (recent call notes)

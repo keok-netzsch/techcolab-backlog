@@ -52,7 +52,7 @@ def update_status(idea_id: str, new_status: str) -> None:
         print(f"[WARN] _index.md not regenerated: {e}")
     # Record it in the daily note, for the same reason as the index: log_entry was
     # only ever called from inside the Streamlit app, so every change made through
-    # this CLI left no trace in Daily/ — which is what feeds the Weekly Brief
+    # this CLI left no trace in Daily/ — which is what feeds the Meeting Prep
     # page's "Developments" section. Best-effort, never fatal.
     try:
         if new_status == "concluído":

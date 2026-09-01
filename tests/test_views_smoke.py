@@ -17,7 +17,7 @@ VIEWS = [
     "backlog",
     "todo_list",
     "dashboard",
-    "weekly_brief",
+    "meeting_prep",
     "tutorial",
     "documentation",
     "team",

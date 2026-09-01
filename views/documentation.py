@@ -80,7 +80,7 @@ TechColab_D&A_KO/
 | `views/team.py` | Team | Vault `Team/{Person}/` files |
 | `views/usage_monitor.py` | AI Usage | NETZSCH AI Gateway `/key/info` + local ignored history |
 | `views/claude_pro.py` | Claude Pro | `load_ideas()` + `reports/claude-pro-data.json` (exec summary + tools only) |
-| `views/weekly_brief.py` | Weekly Brief | `load_ideas()` + vault `Log/` + vault `Team/{Person}/1on1/` |
+| `views/meeting_prep.py` | Meeting Prep | `load_ideas()` + vault `Log/` + vault `Team/{Person}/1on1/` |
 | `views/english_coach.py` | English Coach | Vault `English-Coach/` |
 | `views/settings.py` | Settings | `settings.local.json` + `config.py` |
 | `views/tutorial.py` | Tutorial | Static content |

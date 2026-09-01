@@ -1,4 +1,11 @@
-"""views/weekly_brief.py — Weekly Brief page (meeting prep for leadership)."""
+"""views/meeting_prep.py — Meeting Prep page (panel for leadership 1:1s).
+
+Renamed from "Weekly Brief" on 2026-09-01: that name belonged to two different
+things. The Toolkit 2.0 decision loop is the weekly brief
+(`agent/weekly_brief.py` -> `weekly-briefs/brief-YYYY-Wnn.md`), answered in
+conversation. This page never read that file — it prepares meetings with
+Alberto Reuters and Stefan Lautenschlager. Different job, different name.
+"""
 
 import re
 from datetime import date, timedelta
@@ -67,7 +74,7 @@ def render() -> None:
     dark_mode = st.query_params.get("dark", "1") == "1"
     _LOG_DIR = VAULT_ROOT / "Log"
 
-    st.markdown('<h1 style="margin-bottom:0.4rem">Weekly Brief</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 style="margin-bottom:0.4rem">Meeting Prep</h1>', unsafe_allow_html=True)
     st.caption("Meeting prep panel for Alberto Reuters and Stefan Lautenschlager.")
 
     # ── Dark-mode aware inline table styles ───────────────────────────────────
@@ -102,7 +109,7 @@ def render() -> None:
     _ideas  = load_ideas()
     _today  = date.today()
     _export = [
-        f"# Weekly Brief — {_today.strftime('%d/%m/%Y')}",
+        f"# Meeting Prep — {_today.strftime('%d/%m/%Y')}",
         f"Period: {_start.strftime('%d/%m/%Y')} → {_today.strftime('%d/%m/%Y')}",
         "",
     ]
@@ -418,7 +425,7 @@ def render() -> None:
     _dl_col, _ = st.columns([1, 3])
     with _dl_col:
         st.download_button("⬇️ Download .md", data=_export_md,
-                           file_name=f"weekly-brief-{_today.isoformat()}.md",
+                           file_name=f"meeting-prep-{_today.isoformat()}.md",
                            mime="text/markdown", type="primary")
     with st.expander("Exported summary preview"):
         st.text_area(
