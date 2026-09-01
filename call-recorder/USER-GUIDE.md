@@ -34,6 +34,19 @@ While routing, the 09:00 session also pulls two things out of each call:
   your curation queue: approve or reject them in the app (or tell Claude), and the
   08:45 reminder shows the pending count.
 
+## One call can leave several notes on the same person (since 2026-09-01)
+
+If a call covers three subjects with the same person, you get three notes, not one.
+Each carries its subject in the heading (`## 2026-08-27 - GPTW`) and in the filename
+(`2026-08-27_1on1_Alberto-Reuters.gptw.md`), so you can tell them apart and find the
+exact slice of transcript behind each.
+
+Until 2026-09-01 the second note silently overwrote the first. Nothing warned you:
+the routing said it had filed three destinations and the folder held one. If you are
+looking at notes filed before that date and a day feels thinner than the
+conversation was, that is why - the audio and the full transcript were never
+touched, so it can be routed again.
+
 ## Someone refuses to be recorded
 
 One command, right after the call — it does not matter that the recording already

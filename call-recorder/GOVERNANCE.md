@@ -112,6 +112,20 @@ Two consequences that are governance, not engineering:
 Nothing here changes what is recorded, kept, or shared. It changes how much a
 transcript is worth as a claim.
 
+## A note that disappears is a governance failure too (2026-09-01)
+
+Same day, second defect, same shape as the one above: the system said it had done
+something and the vault did not show it. Routing a call to the same person more than
+once on the same day overwrote the earlier note instead of keeping both - four write
+surfaces, no warning on any of them. Twelve of the 21 destinations in that day's
+approved routing collided; nine notes would have been lost.
+
+Why this belongs here and not only in the technical doc: the record of what was said
+about and with a person is the thing this tool exists to produce. Losing part of it
+without saying so is indistinguishable, from the outside, from the conversation never
+having happened. Fixed and locked by `tests/test_recorte_collision.py`; no change to
+what is recorded, kept, or shared.
+
 ## Nothing open
 
 Every policy question this document has carried is decided: consent (2026-08-26),

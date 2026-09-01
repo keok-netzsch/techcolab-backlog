@@ -92,6 +92,34 @@ transcribed to read. Review belongs in the morning, after the 20:00 batch.
   `route.py` e aparece na propria listagem (humana e `--json`, campo `rule`) -
   a sessao que roteia a ve sem depender deste arquivo.
 
+### Duas fatias para a mesma pessoa no mesmo dia (2026-09-01)
+
+Roteamento por assunto permite N destinos - e nada impedia que **dois desses
+destinos fossem a mesma pessoa**. Um Jour Fixe que cobre GPTW, ServiceNow e os
+pesos dos OKRs sao tres notas, nao uma. Esse caso nunca tinha sido exercitado, e
+as quatro superficies de escrita colidiam em silencio:
+
+| Superficie | Colisao antes de 01/09 |
+|---|---|
+| secao datada em `1on1.md` | `_strip_dated_1on1` apagava TODA secao `## {data}` antes de escrever |
+| nota standalone em `1on1/` | `write_text` num nome so com data + pessoa |
+| proposta no gate (`_review/`) | nome so com data + bloco |
+| pendencia que aponta a proposta | `pending.py add` recusa texto duplicado (exit 2), e a chamada e `capture_output` |
+
+O discriminador e o **recorte** (o `--assunto` do `route.py`), que agora viaja ate
+o writer: cabecalho `## {data} — {recorte}` (`process.dated_heading`), nome de
+arquivo com `process.slugify(recorte)`. `route.py` perdeu o `_slug` proprio - a
+fatia do transcript e a nota tem que cair no mesmo slug, senao a nota deixa de
+apontar para o texto que a produziu.
+
+Reprocessar a MESMA fatia continua substituindo, nao empilhando: o strip so ficou
+exato, nao deixou de existir. Call nao fatiada mantem o nome historico
+(`{data}_1on1_{Pessoa}.md`) - nada de migrar o passado.
+
+*Custo que gerou a regra:* em 01/09 o roteamento aprovado pelo Kelvin tinha 21
+destinos entre 8 pessoas; 12 colidiam e 9 notas teriam sido apagadas sem uma
+linha de erro. Travado em `tests/test_recorte_collision.py`.
+
 ### Extracao de compromissos e oportunidades (2026-08-31)
 
 A sessao de roteamento das 09:00 tambem EXTRAI de cada transcricao (contrato em
