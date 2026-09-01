@@ -607,7 +607,7 @@ def render() -> None:
     _cal_mode = _cal_mode_qs if _cal_mode_qs in ("ideas", "todos") else "ideas"
 
     _CLOSED_CAL = {"concluído", "descartado", "análise - rejeitado"}
-    _PRIO_ICON  = {"alta": "⭐", "média": "·", "baixa": "·"}
+    _PRIO_ICON  = {"alta": "●", "média": "·", "baixa": "·"}
     _cal_map: dict = {}
 
     if _cal_mode == "ideas":

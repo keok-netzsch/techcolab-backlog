@@ -33,7 +33,7 @@ STATUS_LABEL: dict[str, str] = {
 
 # ── Priority ──────────────────────────────────────────────────────────────────
 
-PRIORITY_ICON: dict[str, str] = {"alta": "⭐⭐⭐", "média": "⭐⭐", "baixa": "⭐"}
+PRIORITY_ICON: dict[str, str] = {"alta": "●●●", "média": "●●", "baixa": "●"}
 
 PRIORITY_LABEL: dict[str, str] = {"alta": "High", "média": "Medium", "baixa": "Low"}
 

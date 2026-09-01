@@ -46,7 +46,7 @@ STATUS_LABEL = {
     "concluído": "Done",
     "descartado": "Discarded",
 }
-PRIORITY_ICON = {"alta": "⭐⭐⭐", "média": "⭐⭐", "baixa": "⭐"}
+PRIORITY_ICON = {"alta": "●●●", "média": "●●", "baixa": "●"}
 EFFORT_SCORE = {"baixo": 1, "médio": 2, "alto": 3}
 IMPACT_SCORE = {"alta": 3, "média": 2, "baixa": 1}
 PRIORITY_SCORE = {"alta": 3, "média": 2, "baixa": 1}
