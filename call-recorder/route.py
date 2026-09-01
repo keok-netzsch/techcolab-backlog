@@ -296,7 +296,7 @@ def aplicar(p: Path, routes, dry_run=False):
             # transcript instead of a temp dir: if a note later looks wrong, the
             # exact text that produced it is still on disk.
             spath = Path(j["transcript"]).with_name(
-                Path(j["transcript"]).stem + "." + _slug(topic or window) + ".txt")
+                Path(j["transcript"]).stem + "." + proc.slugify(topic or window) + ".txt")
             spath.write_text(slice_text, encoding="utf-8")
             print(f"  recorte: {len(slice_text.splitlines())} linhas -> {spath.name}")
         else:
@@ -306,11 +306,16 @@ def aplicar(p: Path, routes, dry_run=False):
         if topic:
             note = (context + " | " if context else "") + f"recorte: {topic}"
 
+        # The topic travels into the writer as `recorte`, not just into the note
+        # body: it is what keeps two slices of the same call, for the same person,
+        # on the same day from overwriting each other in `Team/`/`Stakeholders/`.
         if kind == "person":
             proc.cmd_transcript(target, str(spath), date,
-                                structured=j.get("structured", False), lang=lang)
+                                structured=j.get("structured", False), lang=lang,
+                                recorte=topic or None)
         elif kind == "manager":
-            proc.cmd_manager(target, str(spath), date, lang=lang)
+            proc.cmd_manager(target, str(spath), date, lang=lang,
+                             recorte=topic or None)
         elif kind == "note":
             proc.cmd_note(str(spath), date, lang=lang, time_str=j.get("time"))
         else:
@@ -335,12 +340,9 @@ def _hms(s) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
-def _slug(s: str) -> str:
-    keep = [c.lower() if c.isalnum() else "-" for c in s]
-    out = "".join(keep)
-    while "--" in out:
-        out = out.replace("--", "-")
-    return out.strip("-")[:40] or "recorte"
+# `_slug` lived here until 2026-09-01. It is now `process.slugify`, single source:
+# the slice filename and the note filename are built from the same label and have
+# to land on the same slug, or the note stops pointing at the text behind it.
 
 
 def descartar(p: Path):

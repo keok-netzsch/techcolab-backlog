@@ -442,7 +442,8 @@ def _is_template_echo(content: str) -> bool:
 
 def _parse_and_save(response: str, base_path: Path,
                     section_map: dict, section_mode: dict,
-                    date: str | None = None) -> int:
+                    date: str | None = None,
+                    recorte: str | None = None) -> int:
     """
     Parse BLOCO markers and save each block to the vault.
 
@@ -488,7 +489,7 @@ def _parse_and_save(response: str, base_path: Path,
             continue
         if block_type in GATED_BLOCKS:
             _stage_for_review(base_path, block_type, section_map[block_type],
-                              content.strip(), date=date)
+                              content.strip(), date=date, recorte=recorte)
             saved += 1
             continue
         fpath = str(base_path / section_map[block_type])
@@ -499,16 +500,22 @@ def _parse_and_save(response: str, base_path: Path,
 
 
 def _stage_for_review(base_path: Path, block_type: str, target_file: str,
-                      content: str, date: str | None = None) -> Path:
+                      content: str, date: str | None = None,
+                      recorte: str | None = None) -> Path:
     """Park a model-written block as a proposal instead of writing it to the real file.
 
-    One file per person per day per block type, so reprocessing the same session
-    overwrites its own proposal rather than stacking duplicates.
+    One file per person per day per block type — plus per *recorte*, since subject
+    routing can send two slices of the same call to the same person on the same
+    day. Without the recorte in the name the second slice's proposal overwrote the
+    first, and the gate showed one proposal where two were extracted: a gate that
+    loses proposals is worse than no gate, because it looks like nothing was found.
+    Reprocessing the same slice still overwrites its own proposal.
     """
     day = date or _date.today().isoformat()
     review_dir = base_path / REVIEW_DIRNAME
     review_dir.mkdir(parents=True, exist_ok=True)
-    out = review_dir / f"{day}-{block_type}.md"
+    stem = f"{day}-{slugify(recorte)}" if recorte else day
+    out = review_dir / f"{stem}-{block_type}.md"
     out.write_text(
         f"---\nstatus: draft\nblock: {block_type}\ntarget: {target_file}\n"
         f"date: {day}\nsource: process.py (modelo local)\n---\n\n"
@@ -530,49 +537,95 @@ def _stage_for_review(base_path: Path, block_type: str, target_file: str,
     # it on the app page and in the 08:45 reminder. Best-effort: the gate must hold
     # even if the ledger is unavailable.
     try:
-        _register_pending(base_path.name, block_type, day, out)
+        _register_pending(base_path.name, block_type, day, out, recorte=recorte)
     except Exception as exc:  # noqa: BLE001
         print(f"  [WARN] pendencia nao registrada ({exc}) — a proposta segue em _review/")
     return out
 
 
 def _register_pending(person: str, block_type: str, day: str,
-                     draft_path: Path | None = None) -> None:
+                     draft_path: Path | None = None,
+                     recorte: str | None = None) -> None:
     # --ref aponta o rascunho: a sessao que apresenta a pendencia LE esse arquivo
     # e mostra o texto proposto no chat. Sem isso o Kelvin teria de abrir o vault
     # para saber o que esta aprovando - exatamente o que a regra proibe.
     # --prioridade alta: enquanto pendente, o arquivo real da pessoa esta sem uma
     # informacao que ja foi extraida; e o tipo de coisa que envelhece mal.
+    # O recorte entra no texto porque `pending.py add` recusa texto duplicado
+    # (exit 2): duas fatias da mesma call, para a mesma pessoa, no mesmo dia,
+    # geram DUAS propostas e precisam de duas pendencias distintas — sem isso a
+    # segunda era recusada em silencio (capture_output) e o gate ficava com uma
+    # proposta orfa, sem nada apontando para ela.
     import subprocess as _sp
+    stem = f"{day}-{slugify(recorte)}" if recorte else day
+    escopo = f" — recorte: {recorte}" if recorte else ""
     repo = Path(__file__).resolve().parent.parent
     args = [sys.executable, str(repo / "agent" / "pending.py"), "add",
             "--tipo", "decisao", "--prioridade", "alta",
-            "--texto", f"Revisar {block_type} proposto para {person} ({day}) — "
+            "--texto", f"Revisar {block_type} proposto para {person} ({day}){escopo} — "
                        f"escrito por modelo local, aguarda aprovacao",
-            "--origem", f"call-recorder/process.py review --approve {person}/{day}-{block_type}"]
+            "--origem", f"call-recorder/process.py review --approve {person}/{stem}-{block_type}"]
     if draft_path:
         args += ["--ref", str(draft_path)]
     _sp.run(args, capture_output=True, text=True, timeout=30)
 
 
-def _strip_dated_1on1(oneonone_path: Path, date: str) -> None:
+def dated_heading(date: str, recorte: str | None = None) -> str:
+    """The `## {date}` heading a 1:1 section carries, optionally labelled.
+
+    Single source for the heading, because three places have to agree on it
+    character for character: the prompt template that asks the model to emit it,
+    `_strip_dated_1on1` that finds it again to replace it, and anything reading
+    the note back. They drifted once already — the structured-meeting template
+    wrote `## {date} — Reunião estruturada` while the strip matched a bare date.
+    """
+    return f"## {date} — {recorte}" if recorte else f"## {date}"
+
+
+def _strip_dated_1on1(oneonone_path: Path, date: str,
+                      recorte: str | None = None) -> None:
     """Remove an existing `## {date}` 1:1 section (up to its trailing `---`) so a
     reprocess replaces it instead of stacking a duplicate. No-op if absent.
-    Sections are `---`-separated by save_block, so we stop at the first `---`."""
+    Sections are `---`-separated by save_block, so we stop at the first `---`.
+
+    `recorte` scopes the removal to ONE labelled section. Subject routing
+    (`route.py`, since 2026-08-28) sends the same call to the same person more
+    than once on the same day — a Jour Fixe covering GPTW, ServiceNow and the OKR
+    weights is three notes, not one. Without the label this function deleted the
+    sibling it had just written: on 2026-09-01 the approved routing produced 21
+    notes across 8 people and only 12 would have survived, silently. A bare
+    `recorte=None` therefore matches ONLY a bare `## {date}` line and never a
+    labelled sibling.
+    """
     if not oneonone_path.exists():
         return
     text = oneonone_path.read_text(encoding="utf-8", errors="replace")
-    # Remove EVERY section for this date (not just the first) so reprocessing is
-    # fully idempotent even if a prior buggy run left duplicates. A section ends at
-    # its trailing `---` separator OR at end-of-file (a section can be the last one,
+    if recorte:
+        head = rf"^{re.escape(dated_heading(date, recorte))}[ \t]*$"
+    else:
+        head = rf"^## {re.escape(date)}[ \t]*$"
+    # Remove EVERY matching section (not just the first) so reprocessing is fully
+    # idempotent even if a prior buggy run left duplicates. A section ends at its
+    # trailing `---` separator OR at end-of-file (a section can be the last one,
     # with no trailing `---`).
-    pattern = re.compile(rf"(?ms)^## {re.escape(date)}\b.*?(?:\n---\n|\Z)")
+    pattern = re.compile(rf"(?ms){head}.*?(?:\n---\n|\Z)")
     new = pattern.sub("", text)
     if new != text:
         oneonone_path.write_text(re.sub(r"\n{3,}", "\n\n", new), encoding="utf-8")
 
 
-def _fallback_1on1(oneonone_path: Path, date: str) -> None:
+def slugify(s: str) -> str:
+    """Filename-safe slug for a recorte label. Shared with `route.py`, which names
+    the transcript slice with the same slug — the note and the exact text behind it
+    have to be findable from one another."""
+    out = "".join(c.lower() if c.isalnum() else "-" for c in s)
+    while "--" in out:
+        out = out.replace("--", "-")
+    return out.strip("-")[:40] or "recorte"
+
+
+def _fallback_1on1(oneonone_path: Path, date: str,
+                   recorte: str | None = None) -> None:
     """If the model didn't emit a parseable BLOCO, still record a dated section so
     the session shows up in the Team tab (the visible "last 1:1" / Topics). The full
     unstructured output remains in the standalone note.
@@ -589,7 +642,7 @@ def _fallback_1on1(oneonone_path: Path, date: str) -> None:
     printing it as content.
     """
     block = (
-        f"## {date}\n\n<!-- unparsed -->\n"
+        f"{dated_heading(date, recorte)}\n\n<!-- unparsed -->\n"
         f"> Esta sessao nao foi estruturada pelo modelo. Nenhum topico foi extraido — "
         f"a nota completa esta em `1on1/{date}_1on1_*.md`.\n"
     )
@@ -1426,8 +1479,14 @@ _STRUCTURED_QUESTIONS = [
 
 
 def cmd_transcript(person_folder: str, transcript_file: str, date: str,
-                   structured: bool = False, lang: str = "pt"):
-    """Process a 1:1 transcript and save structured blocks to the vault."""
+                   structured: bool = False, lang: str = "pt",
+                   recorte: str | None = None):
+    """Process a 1:1 transcript and save structured blocks to the vault.
+
+    `recorte` is the subject label when this transcript is one slice of a routed
+    call (`route.py --assunto`). It keeps two slices of the same day from
+    overwriting each other — see `_strip_dated_1on1`.
+    """
     person_name = PEOPLE.get(person_folder, person_folder.replace("-", " "))
     first_name  = person_name.split()[0]
     team_path   = Path(VAULT) / "Team" / person_folder
@@ -1446,6 +1505,9 @@ def cmd_transcript(person_folder: str, transcript_file: str, date: str,
     transcript = transcript[:12000]
 
     # ── Build BLOCO 1on1 template and optional structured-meeting context ─────
+    # The heading label: the recorte wins when both apply, because that is what
+    # distinguishes two sections of the same day from each other.
+    heading = dated_heading(date, recorte or ("Reunião estruturada" if structured else None))
     if structured:
         q_list = "\n".join(f"  P{i+1}. {q}" for i, q in enumerate(_STRUCTURED_QUESTIONS))
         structured_context = f"""
@@ -1457,7 +1519,7 @@ Mapeie as respostas do liderado a cada pergunta. No BLOCO 1on1, inclua a secao
 
         bloco_1on1 = f"""### BLOCO 1on1
 ~~~markdown
-## {date} — Reunião estruturada
+{heading}
 
 **Perguntas estruturadas:**
 - P1 — Carga de trabalho: [resposta resumida]
@@ -1473,7 +1535,7 @@ Mapeie as respostas do liderado a cada pergunta. No BLOCO 1on1, inclua a secao
         structured_context = ""
         bloco_1on1 = f"""### BLOCO 1on1
 ~~~markdown
-## {date}
+{heading}
 
 **Topics:**
 - [topico 1]
@@ -1530,26 +1592,41 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
     print(f"\n  [Ollama] Processando {label}...\n")
     response = _ollama_generate(prompt, stream=True)
 
-    _strip_dated_1on1(team_path / "1on1.md", date)  # idempotent: replace, don't duplicate
-    saved = _parse_and_save(response, team_path, SECTION_MAP, SECTION_MODE, date=date)
+    # idempotent: replace this recorte's section, never a sibling's
+    _strip_dated_1on1(team_path / "1on1.md", date, recorte=recorte)
+    saved = _parse_and_save(response, team_path, SECTION_MAP, SECTION_MODE,
+                            date=date, recorte=recorte)
     if saved == 0:
-        _fallback_1on1(team_path / "1on1.md", date)
+        _fallback_1on1(team_path / "1on1.md", date, recorte=recorte)
 
-    # Standalone session note
+    # Standalone session note. The recorte is part of the filename, not just the
+    # body: `write_text` would otherwise overwrite the sibling slice written
+    # seconds earlier for the same person and day.
     standalone_dir  = team_path / "1on1"
     standalone_dir.mkdir(parents=True, exist_ok=True)
-    standalone_file = standalone_dir / f"{date}_1on1_{person_folder}.md"
+    stem = f"{date}_1on1_{person_folder}"
+    if recorte:
+        stem += f".{slugify(recorte)}"
+    standalone_file = standalone_dir / f"{stem}.md"
     header = (
         f"---\ndate: {date}\nperson: {person_name}\n"
-        f"type: 1on1-session\nlang: {lang}\ntags: [1on1, team]\n---\n\n"
+        f"type: 1on1-session\nlang: {lang}\n"
+        + (f"recorte: {recorte}\n" if recorte else "")
+        + f"tags: [1on1, team]\n---\n\n"
     )
     standalone_file.write_text(header + response, encoding="utf-8")
     print(f"  [OK] Nota standalone: {standalone_file.name}")
     print(f"\n  Concluido. {saved + 1} arquivo(s) atualizados.")
 
 
-def cmd_manager(manager_folder: str, transcript_file: str, date: str, lang: str = "pt"):
-    """Process a manager/stakeholder call transcript and save to vault."""
+def cmd_manager(manager_folder: str, transcript_file: str, date: str,
+                lang: str = "pt", recorte: str | None = None):
+    """Process a manager/stakeholder call transcript and save to vault.
+
+    `recorte` is the subject label when this is one slice of a routed call — see
+    `cmd_transcript`. A Jour Fixe routed by subject lands here several times for
+    the same stakeholder on the same day.
+    """
     manager_name = MANAGERS.get(manager_folder, manager_folder.replace("-", " "))
     first_name   = manager_name.split()[0]
     stk_path     = Path(VAULT) / "Stakeholders" / manager_folder
@@ -1562,6 +1639,7 @@ def cmd_manager(manager_folder: str, transcript_file: str, date: str, lang: str 
         sys.exit(1)
 
     transcript = transcript[:12000]  # keep the real conversation, not just the opening
+    heading = dated_heading(date, recorte)
 
     prompt = f"""Voce e um assistente de gestao de pessoas. Analise a transcricao de uma reuniao com o gestor e estruture para o Obsidian.
 
@@ -1583,7 +1661,7 @@ Para cada categoria COM conteudo, gere um bloco usando EXATAMENTE este formato:
 
 ### BLOCO 1on1
 ~~~markdown
-## {date}
+{heading}
 
 **Topics:**
 - [topico 1]
@@ -1604,18 +1682,25 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
     print("\n  [Ollama] Processando transcricao do gestor...\n")
     response = _ollama_generate(prompt, stream=True)
 
-    _strip_dated_1on1(stk_path / "1on1.md", date)  # idempotent: replace, don't duplicate
-    saved = _parse_and_save(response, stk_path, MANAGER_SECTION_MAP, MANAGER_SECTION_MODE, date=date)
+    # idempotent: replace this recorte's section, never a sibling's
+    _strip_dated_1on1(stk_path / "1on1.md", date, recorte=recorte)
+    saved = _parse_and_save(response, stk_path, MANAGER_SECTION_MAP,
+                            MANAGER_SECTION_MODE, date=date, recorte=recorte)
     if saved == 0:
-        _fallback_1on1(stk_path / "1on1.md", date)
+        _fallback_1on1(stk_path / "1on1.md", date, recorte=recorte)
 
-    # Standalone session note
+    # Standalone session note — recorte in the filename, see cmd_transcript
     standalone_dir  = stk_path / "1on1"
     standalone_dir.mkdir(parents=True, exist_ok=True)
-    standalone_file = standalone_dir / f"{date}_1on1_{manager_folder}.md"
+    stem = f"{date}_1on1_{manager_folder}"
+    if recorte:
+        stem += f".{slugify(recorte)}"
+    standalone_file = standalone_dir / f"{stem}.md"
     header = (
         f"---\ndate: {date}\nperson: {manager_name}\n"
-        f"type: manager-call\nlang: {lang}\ntags: [manager, stakeholder]\n---\n\n"
+        f"type: manager-call\nlang: {lang}\n"
+        + (f"recorte: {recorte}\n" if recorte else "")
+        + f"tags: [manager, stakeholder]\n---\n\n"
     )
     standalone_file.write_text(header + response, encoding="utf-8")
     print(f"  [OK] Nota standalone: {standalone_file.name}")

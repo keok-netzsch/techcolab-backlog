@@ -151,6 +151,7 @@ Removida com `pending.py remove --motivo`, que existe exatamente para isso.
 | 2026-08-31 | **O app Streamlit fica.** O problema é utilidade, não existência | `2026-08-31-app-streamlit-diagnostico.md` |
 | 2026-08-31 | O vault é registro; a interação é no chat | `~/.claude/CLAUDE.md` (global) |
 | 2026-08-31 | PDI/OKR/Overview só recebem texto de modelo via gate | `call-recorder/GOVERNANCE.md` |
+| 2026-08-31 | **Uma sessão por vez tocando o repo e o vault.** Rotinas fundidas para reduzir sessão automática | `vault/auditoria-tokens-2026-08-31.md` |
 | 2026-08-31 | Sistema de estudo MDM: estado no vault com 1 escritor por arquivo; monitor `/study` read-only sobre trackers; conteúdo da transição (não anunciada) nunca roda no gateway — só na conta Max; áudio de alemão é o P6 (deutsch v2), não uma 2ª solução | ADR `2026-08-31-sistema-de-estudo-mdm.md` |
 
 **Decisão de ciclo de pessoas não se retoma aqui.** Mérito, bônus, promoção e IDP do FY26

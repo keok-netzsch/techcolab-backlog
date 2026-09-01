@@ -36,7 +36,7 @@ unless noted. This is the "production = hardened local" record required by the A
 |---|---|---|
 | `TechColab Backlog Agent` | daily 07:00 | `run_agent_silent.vbs` — daily agent run + recording-queue health check (flags pendings >36h, jobs >36h, parked routing >72h, `.exhausted`) |
 | `TechColab Todo Reminder` | weekdays 08:45 | `notify.ps1 -Profile todo-reminder` — overdue/due-today action items extracted from calls (+ curation count); silent on empty days |
-| `pendencias-do-kelvin` | weekdays 08:30 | Claude scheduled routine — renders the pending ledger as a clickable widget and closes what Kelvin resolves. Dedicated session on purpose (his ask, 2026-08-31): the ritual must not get lost inside coding sessions |
+| `pendencias-do-kelvin` | weekdays 08:30 (**1×/dia desde 2026-08-31**; era 3×: 08:30/13:30/17:30) | Claude scheduled routine — renders the pending ledger as a clickable widget and closes what Kelvin resolves. Dedicated session on purpose (his ask, 2026-08-31): the ritual must not get lost inside coding sessions |
 | `triagem-gravacoes` | weekdays 09:00 | Claude scheduled routine (not Task Scheduler) — reads `route.py --json` and proposes content-based routing slices |
 | `closer-semanal` | Mon 08:30 | Claude scheduled routine (not Task Scheduler) — reads weekly brief + backlog, drafts actions for one-line approval |
 | `TechColab Opus Price Recalc` | Mon 08:35 | `recalc_opus_price.bat` → `scripts/recalc_opus_price.py` |
@@ -47,8 +47,7 @@ unless noted. This is the "production = hardened local" record required by the A
 |---|---|---|
 | `TechColab English Coach` | Mon 08:30 | `run_english_coach.bat` → `agent/english_coach.py` |
 | `CDMP Daily Study Reminder` | weekdays 15:30 | vault `cdmp-notify.ps1` |
-| `cdmp-diario` | daily 15:37 | Claude scheduled routine (not Task Scheduler) — generates 1 ready CDMP practice question via the cdmp skill (was missing from this map; added 2026-08-31) |
-| `study-diario` | daily 15:40 | Claude scheduled routine (not Task Scheduler) — opens a `/study` session with status + day menu and waits for Kelvin in the app's routines area; interactive from there. Created 2026-08-31, pairs with the `study-reminder` toast |
+| `study-diario` | daily 15:40 | Claude scheduled routine (not Task Scheduler) — the **single** study routine: `/study` status + day menu, and when the focus is CDMP it already delivers the ready question. **Absorbed `cdmp-diario` on 2026-08-31** (it fired 3 min earlier for the same purpose). Pairs with the `study-reminder` toast |
 | `study-notify-diario` | daily 15:40 | `scripts/notify.ps1 -Profile study-reminder` → body from `scripts/notify-body/study-body.ps1` (reads `study-plan.json` + area trackers, zero LLM; silent when every active area already studied today); pairs with the `/study` skill. Migrated to the engine 2026-08-30 as messagebox (was balloon — Focus Assist rationale); old `vault/study-notify.ps1` retired |
 | `NETZSCH-AI-Usage-Capture` | daily 09:00 | `~/NETZSCH-AI-Usage/Capture-Usage.ps1` |
 

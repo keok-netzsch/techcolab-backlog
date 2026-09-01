@@ -49,7 +49,7 @@ def test_bloco_eco_nao_chega_ao_arquivo_nem_ao_review(tmp_path, monkeypatch):
 def test_bloco_com_conteudo_continua_passando(tmp_path, monkeypatch):
     vistos = []
     monkeypatch.setattr(process, "_stage_for_review",
-                        lambda base, bt, tf, c, date=None: vistos.append((bt, c)))
+                        lambda base, bt, tf, c, **k: vistos.append((bt, c)))
     pessoa = tmp_path / "Ana-Leite"
     pessoa.mkdir()
     resposta = ("### BLOCO PDI\n~~~markdown\n## Atualizacao 2026-08-27\n"

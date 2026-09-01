@@ -15,15 +15,37 @@ import streamlit as st
 
 from backlog.cache import load_ideas
 from components.ui import STATUS_LABEL
-from config import TEAM_DIR, VAULT_ROOT
+from config import TEAM_DIR
 
-_TEAM = [
-    {"name": "Ana Leite",      "folder": "Ana-Leite"},
-    {"name": "Daniel Lima",    "folder": "Daniel-Lima"},
-    {"name": "Lucas Shizuno",  "folder": "Lucas-Shizuno"},
-    {"name": "Pedro Hennig",   "folder": "Pedro-Hennig"},
-    {"name": "Pedro Klein",    "folder": "Pedro-Klein"},
-]
+# The two people this page exists to prepare for. Their notes live under
+# Stakeholders/, in the same format as the team's — the page used to read only
+# Team/, so the panel for meeting Alberto and Stefan showed everything except
+# Alberto and Stefan.
+_LEADERSHIP = ["Stefan-Lautenschlager", "Alberto-Reuters"]
+
+# A 1:1 older than this is worth seeing before you walk into a leadership meeting.
+_STALE_1ON1_DAYS = 14
+
+_STAKEHOLDERS_DIR = TEAM_DIR.parent / "Stakeholders"
+
+
+def _display_name(folder: str) -> str:
+    return folder.replace("-", " ")
+
+
+def _team_members() -> list[dict]:
+    """Direct reports, derived from Team/ instead of a hardcoded list.
+
+    The list used to be five names in this file, so anyone joining or leaving
+    needed a code change to show up here.
+    """
+    if not TEAM_DIR.exists():
+        return []
+    return [
+        {"name": _display_name(p.name), "folder": p.name, "dir": p}
+        for p in sorted(TEAM_DIR.iterdir())
+        if p.is_dir() and (p / "1on1.md").exists()
+    ]
 
 
 def _parse_1on1(path: Path):
@@ -50,12 +72,13 @@ def _parse_1on1(path: Path):
     return {"date": session_date, "topics": topics[:6], "actions": actions}
 
 
-def _read_logs(log_dir: Path, start: date, end: date):
+def _read_logs(start: date, end: date):
     """Collect backlog activity between two dates.
 
-    `log_dir` is accepted for signature compatibility but no longer used:
-    since 2026-08-26 the source is resolved by backlog.daily_log.read_log_lines,
-    which reads the Daily/ note and falls back to the retired diario files.
+    The source is resolved by backlog.daily_log.read_log_lines, which reads the
+    vault-root Daily/ note and falls back to the retired diario files. This used
+    to take a `log_dir` argument that it ignored — the caller passed
+    VAULT_ROOT/"Log", which made it look like the retired diary still fed the page.
     """
     from backlog.daily_log import read_log_lines
     entries, cur = [], start
@@ -72,7 +95,6 @@ def _read_logs(log_dir: Path, start: date, end: date):
 
 def render() -> None:
     dark_mode = st.query_params.get("dark", "1") == "1"
-    _LOG_DIR = VAULT_ROOT / "Log"
 
     st.markdown('<h1 style="margin-bottom:0.4rem">Meeting Prep</h1>', unsafe_allow_html=True)
     st.caption("Meeting prep panel for Alberto Reuters and Stefan Lautenschlager.")
@@ -97,7 +119,8 @@ def render() -> None:
     _start = date.today() - timedelta(days=_period)
     with _ctrl2:
         st.markdown("<br>", unsafe_allow_html=True)
-        _c1, _c2, _c3, _c4 = st.columns(4)
+        _c0, _c1, _c2, _c3, _c4 = st.columns(5)
+        _show_lead  = _c0.checkbox("🎯 Leadership", value=True, key="wb_lead")
         _show_devs  = _c1.checkbox("🚀 Devs",  value=True, key="wb_devs")
         _show_wip   = _c2.checkbox("🔄 WIP",   value=True, key="wb_wip")
         _show_team  = _c3.checkbox("👥 Team",  value=True, key="wb_team")
@@ -114,10 +137,59 @@ def render() -> None:
         "",
     ]
 
+    # ── Section 0: Leadership ─────────────────────────────────────────────────
+    # The people this page is for. Their open action items are what a 1:1 with
+    # them actually starts from, and the page did not show them at all.
+    if _show_lead:
+        st.subheader("Leadership")
+        st.caption("Last 1:1 and what is still open with each — the page's own audience.")
+        _export.append("## Leadership")
+
+        _lead_any = False
+        for _lf in _LEADERSHIP:
+            _lpath = _STAKEHOLDERS_DIR / _lf / "1on1.md"
+            _ldata = _parse_1on1(_lpath)
+            _lname = _display_name(_lf)
+            if not _ldata:
+                st.markdown(f"**{_lname}** — no parsable 1:1 note yet.")
+                _export.append(f"- {_lname}: no 1:1 note")
+                continue
+            _lead_any = True
+            _lage  = (_today - date.fromisoformat(_ldata["date"])).days
+            _lopen = [a for a in _ldata["actions"] if not a["done"]]
+            _lcol  = "#EF4444" if _lage > _STALE_1ON1_DAYS else ("#F59E0B" if _lage > 7 else "#059669")
+            st.markdown(
+                f'<div style="margin-bottom:4px"><strong>{_lname}</strong> '
+                f'<span style="color:{_lcol};font-size:12px">last 1:1 {_ldata["date"]} '
+                f'({_lage}d ago)</span></div>',
+                unsafe_allow_html=True,
+            )
+            _export.append(f"### {_lname} — last 1:1 {_ldata['date']} ({_lage}d)")
+            if _lopen:
+                _lrows = "".join(
+                    f'<tr><td style="{_WB_TD}">{a["text"]}</td></tr>' for a in _lopen
+                )
+                st.markdown(
+                    f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
+                    f'<thead><tr><th style="{_WB_TH}">Still open</th></tr></thead>'
+                    f'<tbody>{_lrows}</tbody></table>',
+                    unsafe_allow_html=True,
+                )
+                for a in _lopen:
+                    _export.append(f"- [ ] {a['text']}")
+            else:
+                st.caption("Nothing open from the last session.")
+                _export.append("- nothing open")
+            if _ldata["topics"]:
+                st.caption("Last topics: " + " · ".join(_ldata["topics"]))
+        if not _lead_any:
+            st.info("No leadership 1:1 notes found under Stakeholders/.")
+        _export.append(""); st.divider()
+
     # ── Section 1: Developments ───────────────────────────────────────────────
     if _show_devs:
         st.subheader("Developments")
-        _logs = _read_logs(_LOG_DIR, _start, _today)
+        _logs = _read_logs(_start, _today)
         _seen, _devs = set(), []
         for e in _logs:
             key = (e["idea_id"], e["detail"])
@@ -160,9 +232,40 @@ def render() -> None:
         _upcoming  = [i for i in _ideas
                       if i.due_date and _today <= i.due_date <= _today + timedelta(days=7)
                       and i.status not in ("concluído", "descartado")]
+        # Overdue was missing entirely: the page showed what is coming and what is
+        # active, but never what already slipped — which is the first thing asked
+        # in a leadership meeting.
+        _overdue   = sorted(
+            (i for i in _ideas
+             if i.due_date and i.due_date < _today
+             and i.status not in ("concluído", "descartado", "análise - rejeitado")),
+            key=lambda i: i.due_date,
+        )
 
         _export.append("## In progress")
-        if not _active and not _wip_todos and not _upcoming:
+        if _overdue:
+            st.caption("Overdue")
+            _rows_od = ""
+            for i in _overdue:
+                _late = (_today - i.due_date).days
+                _rows_od += (
+                    f'<tr><td style="{_WB_ID}">{i.id}</td>'
+                    f'<td style="{_WB_TD}">{i.title.replace("**","").strip()}</td>'
+                    f'<td style="{_WB_TD};color:#EF4444;font-weight:500">'
+                    f'{i.due_date.strftime("%d/%m")} ({_late}d late)</td></tr>'
+                )
+                _export.append(f"| {i.id} | {i.title} | atrasado {_late}d |")
+            st.markdown(
+                f'<table style="width:100%;border-collapse:collapse;margin-bottom:12px">'
+                f'<thead><tr>'
+                f'<th style="{_WB_TH}">ID</th>'
+                f'<th style="{_WB_TH}">Title</th>'
+                f'<th style="{_WB_TH}">Overdue</th>'
+                f'</tr></thead><tbody>{_rows_od}</tbody></table>',
+                unsafe_allow_html=True,
+            )
+
+        if not _active and not _wip_todos and not _upcoming and not _overdue:
             st.info("No items currently in progress.")
             _export.append("_No items in progress._")
         else:
@@ -231,36 +334,62 @@ def render() -> None:
     # ── Section 3: Team status ────────────────────────────────────────────────
     if _show_team:
         st.subheader("Team status")
-        st.caption("Snapshot only — go to Team for details.")
-        _export.append("## 👥 Team")
-        _team_rows = ""
-        for _m in _TEAM:
-            _folder = TEAM_DIR / _m["folder"]
+        st.caption(
+            f"Sorted by how long since the last 1:1 — anything past {_STALE_1ON1_DAYS} days "
+            "is flagged. Go to Team for details."
+        )
+        _export.append("## Team")
+
+        _team_data = []
+        for _m in _team_members():
+            _folder = _m["dir"]
             _role = ""
             _ov = _folder / "Overview.md"
             if _ov.exists():
                 _rm = re.search(r"\*\*Role:\*\*\s*(.+)", _ov.read_text(encoding="utf-8", errors="replace"))
                 if _rm:
                     _role = _rm.group(1).strip()
+                    # Overview roles carry a long tail ("… at NETZSCH do Brasil, since …").
+                    # The column showed it truncated mid-word; cut at the first comma instead.
+                    _role = _role.split(",")[0].strip()
             _latest = _parse_1on1(_folder / "1on1.md")
+            _age = (_today - date.fromisoformat(_latest["date"])).days if _latest else None
+            _team_data.append({"m": _m, "role": _role, "latest": _latest, "age": _age})
+
+        # Worst first: no 1:1 at all, then oldest. A table sorted by folder name
+        # buried the person who most needs the conversation.
+        _team_data.sort(key=lambda r: (-1e9 if r["age"] is None else -r["age"]))
+
+        _team_rows = ""
+        for _r in _team_data:
+            _m, _role, _latest, _age = _r["m"], _r["role"], _r["latest"], _r["age"]
             if _latest:
                 _open_count = sum(1 for a in _latest["actions"] if not a["done"])
-                _open_str   = f'<span style="color:#EF4444;font-weight:500">{_open_count} open</span>' if _open_count else '<span style="color:#059669">✓ clear</span>'
+                _open_str = (
+                    f'<span style="color:#EF4444;font-weight:500">{_open_count} open</span>'
+                    if _open_count else '<span style="color:#059669">clear</span>'
+                )
+                _age_col = "#EF4444" if _age > _STALE_1ON1_DAYS else ("#F59E0B" if _age > 7 else "")
+                _age_txt = (f'<span style="color:{_age_col};font-weight:500">{_latest["date"]} '
+                            f'({_age}d)</span>' if _age_col else f'{_latest["date"]} ({_age}d)')
                 _team_rows += (
                     f'<tr><td style="{_WB_TD};font-weight:500">{_m["name"]}</td>'
-                    f'<td style="{_WB_TD};color:rgba(76,77,88,.55)">{_role}</td>'
-                    f'<td style="{_WB_TD}">{_latest["date"]}</td>'
+                    f'<td style="{_WB_TD};color:rgba(148,163,184,.75)">{_role}</td>'
+                    f'<td style="{_WB_TD}">{_age_txt}</td>'
                     f'<td style="{_WB_TD}">{_open_str}</td></tr>'
                 )
-                _export.append(f"| {_m['name']} | {_role} | last 1:1: {_latest['date']} | {_open_count} open actions |")
+                _export.append(
+                    f"| {_m['name']} | {_role} | last 1:1: {_latest['date']} ({_age}d) "
+                    f"| {_open_count} open actions |"
+                )
             else:
                 _team_rows += (
                     f'<tr><td style="{_WB_TD};font-weight:500">{_m["name"]}</td>'
-                    f'<td style="{_WB_TD};color:rgba(76,77,88,.55)">{_role}</td>'
-                    f'<td style="{_WB_TD};color:rgba(76,77,88,.35)">—</td>'
-                    f'<td style="{_WB_TD};color:rgba(76,77,88,.35)">—</td></tr>'
+                    f'<td style="{_WB_TD};color:rgba(148,163,184,.75)">{_role}</td>'
+                    f'<td style="{_WB_TD};color:#EF4444">no 1:1 recorded</td>'
+                    f'<td style="{_WB_TD};color:rgba(148,163,184,.5)">—</td></tr>'
                 )
-                _export.append(f"| {_m['name']} | {_role} | — | — |")
+                _export.append(f"| {_m['name']} | {_role} | no 1:1 recorded | — |")
         st.markdown(
             f'<table style="width:100%;border-collapse:collapse">'
             f'<thead><tr>'
@@ -275,11 +404,15 @@ def render() -> None:
 
     # ── Section 4: Calls ──────────────────────────────────────────────────────
     if _show_calls:
-        st.subheader("Calls this week")
-        _export.append("## 📞 Calls")
+        st.subheader("Calls this period")
+        _export.append("## Calls")
         _calls = []
-        for _m in _TEAM:
-            _call_dir = TEAM_DIR / _m["folder"] / "1on1"
+        # Team AND leadership. Scanning only Team/ meant a 1:1 with Stefan never
+        # showed up on the page built to prepare meetings with Stefan.
+        _call_sources = [(_m["name"], _m["dir"]) for _m in _team_members()]
+        _call_sources += [(_display_name(_lf), _STAKEHOLDERS_DIR / _lf) for _lf in _LEADERSHIP]
+        for _cname, _cdir in _call_sources:
+            _call_dir = _cdir / "1on1"
             if _call_dir.exists():
                 for _cf in sorted(_call_dir.glob("*.md")):
                     if _cf.name.startswith("_"):
@@ -287,7 +420,7 @@ def render() -> None:
                     try:
                         _nd = date.fromisoformat(_cf.stem[:10])
                         if _nd >= _start:
-                            _calls.append({"member": _m["name"], "date": _nd, "path": _cf})
+                            _calls.append({"member": _cname, "date": _nd, "path": _cf})
                     except ValueError:
                         pass
         if not _calls:
