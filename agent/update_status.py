@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
+from backlog.daily_log import log_entry
 from backlog.index import generate_index
 from backlog.schema import VALID_STATUSES
 from backlog.store import BacklogStore
@@ -49,6 +50,17 @@ def update_status(idea_id: str, new_status: str) -> None:
         generate_index(store.load_all(), Path(BACKLOG_INDEX))
     except Exception as e:  # noqa: BLE001
         print(f"[WARN] _index.md not regenerated: {e}")
+    # Record it in the daily note, for the same reason as the index: log_entry was
+    # only ever called from inside the Streamlit app, so every change made through
+    # this CLI left no trace in Daily/ — which is what feeds the Weekly Brief
+    # page's "Developments" section. Best-effort, never fatal.
+    try:
+        if new_status == "concluído":
+            log_entry("concluida", idea)
+        else:
+            log_entry("alterada", idea, f"status: {old_status} -> {new_status}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[WARN] daily note not updated: {e}")
     print(f"[OK] {idea_id}: '{old_status}' -> '{new_status}'")
 
 

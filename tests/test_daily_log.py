@@ -163,3 +163,21 @@ def test_section_created_when_missing_from_existing_note(daily_dir):
     assert "- so foco" in content
     assert "## 🗂️ Backlog" in content
     assert "[idea-001]" in content
+
+
+# ── Real path resolution ─────────────────────────────────────────────────────
+# Every other test here monkeypatches _daily_note_path away, which is exactly how
+# the wrong root survived: the function resolved to <vault>/App/Personal toolkit/
+# Daily/ instead of the vault-root Daily/, so entries landed in a folder nothing
+# reads and "diario unico" (Toolkit 2.0 Pacote 2) never actually happened.
+
+def test_daily_note_resolves_under_vault_base():
+    from pathlib import Path
+
+    from backlog.daily_log import _daily_note_path
+    from config import VAULT_BASE, VAULT_ROOT
+
+    resolved = _daily_note_path(date(2026, 9, 1))
+    assert resolved == Path(VAULT_BASE) / "Daily" / "2026-09-01.md"
+    # VAULT_ROOT is the app's working area, one level deeper — never the daily note's home.
+    assert Path(VAULT_ROOT) not in resolved.parents

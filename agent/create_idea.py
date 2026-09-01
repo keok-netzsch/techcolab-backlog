@@ -44,6 +44,7 @@ from backlog.schema import (
     VALID_PRIORITIES,
     VALID_STATUSES,
 )
+from backlog.daily_log import log_entry
 from backlog.index import generate_index
 from backlog.store import BacklogStore, _parse_todos
 from config import BACKLOG_DIR, BACKLOG_INDEX
@@ -280,6 +281,12 @@ def main(argv=None) -> int:
         generate_index(store.load_all(), Path(BACKLOG_INDEX))
     except Exception as e:  # noqa: BLE001
         print(f"[WARN] _index.md not regenerated: {e}")
+    # Daily note record — see the same block in update_status.py. Capture through
+    # this CLI used to leave nothing in Daily/.
+    try:
+        log_entry("criada", idea)
+    except Exception as e:  # noqa: BLE001
+        print(f"[WARN] daily note not updated: {e}")
     print(f"[OK] {idea.id} created - status '{idea.status}', priority '{idea.priority}'")
     print(f"[OK] {path}")
     return 0

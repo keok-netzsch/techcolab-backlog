@@ -18,7 +18,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from pathlib import Path
 
-from config import VAULT_ROOT
+from config import VAULT_BASE, VAULT_ROOT
 
 _ACTION_LABEL = {
     "criada": "CRIADA",
@@ -31,8 +31,14 @@ BACKLOG_SECTION = "## 🗂️ Backlog"
 
 
 def _daily_note_path(today: date | None = None) -> Path:
+    # VAULT_BASE, not VAULT_ROOT. In this repo's config.py VAULT_ROOT is the app's
+    # working area (<vault>/App/Personal toolkit) and VAULT_BASE is the vault top.
+    # Daily/ is a vault-root folder (CLAUDE.md says so explicitly, and the vault MCP
+    # server resolves it that way), so VAULT_ROOT here was writing to a second,
+    # unread <vault>/App/Personal toolkit/Daily/. That is why "diario unico" from
+    # Toolkit 2.0 Pacote 2 never actually landed in the daily note.
     d = today or date.today()
-    daily_dir = Path(VAULT_ROOT) / "Daily"
+    daily_dir = Path(VAULT_BASE) / "Daily"
     daily_dir.mkdir(parents=True, exist_ok=True)
     return daily_dir / f"{d.isoformat()}.md"
 
