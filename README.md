@@ -55,7 +55,7 @@ pip install -r call-recorder\requirements.txt
 
 ## Configuração
 
-O caminho do vault Obsidian é lido da variável de ambiente **`TECHCOLAB_VAULT`** (com fallback em `config.py`). Defina-a apontando para a sua área de trabalho do vault:
+O caminho do vault Obsidian é lido da variável de ambiente **`TECHCOLAB_VAULT`**. **Não existe fallback**: sem ela, `config.py` levanta erro no import. Defina-a apontando para a sua área de trabalho do vault:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("TECHCOLAB_VAULT", "C:\Caminho\Para\Seu\Vault\App\Personal toolkit", "User")

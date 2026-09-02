@@ -25,7 +25,7 @@ with an Obsidian vault and optionally with a local LLM (Ollama). It runs entirel
 offline — no external API keys required.
 
 - **Main app:** `app.py` (Streamlit)
-- **Vault path:** read from env var `TECHCOLAB_VAULT` (fallback in `config.py`)
+- **Vault path:** read from env var `TECHCOLAB_VAULT`. **No fallback** (removed 2026-09-01): `config.py` raises at import when it is unset, because the old placeholder made every read return empty with exit code 0
 - **Backlog items:** `{VAULT_ROOT}/backlog items/idea-NNN.md`
 - **Agent reports:** `{VAULT_ROOT}/agent-reports/`
 - **Daily logs:** the vault's daily note — `{VAULT}/Daily/YYYY-MM-DD.md`, section `## 🗂️ Backlog`

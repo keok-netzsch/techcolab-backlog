@@ -42,6 +42,7 @@ paths or HR content. To intentionally bypass (NOT recommended): `git commit --no
 
 ## Vault path hygiene
 
-The vault path comes from `TECHCOLAB_VAULT` (fallback in `config.py`). Avoid hardcoding
+The vault path comes from `TECHCOLAB_VAULT`, with no fallback: `config.py` raises at
+import when it is unset. Avoid hardcoding
 personal absolute paths (`C:\Users\<you>\OneDrive\...`) in committed files — some docs
 still contain them (cleanup tracked separately); prefer the env var / placeholders.

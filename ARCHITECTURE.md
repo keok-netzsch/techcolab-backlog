@@ -95,6 +95,15 @@ Falha de processamento nunca vai para um campo que o consumidor renderiza como c
 e a aba Team mostrava isso como o assunto do último 1:1. Hoje é um marcador
 `<!-- unparsed -->` e quem consome diz "não processada".
 
+*Custo 2 (2026-09-01):* `config.py` caía num caminho placeholder quando `TECHCOLAB_VAULT`
+não estava definida. O arquivo do ledger não era encontrado, `pending.py list` imprimia
+"Nada esperando você" e saía com **código 0**, com três pendências abertas de verdade.
+Apareceu quando uma sessão de nuvem rodou o toolkit pela ponte de device e não herdou o
+ambiente do usuário. Escrita nunca teve o problema (estoura com `FileNotFoundError`), só a
+leitura mentia. Hoje `config.py` levanta erro no import e não existe fallback. Vale a regra
+geral: **default de conveniência em caminho de dado é uma resposta errada esperando
+acontecer** — quem chama de fora do ambiente do dono é quem paga.
+
 ### 6. Dado velho tem que se declarar velho
 Se a tela mostra número, ela mostra **de quando é**. Tela confiante sobre número velho é
 pior que tela nenhuma — o leitor não tem como saber.

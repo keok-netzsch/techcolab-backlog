@@ -1,5 +1,9 @@
 """Tests for config.py — verify paths resolve correctly after folder renames."""
 
+import json
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -51,3 +55,27 @@ def test_ollama_endpoint_default():
 
 def test_extraction_model_default():
     assert EXTRACTION_MODEL == "llama3.2:3b"
+
+
+# Regression 2026-09-01: config.py used to fall back to a placeholder vault path
+# when TECHCOLAB_VAULT was unset. Reads then resolved to missing files and returned
+# empty with exit code 0 (pending.py list printed "nothing pending" while three
+# pendings were open). The fallback is gone; import must fail loudly instead.
+def test_missing_vault_env_raises():
+    project_root = Path(__file__).parent.parent
+    settings_local = project_root / "settings.local.json"
+    if settings_local.exists():
+        data = json.loads(settings_local.read_text(encoding="utf-8"))
+        if "TECHCOLAB_VAULT" in data:
+            pytest.skip("settings.local.json supplies TECHCOLAB_VAULT")
+
+    env = {k: v for k, v in os.environ.items() if k != "TECHCOLAB_VAULT"}
+    proc = subprocess.run(
+        [sys.executable, "-c", "import config"],
+        cwd=str(project_root),
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0, "importing config without TECHCOLAB_VAULT must fail"
+    assert "TECHCOLAB_VAULT is not set" in proc.stderr

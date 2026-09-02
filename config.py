@@ -25,12 +25,37 @@ if _SETTINGS_LOCAL.exists():
 #   VAULT_BASE  = the vault top level     (…/TechColab_D&A_KO)
 # VAULT_BASE is the SAME directory the call-recorder reads from its own
 # TECHCOLAB_VAULT_ROOT env var. Team/ and Areas/ live under VAULT_BASE.
-VAULT_ROOT = Path(
-    os.environ.get(
-        "TECHCOLAB_VAULT",
-        r"C:\Users\YourUser\Documents\YourVault",
+#
+# There is NO fallback path on purpose. Until 2026-09-01 an unset TECHCOLAB_VAULT
+# fell back to a placeholder (`C:\Users\YourUser\Documents\YourVault`). That path
+# never exists, so every read resolved to a missing file and returned empty *with
+# exit code 0*: `pending.py list` printed "Nada esperando você" while three
+# pendings were open in the real ledger. Writes were never affected — they crash
+# with FileNotFoundError — so the placeholder only ever produced convincing wrong
+# answers on the read path. Failing at import turns that into an error you can see.
+#
+# Found when a cloud session ran the toolkit over the remote-device bridge and did
+# not inherit the user environment. Any caller outside the owner's session (CI,
+# scheduled task, another machine, an agent) hits the same gap.
+#
+# A path that does not exist is still accepted: CI points TECHCOLAB_VAULT at a
+# non-existent directory on purpose, and the vault-existence checks in
+# tests/test_config.py skip themselves when it is absent.
+_VAULT_ENV = os.environ.get("TECHCOLAB_VAULT", "").strip()
+if not _VAULT_ENV:
+    raise RuntimeError(
+        "TECHCOLAB_VAULT is not set, and config.py has no fallback path.\n"
+        "Set it to your vault working area before running anything:\n"
+        "  PowerShell (this session):\n"
+        "    $env:TECHCOLAB_VAULT = 'C:\\path\\to\\YourVault\\App\\Personal toolkit'\n"
+        "  PowerShell (persistent, per user):\n"
+        '    [Environment]::SetEnvironmentVariable("TECHCOLAB_VAULT", "<path>", "User")\n'
+        "  bash:\n"
+        "    export TECHCOLAB_VAULT='/path/to/YourVault/App/Personal toolkit'\n"
+        "It can also be set in settings.local.json. See README.md."
     )
-)
+
+VAULT_ROOT = Path(_VAULT_ENV)
 VAULT_BASE = VAULT_ROOT.parent.parent
 
 # Make the base discoverable to child processes (e.g. call-recorder) that look
