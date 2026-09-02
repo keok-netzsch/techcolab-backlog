@@ -41,6 +41,35 @@ WINDOW = 30.0          # faster-whisper decode window, in seconds
 WINDOW_TOL = 0.15      # how close to a boundary still counts as "on" it
 MIN_WINDOW_RUN = 3     # consecutive boundary hits before it means anything
 
+# Laco ENTRE linhas (2026-09-02). O gate so olhava repeticao DENTRO da linha,
+# entao a call 2026-08-28_09-56 passou com "0 suspeitas" tendo ~25 linhas de
+# "o que / e / o que / e" no fim. Contar ocorrencias no arquivo inteiro NAO
+# serve: "Sim." aparece 30x numa call normal e todo arquivo viraria AVISO. O
+# que separa laco de conversa e serem CONSECUTIVAS e virem de um vocabulario
+# minusculo - o decoder preso alterna 1 ou 2 strings curtas, um dialogo nao.
+LOOP_MIN_RUN = 5       # linhas seguidas antes de significar alguma coisa
+LOOP_MAX_DISTINCT = 2  # quantas strings distintas o laco pode alternar
+LOOP_MAX_LEN = 40      # payload maior que isso nao e laco de decoder
+# Espacamento e o que separa laco de ritual. Medido em 02/09 sobre os arquivos
+# reais: laco de decoder da gap mediano de 0,80-1,00s (o passo do proprio
+# decoder); "Boa tarde." x5 de gente entrando numa call da 3,00s e "Obrigado."
+# no encerramento da 2,00s. Sem este corte o gate marcava saudacao como
+# alucinacao e ia de 2 para 14 arquivos suspeitos, que e ruido, nao sinal.
+LOOP_MAX_GAP = 1.5     # gap mediano, em segundos
+
+# Linha sem conteudo: o decoder emitindo pontuacao. Regra separada da de laco
+# porque aparece espacada (5-6s) e o corte de gap a perderia.
+EMPTY_PAYLOAD = re.compile(r"^[\s.,;:!?~\-_'\"()\[\]]*$")
+
+# Script nao-latino (2026-09-02). A call do OKR 05 saiu com 26 linhas em
+# cirilico e o gate nao viu - ele nunca olhou o alfabeto. Isso pega troca de
+# idioma quando o alfabeto muda. NAO pega traducao: texto traduzido para
+# portugues e portugues legitimo aos olhos de qualquer teste textual.
+NON_LATIN = re.compile(r"[Ѐ-ӿͰ-Ͽ一-鿿"
+                       r"぀-ヿ֐-׿؀-ۿ]")
+NON_LATIN_MIN_RATIO = 0.3  # da linha, para nao marcar um simbolo solto
+
+
 # Phrases the model falls back to when the audio carries no speech. Kept short
 # and matched case-insensitively; this list is a convenience, not the mechanism.
 FALLBACK_PHRASES = (
@@ -136,6 +165,57 @@ def internal_repetition(utterance: str, threshold: float = 0.7,
     return sum(covered) / len(words) >= threshold
 
 
+def loop_runs(rows: list, min_run: int = LOOP_MIN_RUN) -> list:
+    """Sequencias de linhas CONSECUTIVAS que alternam poucas strings curtas.
+
+    Ver o bloco de constantes: a contagem global nao serve porque backchannel
+    legitimo ("Sim.", "Uhum") repete muito num dialogo real. O laco do decoder
+    e local e pobre - por isso a janela e consecutiva e o vocabulario e limitado.
+    """
+    def _fecha(bloco):
+        if len(bloco) < min_run:
+            return None
+        ts = [x[0] for x in bloco]
+        gaps = sorted(b - a for a, b in zip(ts, ts[1:]))
+        mediana = gaps[len(gaps) // 2]
+        return bloco if mediana <= LOOP_MAX_GAP else None
+
+    runs, atual = [], []
+    for r in rows:
+        corpo = r[2].strip()
+        curto = corpo and len(corpo) <= LOOP_MAX_LEN
+        if curto and atual:
+            vocab = {x[2].strip() for x in atual} | {corpo}
+            if len(vocab) <= LOOP_MAX_DISTINCT:
+                atual.append(r)
+                continue
+        fechado = _fecha(atual)
+        if fechado:
+            runs.append(fechado)
+        atual = [r] if curto else []
+    fechado = _fecha(atual)
+    if fechado:
+        runs.append(fechado)
+    return runs
+
+
+def empty_payload_lines(rows: list) -> list:
+    """Linhas em que o decoder emitiu so pontuacao."""
+    return [r for r in rows if EMPTY_PAYLOAD.match(r[2] or "")]
+
+
+def non_latin_lines(rows: list) -> list:
+    """Linhas majoritariamente em alfabeto nao-latino."""
+    fora = []
+    for r in rows:
+        corpo = r[2].strip()
+        if not corpo:
+            continue
+        if len(NON_LATIN.findall(corpo)) / len(corpo) >= NON_LATIN_MIN_RATIO:
+            fora.append(r)
+    return fora
+
+
 def scan(text: str) -> dict:
     """Full report. `suspect` holds the raw lines that should not be trusted."""
     rows = parse(text)
@@ -149,6 +229,19 @@ def scan(text: str) -> dict:
         for r in run:
             suspect[r[3]] = r
             motivos[r[3]] = f"janela vazia de 30s (bloco de {len(run)})"
+
+    for run in loop_runs(rows):
+        for r in run:
+            suspect[r[3]] = r
+            motivos[r[3]] = f"laco entre linhas (bloco de {len(run)})"
+
+    for r in non_latin_lines(rows):
+        suspect[r[3]] = r
+        motivos[r[3]] = "alfabeto nao-latino"
+
+    for r in empty_payload_lines(rows):
+        suspect[r[3]] = r
+        motivos.setdefault(r[3], "linha sem conteudo")
 
     for r in rows:
         if _RX_FALLBACK.search(_fold(r[2])):
@@ -176,6 +269,7 @@ def scan(text: str) -> dict:
         "suspect": list(suspect.values()),
         "motivos": motivos,
         "runs": window_runs(rows),
+        "loops": loop_runs(rows),
         "speakers": speakers,
         "duration_min": round(dur / 60, 1),
         "clean_words": palavras,

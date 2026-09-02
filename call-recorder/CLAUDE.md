@@ -459,19 +459,50 @@ nunca ter rodado no caminho real.** O ADR de 29/08 olhou esta mesma call, viu as
 30 linhas alucinadas, construiu o `transcript_quality.py` para detecta-las — e
 nao procurou a causa. Detector do sintoma nao substitui a correcao.
 
-## `transcript_quality.py` nao olha idioma — de proposito, e essa e a lacuna
+## O gate ganhou laco-entre-linhas, alfabeto e linha vazia (2026-09-02)
 
-O gate foi desenhado com o principio "o sinal que funciona e estrutural, nao
-linguistico". Rodando no arquivo que chegou na Ana: **`0 suspeitas`**, com 26
-linhas em cirilico e 46 linhas de laco dentro. Ele so pega repeticao DENTRO de
-uma linha e fronteira de janela de 30 s.
+A lacuna anterior era real: o gate so via repeticao DENTRO de uma linha e
+fronteira de janela de 30 s. A call `2026-08-28_09-56` passou com **0 suspeitas**
+carregando 21 linhas de `o que / e / o que / e`, e a do OKR 05 passou com 26
+linhas em cirilico. Autorizado pelo Kelvin em 02/09 ("passar nos gates"), agora
+`scan()` tem mais tres deteccoes.
 
-O que fecharia isso ja existe no repo e nao esta ligado aqui: `coach_guards.py`
-tem `language_gate()` (por TEXTO, nao pelo `.lang` do Whisper — *a coisa que
-falhou nao pode ser a juiza*) e `clean_transcript()` (repeticao ENTRE linhas).
-Testados contra o arquivo real em 01/09: `language_gate` reprova, e
-`clean_transcript` descarta 79 linhas. **Ligar os dois no `transcript_quality.py`
-esta pendente** — nao foi autorizado ainda.
+**Laco entre linhas.** A implementacao obvia - contar ocorrencias no arquivo
+inteiro, como faz `clean_transcript` - NAO serve aqui. `"Sim."` aparece 30x numa
+call normal e todo arquivo viraria AVISO; um gate que acusa tudo nao acusa nada.
+O que separa laco de conversa e serem CONSECUTIVAS, virem de vocabulario minusculo
+e, principalmente, o ESPACAMENTO. Medido nos arquivos reais em 02/09:
+
+| Padrao | Gap mediano |
+|---|---|
+| laco de decoder | 0,80-1,00 s |
+| `"Obrigado."` no encerramento | 2,00 s |
+| `"Boa tarde."` de gente entrando | 3,00 s |
+
+Dai `LOOP_MAX_GAP = 1.5`. Sem esse corte o gate ia de 2 para 14 arquivos e cinco
+deles eram saudacao. Travado nos dois sentidos em `tests/test_quality_loops.py`:
+o laco tem que ser pego, a saudacao nao pode.
+
+**Alfabeto nao-latino.** Cirilico, grego, CJK, hebraico, arabe. Pega troca de
+idioma quando o alfabeto muda.
+
+**Linha sem conteudo.** Payload so de pontuacao (`...`). Regra separada da de
+laco porque aparece espacada (5-6 s) e o corte de gap a perderia.
+
+### O que o gate continua sem pegar: TRADUCAO
+
+`_transcribe_dual` decide UM idioma para o arquivo inteiro (o do canal que mais
+falou). Quando a gravacao tem duas calls em idiomas diferentes, a segunda e
+**traduzida** em vez de transcrita. Foi o que aconteceu na `2026-08-28_09-56`:
+1:1 com o Hernan em portugues, depois call com o Stefan em ingles, o job ficou
+`lang_detected: pt` e a parte do Stefan saiu em portugues fluente.
+
+Nenhum teste textual distingue isso - traducao boa e portugues legitimo. O gate
+so pegou a call pelo laco no fim, que e outro defeito. **Reprocessar nao resolve**:
+o `vad_filter` ja foi corrigido e ja rodou nessa call em 01/09; ela saiu traduzida
+de novo, porque a causa e outra. O conserto e na transcricao - nao fixar um idioma
+por arquivo - ou, no caso pontual, fatiar o `.wav` e transcrever cada parte com o
+seu idioma.
 
 ## Falha de estruturacao nao e conteudo (2026-08-31)
 

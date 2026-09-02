@@ -111,6 +111,19 @@ Mondays 08:30 (`TechColab English Coach`) the coach evaluates your English calls
 B2 business level — see `docs/english-practice-architecture.md` in the repo root for how
 it works. Use `--topic` when you want a themed session.
 
+## What the quality gate now catches (since 2026-09-02)
+
+`python transcript_quality.py --todos` flags a transcript when it finds a decoder
+loop (short lines repeating about a second apart), a stretch in a non-Latin
+alphabet, or lines that are only punctuation. It is advisory and never blocks.
+
+One thing it cannot catch, and you should know before trusting any transcript of
+a call that switched languages: **translation**. Whisper picks one language per
+recording. If a call starts in Portuguese and continues in English, the English
+half comes out as fluent Portuguese, and no text check can tell that apart from a
+real Portuguese transcript. If a recording holds two calls in two languages, treat
+the second one as a paraphrase until it is re-transcribed with its own language.
+
 ## When something looks wrong
 
 - **A call is missing:** check the Windows volume mixer first — a dead channel usually

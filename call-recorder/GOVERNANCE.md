@@ -129,6 +129,22 @@ Nothing about what is recorded, kept, or shared changes. Every recording in the 
 is still transcribed, and every autocaptured one still parks for the morning triage
 where Kelvin decides where it goes.
 
+## What the accuracy gate can and cannot promise (2026-09-02)
+
+The gate got three new checks on 2026-09-02: decoder loops, non-Latin alphabet,
+and punctuation-only lines. The call that triggered the work had passed the old
+gate with zero findings while carrying 21 fabricated lines.
+
+The limit belongs on the record next to the promise. Whisper assigns one language
+per recording, so a call that switches languages has its second half **translated**
+rather than transcribed. The output is fluent, grammatical, and reads like a
+faithful record. No text-based check distinguishes it from one.
+
+What follows for anyone quoting a recorder transcript: a translated passage is a
+machine paraphrase of what someone said, not their words. It should not be quoted
+back to the person, forwarded, or used as evidence of a commitment. The gate
+raises no objection to it, and that silence is not a clearance.
+
 ## A note that disappears is a governance failure too (2026-09-01)
 
 Same day, second defect, same shape as the one above: the system said it had done
