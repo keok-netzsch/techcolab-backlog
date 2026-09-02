@@ -15,6 +15,7 @@ Os testes abaixo travam o contrato que faltava:
 Nenhum teste toca hardware: `sounddevice` e `soundcard` sao substituidos por
 dublês, entao isto roda em CI e numa maquina sem placa de audio.
 """
+import importlib.util
 import os
 import sys
 import types
@@ -24,6 +25,19 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "call-recorder"))
 import record  # noqa: E402
+
+# soundfile e ctypes.windll nao sao dubles: o primeiro e dependencia real do
+# spool (ausente no runner do CI) e o segundo so existe no Windows. O docstring
+# acima promete que este arquivo roda em CI, e ate 2026-09-02 nao rodava: 10
+# testes quebravam la, invisiveis porque o lint derrubava o job antes do pytest.
+requires_soundfile = pytest.mark.skipif(
+    importlib.util.find_spec("soundfile") is None,
+    reason="soundfile nao instalado (runner do CI) - o spool precisa dele",
+)
+requires_windows = pytest.mark.skipif(
+    sys.platform != "win32",
+    reason="ctypes.windll so existe no Windows",
+)
 
 # ── Dublês ────────────────────────────────────────────────────────────────────
 
@@ -113,6 +127,7 @@ def _stop_after(n_iteracoes=1):
 
 # ── capture_dual ──────────────────────────────────────────────────────────────
 
+@requires_soundfile
 def test_dois_canais_ok_devolve_ambos(monkeypatch, tmp_path):
     _install_fakes(monkeypatch, _tone(), _tone(), tmp_path)
     mic, sysa = record.capture_dual(_stop_after(2))
@@ -120,6 +135,7 @@ def test_dois_canais_ok_devolve_ambos(monkeypatch, tmp_path):
     assert len(mic) == len(sysa), "os canais precisam sair alinhados"
 
 
+@requires_soundfile
 def test_microfone_falha_mas_loopback_e_salvo(monkeypatch, tmp_path):
     """A regressao de 2026-08-27: 50 min de loopback jogados fora."""
     _install_fakes(monkeypatch, None, _tone(2.0), tmp_path)
@@ -131,6 +147,7 @@ def test_microfone_falha_mas_loopback_e_salvo(monkeypatch, tmp_path):
     assert not np.any(mic), "canal do mic deve vir zerado, nao ausente"
 
 
+@requires_soundfile
 def test_loopback_falha_mas_microfone_e_salvo(monkeypatch, tmp_path):
     _install_fakes(monkeypatch, _tone(2.0), None, tmp_path)
     result = record.capture_dual(_stop_after(2))
@@ -141,11 +158,13 @@ def test_loopback_falha_mas_microfone_e_salvo(monkeypatch, tmp_path):
     assert not np.any(sysa)
 
 
+@requires_soundfile
 def test_so_devolve_none_quando_nao_ha_nada(monkeypatch, tmp_path):
     _install_fakes(monkeypatch, None, None, tmp_path)
     assert record.capture_dual(_stop_after(2)) is None
 
 
+@requires_soundfile
 def test_sem_soundcard_grava_mic_only(monkeypatch, tmp_path):
     """Sem a lib de loopback o gravador degrada para mic-only, nao perde a call.
 
@@ -170,6 +189,7 @@ def test_sem_soundcard_grava_mic_only(monkeypatch, tmp_path):
     assert len(mic) == len(sysa) and not np.any(sysa)
 
 
+@requires_soundfile
 def test_capture_system_audio_desligado_grava_mic_only(monkeypatch, tmp_path):
     """CAPTURE_SYSTEM_AUDIO=0 vale para todos os chamadores, incluindo autocapture."""
     _install_fakes(monkeypatch, _tone(2.0), _tone(), tmp_path)
@@ -243,6 +263,7 @@ def test_guarda_ignora_gravacao_curta():
 
 # ── spool: seguro anti-crash ──────────────────────────────────────────────────
 
+@requires_soundfile
 def test_spool_persiste_audio_em_disco_durante_captura(monkeypatch, tmp_path):
     """O audio precisa existir em disco ao fim da captura, nao so em RAM.
 
@@ -317,6 +338,7 @@ def test_resgate_ignora_spool_quente(monkeypatch, tmp_path):
     assert not list(tmp_path.glob("*_auto-recovered*"))
 
 
+@requires_windows
 def test_loopback_inicializa_com_na_propria_thread(monkeypatch, tmp_path):
     """COM e por thread: sem CoInitializeEx a thread do loopback morre com
     0x800401f0 (CO_E_NOTINITIALIZED) ao abrir o recorder.
@@ -389,6 +411,7 @@ def _stereo_curto(monkeypatch, sr=16000, segundos=2):
     monkeypatch.setattr(sf, "read", lambda *a, **k: (data, sr))
 
 
+@requires_soundfile
 def test_dual_usa_vad_filter_em_todos_os_canais(monkeypatch):
     _stereo_curto(monkeypatch)
     model = _FakeModel([([(0.0, "ola")], "pt"), ([(1.0, "hello")], "pt")])
@@ -403,6 +426,7 @@ def test_dual_usa_vad_filter_em_todos_os_canais(monkeypatch):
         )
 
 
+@requires_soundfile
 def test_idioma_vem_do_canal_que_mais_falou_nao_do_canal_zero(monkeypatch):
     """O mic do Kelvin (canal 0) abre mudo com frequencia.
 
