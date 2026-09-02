@@ -41,6 +41,7 @@ def test_formato_real_do_record_e_o_mesmo_do_helper():
     # O helper acima precisa ser copia fiel do record.py, senao o teste valida
     # um formato que ninguem escreve. Extrai o f-string do fonte e compara.
     import inspect
+
     import record
     src = inspect.getsource(record)
     assert 'f"[{t:05.1f}s] {label}: {text}"' in src, (

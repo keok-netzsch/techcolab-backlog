@@ -149,6 +149,7 @@ def capture_dual(stop_flag):
 
     import threading
     import time
+
     import numpy as np
     import sounddevice as sd
 
@@ -538,8 +539,8 @@ def _sanity_check(lines: list, audio_seconds: float) -> None:
     minutes = audio_seconds / 60
     if minutes < SANITY_MIN_MINUTES:
         return
-    words = sum(len(l.split("] ", 1)[-1].split()) for l in lines
-                if len(l.split("] ", 1)[-1].strip(" .")) > 3)
+    words = sum(len(ln.split("] ", 1)[-1].split()) for ln in lines
+                if len(ln.split("] ", 1)[-1].strip(" .")) > 3)
     wpm = words / minutes if minutes else 0
     if wpm < MIN_WORDS_PER_MINUTE:
         raise TranscriptionTooSparse(

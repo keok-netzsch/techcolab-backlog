@@ -119,8 +119,8 @@ def test_lista_ordena_por_prioridade(tmp_path, monkeypatch, capsys):
     p.main(["add", "--tipo", "decisao", "--texto", "Media coisa"])
     capsys.readouterr()
     p.main(["list"])
-    linhas = [l for l in capsys.readouterr().out.splitlines() if l.startswith("[")]
-    assert [l.split("(")[1][0] for l in linhas] == ["A", "M", "B"]
+    linhas = [linha for linha in capsys.readouterr().out.splitlines() if linha.startswith("[")]
+    assert [linha.split("(")[1][0] for linha in linhas] == ["A", "M", "B"]
 
 
 def test_ref_guarda_o_arquivo_que_a_decisao_destrava(tmp_path, monkeypatch):
@@ -185,6 +185,7 @@ def test_teste_nao_escreve_no_ledger_real(monkeypatch):
     """A guarda que impede a repeticao do incidente P-013/P-014: teste que
     esqueceu de isolar o STORE falha alto em vez de sujar o vault do Kelvin."""
     import pytest
+
     import agent.pending as pending
     monkeypatch.setattr(pending, "STORE", pending._STORE_REAL)
     with pytest.raises(RuntimeError, match="ledger REAL"):

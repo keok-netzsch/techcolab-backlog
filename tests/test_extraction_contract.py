@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import process  # noqa: E402
 import route  # noqa: E402
+
 from backlog.schema import VALID_STATUSES  # noqa: E402
 
 # A linha-exemplo que o contrato ensina, escrita por extenso.

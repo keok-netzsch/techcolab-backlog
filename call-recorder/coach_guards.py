@@ -136,7 +136,7 @@ def clean_transcript(text: str, min_repeats: int = 5) -> tuple[str, list[str]]:
     spam = {p for p, n in counts.items() if n >= min_repeats and len(p) < 80}
 
     kept, dropped = [], []
-    for line, body in zip(lines, payload):
+    for line, body in zip(lines, payload, strict=True):
         if (body and body in spam) or has_internal_repetition(line):
             dropped.append(line)
         else:
@@ -229,7 +229,7 @@ def rolling_level(history: list[str], proposed: str, window: int = 5,
     record progress no matter what the model saw. Use this for trend display.
     """
     from collections import Counter
-    prior = [l for l in history if l in CEFR]
+    prior = [lvl for lvl in history if lvl in CEFR]
     if proposed not in CEFR or len(prior) < min_history:
         return proposed
 
@@ -238,7 +238,7 @@ def rolling_level(history: list[str], proposed: str, window: int = 5,
     top = max(counts.values())
     # Ties now resolve UPWARD: a tie means the newer reading is holding, and the
     # old behaviour of resolving down is what produced the ratchet.
-    mode = max((l for l in sample if counts[l] == top), key=CEFR.index)
+    mode = max((lvl for lvl in sample if counts[lvl] == top), key=CEFR.index)
     if mode == proposed:
         return proposed
     step = -1 if CEFR.index(mode) < CEFR.index(proposed) else 1

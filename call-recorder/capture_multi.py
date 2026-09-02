@@ -134,7 +134,7 @@ def pick_best(scored: list):
     if not scored:
         return None, ["nenhum stream capturado"]
     lines = []
-    for i, (label, s) in enumerate(scored):
+    for label, s in scored:
         lines.append(f"  {label[:40]:40s} {s['verdict']:6s} "
                      f"din {s['dynamic_db']:5.1f} dB  fala {s['active_pct']:5.1f}%")
     speech = [i for i, (_, s) in enumerate(scored) if s["verdict"] == "speech"]
@@ -254,7 +254,6 @@ def select_channels(paths: dict, log=print):
     Either side may come back None when nothing usable was captured for it — the
     caller must still save what exists and say so loudly.
     """
-    import numpy as np
     import soundfile as sf
 
     def load(p):

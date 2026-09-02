@@ -64,7 +64,7 @@ def coletar(ideas: list, limite: int = TETO_PADRAO) -> list[dict]:
                 "acoes": ["aprovar", "rejeitar", "adiar"],
             })
 
-    ja = {l["id"] for l in linhas}
+    ja = {linha["id"] for linha in linhas}
 
     # 2. Bug / vencida / parada — seleção reusada, não reimplementada.
     for d in collect_decisions(ideas, limit=None):
@@ -82,7 +82,7 @@ def coletar(ideas: list, limite: int = TETO_PADRAO) -> list[dict]:
         })
 
     ordem = {"curadoria": 0, "bug": 1, "vencida": 2, "parada": 3}
-    linhas.sort(key=lambda l: (ordem.get(l["grupo"], 9), l["id"]))
+    linhas.sort(key=lambda linha: (ordem.get(linha["grupo"], 9), linha["id"]))
     total = len(linhas)
     linhas = linhas[:limite]
     # Truncagem sempre reportada. Lista que corta em silêncio faz o teto virar
@@ -114,11 +114,11 @@ def main(argv=None) -> int:
     if not linhas:
         print("Backlog sem nada pedindo ação sua.")
         return 0
-    for l in linhas:
-        if l["grupo"] == "_truncado":
-            print(f"    ... {l['porque']}")
+    for linha in linhas:
+        if linha["grupo"] == "_truncado":
+            print(f"    ... {linha['porque']}")
             continue
-        print(f"[{l['grupo']:9s}] {l['id']}  {l['titulo'][:58]:60s} {l['porque']}")
+        print(f"[{linha['grupo']:9s}] {linha['id']}  {linha['titulo'][:58]:60s} {linha['porque']}")
     return 0
 
 

@@ -469,6 +469,7 @@ def render() -> None:
             _export.append("_No calls recorded in this period._")
         else:
             import html as _html
+
             import streamlit.components.v1 as _components
 
             def _call_to_html(raw: str, bg: str, is_dark: bool) -> tuple[str, int]:
@@ -477,7 +478,6 @@ def render() -> None:
                 fg_main = "#E2E8F0" if is_dark else "#1F2937"
                 fg_sub  = "#94A3B8" if is_dark else "#6B7280"
                 fg_done = "#059669"
-                bdr     = "#2D3748" if is_dark else "#E5E7EB"
                 sec_bg  = "rgba(2,183,147,0.07)" if is_dark else "rgba(2,183,147,0.04)"
 
                 # Strip YAML frontmatter
@@ -559,7 +559,6 @@ def render() -> None:
                         )
 
                 content_html = "\n".join(html_parts)
-                char_count   = len(re.sub(r"<[^>]+>", "", content_html))
                 est_lines    = max(content_html.count("<li") + content_html.count("<p") +
                                    content_html.count("<h3") + content_html.count("<h4") +
                                    content_html.count("height:6px") + 4, 6)

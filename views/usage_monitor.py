@@ -791,7 +791,7 @@ def render() -> None:
             _h0.caption("Checked at")
             _h1.caption("Spent this period")
             _h2.caption("Since previous check")
-            for entry, period_spend_row, delta in reversed(list(zip(recent, period_spends, deltas))):
+            for entry, period_spend_row, delta in reversed(list(zip(recent, period_spends, deltas, strict=True))):
                 _c0, _c1, _c2 = st.columns([2, 1, 2])
                 _c0.markdown(
                     f'<span style="font-size:.78rem;color:#6B7280">{_fmt_checked_at(entry.get("checked_at"))}</span>',

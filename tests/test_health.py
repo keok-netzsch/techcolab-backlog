@@ -4,8 +4,6 @@ injected for stable recency math."""
 import sys
 from pathlib import Path
 
-import pytest
-
 CR_DIR = Path(__file__).resolve().parents[1] / "call-recorder"
 sys.path.insert(0, str(CR_DIR))
 

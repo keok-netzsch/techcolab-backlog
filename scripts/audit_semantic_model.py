@@ -20,7 +20,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import pandas as pd
@@ -315,7 +315,8 @@ def check_b(model: PBIXRay, cols: pd.DataFrame, meas: pd.DataFrame, fact_candida
         numeric_or_date["FormatString"].fillna("").astype(str).str.strip().ne("").mean()
         if not numeric_or_date.empty else None
     )
-    meas_fs_ratio = None  # dax_measures from pbixray doesn't expose FormatStringExpression directly
+    # NOTE: dax_measures from pbixray does not expose FormatStringExpression directly,
+    # so the measure-level format-string ratio is not computed here.
     b8_score = None
     if fs_ratio is not None:
         b8_score = 5.0 if fs_ratio >= 0.8 else 2.0 if fs_ratio >= 0.4 else 0.0
@@ -458,7 +459,7 @@ def print_human_report(report: dict) -> None:
             if chk["note"]:
                 print(f"        nota: {chk['note']}")
     s = report["summary"]
-    print(f"\n=== Resumo ===")
+    print("\n=== Resumo ===")
     print(f"Score automatizado: {s['automated_score']}/{s['automated_max']} "
           f"(de um total possível de {s['grand_max_possible']} pts)")
     print(f"Itens que precisam de revisão manual/LLM: {s['not_automated_count']} "

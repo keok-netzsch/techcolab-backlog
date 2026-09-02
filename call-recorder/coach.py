@@ -350,7 +350,12 @@ def _evaluate(transcript: str, topic: str, topic_type: str = "") -> dict:
         )
 
     # ── Context-specific guidance ─────────────────────────────────────────────
-    type_guidance = TOPIC_TYPE_GUIDANCE.get(topic_type, "")
+    # FIXME(2026-09-02): type_guidance and `rubric` below are built and never
+    # injected into the prompt - only `context_block` reaches the f-string further
+    # down. So the topic guidance and the scoring rules never get to the model.
+    # Wiring them in changes how the coach grades, so it is a call for the owner,
+    # not something to silently fix while cleaning lint. Flagged 2026-09-02.
+    type_guidance = TOPIC_TYPE_GUIDANCE.get(topic_type, "")  # noqa: F841
 
     context_block = (
         f"RECORDING CONTEXT:\n"
@@ -363,7 +368,7 @@ def _evaluate(transcript: str, topic: str, topic_type: str = "") -> dict:
     )
 
     # ── Per-dimension rubric (compact — keep prompt size manageable for CPU LLMs) ─
-    rubric = (
+    rubric = (  # noqa: F841
         "SCORING RULES (apply strictly before grading):\n"
         "Grammar: evaluate patterns only — isolated slips and sentence fragments in reactive speech are NOT errors.\n"
         "Vocabulary: domain/technical terms (APIs, KPIs, data pipelines) signal expertise, NOT limited range. "

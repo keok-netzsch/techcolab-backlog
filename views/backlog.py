@@ -30,7 +30,7 @@ from components.ui import (
     pbadge,
     sdot,
 )
-from config import BACKLOG_ARCHIVE_DIR, EXTRACTION_MODEL, VAULT_ROOT
+from config import BACKLOG_ARCHIVE_DIR, EXTRACTION_MODEL
 
 
 def _render_legend() -> None:

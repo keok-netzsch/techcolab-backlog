@@ -3,13 +3,10 @@ tracked across dated 1:1 sessions. `today` is injected so aging is stable."""
 import sys
 from pathlib import Path
 
-import pytest
-
 CR_DIR = Path(__file__).resolve().parents[1] / "call-recorder"
 sys.path.insert(0, str(CR_DIR))
 
 import process  # noqa: E402
-
 
 # Action "Revisar Docker" opens 2026-05-01, closes 2026-05-11 (10 days).
 # "Concluir Alura" opens 2026-05-01, still open. "Enviar deck" opens+closes same day.

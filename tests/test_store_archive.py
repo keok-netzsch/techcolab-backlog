@@ -1,7 +1,6 @@
 """Store must handle archived ideas in subfolders (e.g. _arquivo/):
 load them, count them for next-id, and save edits back to their location
 (no duplicate created in the root)."""
-from pathlib import Path
 
 from backlog.store import BacklogStore
 

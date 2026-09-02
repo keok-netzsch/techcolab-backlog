@@ -272,10 +272,10 @@ def main(argv=None) -> int:
     z.add_argument("--dias", type=int, help="adiar N dias (padrão 7)")
     z.add_argument("--ate", help="adiar até YYYY-MM-DD")
 
-    l = sub.add_parser("list", help="listar")
-    l.add_argument("--json", action="store_true")
-    l.add_argument("--todas", action="store_true", help="inclui resolvidas")
-    l.add_argument("--incluir-adiadas", action="store_true", dest="incluir_adiadas")
+    p_list = sub.add_parser("list", help="listar")
+    p_list.add_argument("--json", action="store_true")
+    p_list.add_argument("--todas", action="store_true", help="inclui resolvidas")
+    p_list.add_argument("--incluir-adiadas", action="store_true", dest="incluir_adiadas")
 
     args = ap.parse_args(argv)
     return {"add": cmd_add, "resolve": cmd_resolve, "snooze": cmd_snooze,

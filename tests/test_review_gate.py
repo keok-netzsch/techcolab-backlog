@@ -20,7 +20,6 @@ sys.path.insert(0, str(CR))
 
 import process  # noqa: E402
 
-
 RESPONSE = """### BLOCO 1on1
 ~~~markdown
 ## 2026-06-03

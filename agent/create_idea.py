@@ -37,6 +37,8 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
+from backlog.daily_log import log_entry
+from backlog.index import generate_index
 from backlog.schema import (
     VALID_AREAS,
     VALID_EFFORTS,
@@ -44,8 +46,6 @@ from backlog.schema import (
     VALID_PRIORITIES,
     VALID_STATUSES,
 )
-from backlog.daily_log import log_entry
-from backlog.index import generate_index
 from backlog.store import BacklogStore, _parse_todos
 from config import BACKLOG_DIR, BACKLOG_INDEX
 
@@ -90,7 +90,7 @@ def _check_date(value, field: str) -> date | None:
     try:
         return date.fromisoformat(str(value).strip())
     except ValueError:
-        raise ValidationError(f"invalid {field}: {value!r}. Expected YYYY-MM-DD")
+        raise ValidationError(f"invalid {field}: {value!r}. Expected YYYY-MM-DD") from None
 
 
 def _parse_todo_line(raw: str) -> dict:
@@ -213,7 +213,7 @@ def _payload_from_args(args) -> dict:
         try:
             raw = json.loads(text)
         except json.JSONDecodeError as e:
-            raise ValidationError(f"invalid JSON payload: {e}")
+            raise ValidationError(f"invalid JSON payload: {e}") from e
         if not isinstance(raw, dict):
             raise ValidationError("JSON payload must be an object, not a list")
         return raw

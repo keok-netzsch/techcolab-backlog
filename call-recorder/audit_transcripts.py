@@ -27,8 +27,8 @@ def measure(path: Path):
     stamps = [float(m) for m in re.findall(r"\[(\d+\.\d)s\]", text)]
     if not stamps:
         return None
-    segs = [l for l in text.split("\n") if l.strip()]
-    bodies = [re.sub(r"^\[.*?\]\s*", "", l).strip() for l in segs]
+    segs = [ln for ln in text.split("\n") if ln.strip()]
+    bodies = [re.sub(r"^\[.*?\]\s*", "", ln).strip() for ln in segs]
     # Um segmento so com pontuacao/traco e ruido, nao fala.
     junk = [b for b in bodies if len(b.strip(" .·-")) <= 3]
     words = sum(len(b.split()) for b in bodies if len(b.strip(" .")) > 3)

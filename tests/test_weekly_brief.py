@@ -2,8 +2,6 @@
 
 from datetime import date, timedelta
 
-import pytest
-
 from agent.weekly_brief import (
     MAX_ITEMS,
     STALE_DAYS,

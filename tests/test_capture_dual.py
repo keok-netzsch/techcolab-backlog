@@ -25,7 +25,6 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "call-recorder"))
 import record  # noqa: E402
 
-
 # ── Dublês ────────────────────────────────────────────────────────────────────
 
 class _FakeStream:
@@ -251,6 +250,7 @@ def test_spool_persiste_audio_em_disco_durante_captura(monkeypatch, tmp_path):
     escrito no final. O spool e a prova de que a captura fluiu para disco.
     """
     import os
+
     import soundfile as sf
     _install_fakes(monkeypatch, _tone(2.0), _tone(2.0), tmp_path)
     mic, sysa = record.capture_dual(_stop_after(2))
@@ -270,8 +270,9 @@ def test_resgate_de_spool_orfao_vira_gravacao(monkeypatch, tmp_path):
         pytest.skip("autocapture usa winreg")
     import os
     import time as _time
-    import soundfile as sf
+
     import autocapture
+    import soundfile as sf
 
     monkeypatch.setattr(autocapture, "RECORDINGS", tmp_path)
     monkeypatch.setattr(autocapture, "MIN_SECONDS", 1)
@@ -300,8 +301,8 @@ def test_resgate_ignora_spool_quente(monkeypatch, tmp_path):
     import sys as _sys
     if _sys.platform != "win32":
         pytest.skip("autocapture usa winreg")
-    import soundfile as sf
     import autocapture
+    import soundfile as sf
 
     monkeypatch.setattr(autocapture, "RECORDINGS", tmp_path)
     monkeypatch.setattr(autocapture, "MIN_SECONDS", 1)

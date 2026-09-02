@@ -7,7 +7,7 @@ from pathlib import Path
 import streamlit as st
 
 from backlog.cache import load_ideas
-from components.ui import STATUS_LABEL, pbadge, sdot
+from components.ui import STATUS_LABEL, pbadge
 from config import CLAUDE_PRO_START_DATE
 
 _REPORTS_DIR = Path(__file__).parent.parent / "reports"

@@ -26,7 +26,7 @@ scripts/register-opus-price-task.ps1).
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -82,7 +82,7 @@ def _codex_activity_in_window(since: datetime) -> bool:
         return False
     for jsonl_path in _CODEX_NETZSCH_SESSIONS.rglob("*.jsonl"):
         try:
-            mtime = datetime.fromtimestamp(jsonl_path.stat().st_mtime, tz=timezone.utc)
+            mtime = datetime.fromtimestamp(jsonl_path.stat().st_mtime, tz=UTC)
         except OSError:
             continue
         if mtime >= since:
@@ -118,7 +118,7 @@ def _spend_delta_in_window(since: datetime) -> float | None:
 
 
 def main() -> None:
-    since = datetime.now(timezone.utc) - timedelta(days=_WINDOW_DAYS)
+    since = datetime.now(UTC) - timedelta(days=_WINDOW_DAYS)
     turns = _opus_turns_in_window(since)
     spend_delta = _spend_delta_in_window(since)
 
@@ -146,7 +146,7 @@ def main() -> None:
 
     result = {
         "price_per_million_input_tokens": price_per_million,
-        "computed_at": datetime.now(timezone.utc).astimezone().isoformat(),
+        "computed_at": datetime.now(UTC).astimezone().isoformat(),
         "window_days": _WINDOW_DAYS,
         "opus_turns_sampled": len(turns),
         "spend_delta_usd": round(spend_delta, 4),

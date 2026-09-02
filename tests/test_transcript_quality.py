@@ -17,7 +17,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "call-recorder"
 
 import transcript_quality as q  # noqa: E402
 
-
 # ── The 30-second window fingerprint ─────────────────────────────────────────
 
 def test_consecutive_window_boundaries_are_flagged():

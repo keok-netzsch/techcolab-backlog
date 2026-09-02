@@ -220,7 +220,7 @@ def _seconds(v: str) -> float:
     try:
         parts = [float(x) for x in v.split(":")]
     except ValueError:
-        raise SystemExit(f"tempo invalido: '{v}' (use 272, 4:32 ou 1:02:30)")
+        raise SystemExit(f"tempo invalido: '{v}' (use 272, 4:32 ou 1:02:30)") from None
     total = 0.0
     for part in parts:
         total = total * 60 + part
@@ -266,7 +266,6 @@ def aplicar(p: Path, routes, dry_run=False):
 
     date = j.get("date", "")
     lang = j.get("lang_detected") or j.get("lang", "pt")
-    lang_word = "ingles" if lang == "en" else "portugues"
     context = j.get("context", "")
 
     for r in routes:

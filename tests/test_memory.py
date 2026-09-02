@@ -3,13 +3,10 @@ across a person's 1:1 sessions and across people. No LLM involved."""
 import sys
 from pathlib import Path
 
-import pytest
-
 CR_DIR = Path(__file__).resolve().parents[1] / "call-recorder"
 sys.path.insert(0, str(CR_DIR))
 
 import process  # noqa: E402
-
 
 ONE_ON_ONE = """---
 type: 1on1-log

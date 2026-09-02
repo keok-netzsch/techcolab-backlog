@@ -13,7 +13,6 @@ Desligar: crie o arquivo `autocapture.paused` nesta pasta. Enquanto ele existir,
 nada e gravado.
 """
 import json
-import os
 import sys
 import threading
 import time
@@ -241,7 +240,7 @@ def _persist_call(started, title, mic, sysa, seconds) -> None:
         return {"active_pct": round(100 * active, 1), "dynamic_db": round(dyn, 1)}
 
     prof = [_profile(mic[:, 0]), _profile(sysa[:, 0])]
-    for idx, (label, pf) in enumerate(zip(record.SPEAKER_LABELS, prof)):
+    for idx, (label, pf) in enumerate(zip(record.SPEAKER_LABELS, prof, strict=True)):
         flag = "" if pf["active_pct"] >= 2 and pf["dynamic_db"] >= 6 else "  <-- SEM FALA"
         log(f"  canal {idx} ({label}): fala {pf['active_pct']}%, "
             f"dinamica {pf['dynamic_db']} dB{flag}")
@@ -259,7 +258,7 @@ def _persist_call(started, title, mic, sysa, seconds) -> None:
         "duration_s": round(seconds),
         "window_title": title,
         "channels": list(record.SPEAKER_LABELS),
-        "channel_profile": {l: pf for l, pf in zip(record.SPEAKER_LABELS, prof)},
+        "channel_profile": {lab: pf for lab, pf in zip(record.SPEAKER_LABELS, prof, strict=True)},
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
     log(f"salvo: {wav.name}  ({seconds/60:.1f} min) - aguardando classificacao")

@@ -11,7 +11,6 @@ Usage:
 """
 
 import json
-import os
 import re
 import subprocess
 import sys
@@ -797,7 +796,8 @@ def main() -> int:
     try:
         _rdir = Path(__file__).parent.parent / "call-recorder" / "recordings"
         _now = datetime.now().timestamp()
-        _age_h = lambda p: (_now - p.stat().st_mtime) / 3600
+        def _age_h(p):
+            return (_now - p.stat().st_mtime) / 3600
         _stuck = {
             "pendentes sem classificar (>36h)":
                 [p.name for p in _rdir.glob("*.pending.json") if _age_h(p) > 36],
@@ -895,7 +895,8 @@ def main() -> int:
     # does not depend on the machine being up on a Monday (Toolkit 2.0, idea-066).
     brief_written = False
     try:
-        from agent.weekly_brief import generate as _gen_brief, week_id as _wid
+        from agent.weekly_brief import generate as _gen_brief
+        from agent.weekly_brief import week_id as _wid
         brief_written, _bp = _gen_brief()
         if brief_written:
             safe_print(f"[agent] Weekly brief written for {_wid()}: {_bp}")

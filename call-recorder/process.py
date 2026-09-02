@@ -19,7 +19,8 @@ import os
 import re
 import subprocess
 import sys
-from datetime import date as _date, datetime
+from datetime import date as _date
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -325,7 +326,7 @@ def topic_extract(transcript: str, topic: str, lang_word: str = "portugues") -> 
     """
     if not topic:
         return transcript
-    lines = [l for l in transcript.splitlines() if l.strip()]
+    lines = [ln for ln in transcript.splitlines() if ln.strip()]
     if not lines:
         return ""
 
@@ -1612,7 +1613,7 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
         f"---\ndate: {date}\nperson: {person_name}\n"
         f"type: 1on1-session\nlang: {lang}\n"
         + (f"recorte: {recorte}\n" if recorte else "")
-        + f"tags: [1on1, team]\n---\n\n"
+        + "tags: [1on1, team]\n---\n\n"
     )
     standalone_file.write_text(header + response, encoding="utf-8")
     print(f"  [OK] Nota standalone: {standalone_file.name}")
@@ -1700,7 +1701,7 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
         f"---\ndate: {date}\nperson: {manager_name}\n"
         f"type: manager-call\nlang: {lang}\n"
         + (f"recorte: {recorte}\n" if recorte else "")
-        + f"tags: [manager, stakeholder]\n---\n\n"
+        + "tags: [manager, stakeholder]\n---\n\n"
     )
     standalone_file.write_text(header + response, encoding="utf-8")
     print(f"  [OK] Nota standalone: {standalone_file.name}")

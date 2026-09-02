@@ -38,21 +38,21 @@ def test_item_aparece_uma_vez_so():
     i = _idea("idea-003", status="em análise",
               due=(date.today() - timedelta(days=9)).isoformat())
     linhas = curadoria.coletar([i])
-    assert len([l for l in linhas if l["id"] == "idea-003"]) == 1
+    assert len([linha for linha in linhas if linha["id"] == "idea-003"]) == 1
 
 
 def test_teto_corta_mas_avisa_quanto_ficou_de_fora():
     ideas = [_idea(f"idea-{n:03d}", status="em análise") for n in range(20)]
     linhas = curadoria.coletar(ideas, limite=5)
-    reais = [l for l in linhas if l["grupo"] != "_truncado"]
-    trunc = [l for l in linhas if l["grupo"] == "_truncado"]
+    reais = [linha for linha in linhas if linha["grupo"] != "_truncado"]
+    trunc = [linha for linha in linhas if linha["grupo"] == "_truncado"]
     assert len(reais) == 5
     assert trunc and "15" in trunc[0]["porque"], "truncagem tem que dizer quantos"
 
 
 def test_sem_truncagem_nao_inventa_linha():
     linhas = curadoria.coletar([_idea("idea-001", status="em análise")], limite=5)
-    assert all(l["grupo"] != "_truncado" for l in linhas)
+    assert all(linha["grupo"] != "_truncado" for linha in linhas)
 
 
 def test_backlog_saudavel_devolve_lista_vazia():

@@ -57,7 +57,7 @@ def test_force_utf8_stdio_switches_a_cp1252_stream(monkeypatch):
     assert sys.stdout.encoding.lower().replace("-", "") == "utf8"
     print(OFFENDERS)  # would have raised before the reconfigure
     sys.stdout.flush()
-    assert "→".encode("utf-8") in stream.buffer.getvalue()
+    assert "→".encode() in stream.buffer.getvalue()
 
 
 def test_force_utf8_stdio_is_safe_on_a_stream_it_cannot_touch(monkeypatch):
