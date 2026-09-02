@@ -1123,8 +1123,33 @@ def build_session_memory(text: str) -> list:
             if in_a and re.match(r"- \[[ x]\]", s):
                 actions.append({"text": s[6:].strip(), "done": s[3] == "x"})
         sessions.append({"date": s_date, "topics": topics, "actions": actions})
-    sessions.sort(key=lambda x: x["date"], reverse=True)
-    return sessions
+
+    # Colapsa por DATA. Desde o roteamento por assunto (2026-08-28) um dia pode ter
+    # varias secoes `## {data} — {recorte}`, uma por fatia da mesma call. Contando
+    # secao, uma call fatiada em tres virava "3 sessoes", e um topico citado uma vez
+    # em cada fatia aparecia como "topico recorrente (3x)" — o limiar de recorrencia
+    # e >= 2 SESSOES, e existe para pegar assunto que volta em dias diferentes.
+    #
+    # Medido em 2026-09-02: `## 2026-09-02 — governanca de export` e
+    # `## 2026-09-02 — licenca e prioridades`, ambas da mesma Weekly com a Ana,
+    # davam session_count=2 e "Power BI" como recorrente.
+    #
+    # Recorte foi adicionado ao escritor em 01/09; este consumidor nao soube. Mesmo
+    # padrao do vad_filter e do leitor da daily: a mudanca cai num lado do par.
+    por_dia = {}
+    for s in sessions:
+        alvo = por_dia.setdefault(s["date"], {"date": s["date"], "topics": [],
+                                              "actions": []})
+        for t in s["topics"]:
+            if t not in alvo["topics"]:
+                alvo["topics"].append(t)
+        vistos = {(a["text"], a["done"]) for a in alvo["actions"]}
+        for a in s["actions"]:
+            if (a["text"], a["done"]) not in vistos:
+                alvo["actions"].append(a)
+                vistos.add((a["text"], a["done"]))
+
+    return sorted(por_dia.values(), key=lambda x: x["date"], reverse=True)
 
 
 def summarize_person_memory(sessions: list) -> dict:

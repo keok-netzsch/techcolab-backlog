@@ -185,8 +185,10 @@ def test_daily_note_resolves_under_vault_base():
     from backlog.daily_log import _daily_note_path
     from config import VAULT_BASE, VAULT_ROOT
 
+    # Hierarquia ano/mes desde 2026-09-02. O que este teste protege continua
+    # sendo o mesmo: a nota mora sob VAULT_BASE, nunca sob VAULT_ROOT.
     resolved = _daily_note_path(date(2026, 9, 1))
-    assert resolved == Path(VAULT_BASE) / "Daily" / "2026-09-01.md"
+    assert resolved == Path(VAULT_BASE) / "Daily" / "2026" / "09" / "2026-09-01.md"
     # VAULT_ROOT is the app's working area, one level deeper — never the daily note's home.
     assert Path(VAULT_ROOT) not in resolved.parents
 
@@ -229,3 +231,57 @@ def test_leitura_nao_cria_pasta(tmp_path, monkeypatch):
 
     assert dl.read_log_lines(date(2026, 9, 2)) == []
     assert not (tmp_path / "Daily").exists()
+
+
+@pytest.mark.daily_path_real
+def test_leitor_aceita_os_dois_formatos(tmp_path, monkeypatch):
+    """Hierarquia ano/mes desde 2026-09-02, mas o formato plano nao pode sumir.
+
+    O `Daily/` nao e escrito so por este repo: o techcolab-vault-mcp e a skill
+    obsidian-second-brain gravam nele tambem, e skill reinstalada volta a gravar
+    plano sem avisar. Leitor que so entende a hierarquia perderia essa nota em
+    silencio — o mesmo defeito que custou uma semana de Meeting Prep vazio.
+    """
+    import backlog.daily_log as dl
+
+    monkeypatch.setattr(dl, "VAULT_BASE", tmp_path)
+    monkeypatch.setattr(dl, "VAULT_ROOT", tmp_path)
+
+    cabecalho = "---\ntype: daily\n---\n\n## 🗂️ Backlog\n"
+
+    hier = tmp_path / "Daily" / "2026" / "09" / "2026-09-02.md"
+    hier.parent.mkdir(parents=True)
+    hier.write_text(cabecalho + "- 09:00 `CRIADA` [idea-300] Na hierarquia\n",
+                    encoding="utf-8")
+
+    plana = tmp_path / "Daily" / "2026-09-03.md"
+    plana.write_text(cabecalho + "- 10:00 `CRIADA` [idea-301] No formato plano\n",
+                     encoding="utf-8")
+
+    assert dl.read_log_lines(date(2026, 9, 2)) == ["- 09:00 `CRIADA` [idea-300] Na hierarquia"]
+    assert dl.read_log_lines(date(2026, 9, 3)) == ["- 10:00 `CRIADA` [idea-301] No formato plano"]
+
+
+@pytest.mark.daily_path_real
+def test_nota_nova_nasce_na_hierarquia(tmp_path, monkeypatch):
+    import backlog.daily_log as dl
+
+    monkeypatch.setattr(dl, "VAULT_BASE", tmp_path)
+    alvo = dl.daily_note_path(date(2026, 9, 4), para_escrita=True)
+    assert alvo == tmp_path / "Daily" / "2026" / "09" / "2026-09-04.md"
+
+
+@pytest.mark.daily_path_real
+def test_nota_que_ja_existe_plana_nao_e_partida_em_duas(tmp_path, monkeypatch):
+    """Se o dia ja tem nota plana, escrever continua nela.
+
+    Senao o mesmo dia ficaria em dois arquivos — metade do registro em cada.
+    """
+    import backlog.daily_log as dl
+
+    monkeypatch.setattr(dl, "VAULT_BASE", tmp_path)
+    plana = tmp_path / "Daily" / "2026-09-05.md"
+    plana.parent.mkdir(parents=True)
+    plana.write_text("---\ntype: daily\n---\n", encoding="utf-8")
+
+    assert dl.daily_note_path(date(2026, 9, 5), para_escrita=True) == plana

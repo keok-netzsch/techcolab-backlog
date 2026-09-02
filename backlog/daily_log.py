@@ -30,6 +30,46 @@ _ACTION_LABEL = {
 BACKLOG_SECTION = "## 🗂️ Backlog"
 
 
+def _daily_dir() -> Path:
+    return Path(VAULT_BASE) / "Daily"
+
+
+def _nested_path(d: date) -> Path:
+    """Daily/2026/09/2026-09-02.md — o formato novo (2026-09-02).
+
+    Motivo: a pasta plana cresce ~250 arquivos por ano e o explorador do Obsidian
+    vira uma lista inutilizavel. Ano/mes e a hierarquia que o Kelvin pediu.
+    """
+    return _daily_dir() / f"{d.year:04d}" / f"{d.month:02d}" / f"{d.isoformat()}.md"
+
+
+def _flat_path(d: date) -> Path:
+    """Daily/2026-09-02.md — o formato antigo, e o que a skill obsidian ainda escreve."""
+    return _daily_dir() / f"{d.isoformat()}.md"
+
+
+def daily_note_path(d: date, para_escrita: bool = False) -> Path:
+    """Onde a nota do dia `d` esta, ou onde ela deve nascer.
+
+    Aceita os DOIS formatos de proposito. O `Daily/` nao e lido so por este repo:
+    o `techcolab-vault-mcp` e a skill `obsidian-second-brain` escrevem nele
+    tambem, e uma skill reinstalada volta a escrever plano sem avisar ninguem.
+    Um leitor que so entende a hierarquia perderia essa nota em silencio - que e
+    exatamente o defeito que este arquivo acabou de pagar caro (o leitor
+    procurando numa pasta que nao existia, por uma semana, sem erro).
+
+    Para ESCRITA, uma nota que ja existe no formato plano continua onde esta: o
+    dia nao pode ficar partido em dois arquivos so porque a hierarquia mudou.
+    """
+    nested = _nested_path(d)
+    if nested.exists():
+        return nested
+    flat = _flat_path(d)
+    if flat.exists():
+        return flat
+    return nested
+
+
 def _daily_note_path(today: date | None = None) -> Path:
     # VAULT_BASE, not VAULT_ROOT. In this repo's config.py VAULT_ROOT is the app's
     # working area (<vault>/App/Personal toolkit) and VAULT_BASE is the vault top.
@@ -42,7 +82,7 @@ def _daily_note_path(today: date | None = None) -> Path:
     # passaria a criar Daily/ num vault onde ela nao deveria existir. Quem escreve
     # cria a pasta explicitamente.
     d = today or date.today()
-    return Path(VAULT_BASE) / "Daily" / f"{d.isoformat()}.md"
+    return daily_note_path(d, para_escrita=True)
 
 
 def _legacy_log_path(d: date) -> Path:

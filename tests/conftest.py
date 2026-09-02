@@ -38,8 +38,18 @@ def _daily_note_isolada(tmp_path, monkeypatch, request):
         yield
         return
 
+    # Patch em `daily_note_path`, nao no wrapper `_daily_note_path`: e o
+    # chokepoint por onde escrita E leitura passam. Patchear so o wrapper deixava
+    # aberto quem chamasse a funcao de baixo direto.
+    from datetime import date as _date
+
     destino = tmp_path / "vault-de-teste" / "Daily"
-    monkeypatch.setattr(
-        daily_log, "_daily_note_path",
-        lambda today=None: destino / f"{(today or __import__('datetime').date.today()).isoformat()}.md")
+
+    def _isolado(d=None, para_escrita=False):
+        d = d or _date.today()
+        return destino / f"{d.year:04d}" / f"{d.month:02d}" / f"{d.isoformat()}.md"
+
+    monkeypatch.setattr(daily_log, "daily_note_path", _isolado)
+    monkeypatch.setattr(daily_log, "_daily_note_path",
+                        lambda today=None: _isolado(today, para_escrita=True))
     yield

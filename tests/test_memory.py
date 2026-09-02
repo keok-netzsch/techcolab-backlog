@@ -116,3 +116,50 @@ def test_cmd_memory_all_writes_per_person_and_cross(tmp_path, monkeypatch):
     # per-person digests written too
     assert (tmp_path / "Team" / "Ana-Leite" / "memory.md").exists()
     assert (tmp_path / "Team" / "Pedro-Klein" / "memory.md").exists()
+
+
+def test_duas_fatias_do_mesmo_dia_sao_uma_sessao():
+    """Roteamento por assunto gera `## {data} — {recorte}` varias vezes no mesmo dia.
+
+    Contando SECAO, uma call fatiada em tres virava "3 sessoes", e um topico
+    citado uma vez em cada fatia aparecia como recorrente — o limiar de
+    recorrencia e >= 2 sessoes e existe para pegar assunto que volta em dias
+    diferentes, nao dentro da mesma call.
+
+    Medido em 2026-09-02 na Weekly com a Ana: duas fatias, session_count=2 e
+    "Power BI" reportado como recorrente a partir de uma conversa so.
+    """
+    import process
+
+    txt = (
+        "## 2026-09-02 — governanca de export\n\n"
+        "**Topics:**\n- Power BI\n\n"
+        "**Action items:**\n- [ ] (Ana) revisar politica\n\n---\n\n"
+        "## 2026-09-02 — licenca e prioridades\n\n"
+        "**Topics:**\n- Power BI\n\n"
+        "**Action items:**\n- [ ] (Ana) finalizar ServiceNow\n"
+    )
+    sessoes = process.build_session_memory(txt)
+
+    assert len(sessoes) == 1
+    assert sessoes[0]["date"] == "2026-09-02"
+    assert sessoes[0]["topics"] == ["Power BI"]          # deduplicado no dia
+    assert len(sessoes[0]["actions"]) == 2               # as duas acoes sobrevivem
+
+    resumo = process.summarize_person_memory(sessoes)
+    assert resumo["session_count"] == 1
+
+
+def test_dias_diferentes_continuam_sendo_sessoes_diferentes():
+    """O conserto acima nao pode colapsar dias distintos."""
+    import process
+
+    txt = (
+        "## 2026-09-02 — fatia A\n\n**Topics:**\n- Power BI\n\n---\n\n"
+        "## 2026-08-28\n\n**Topics:**\n- Power BI\n"
+    )
+    sessoes = process.build_session_memory(txt)
+    assert [s["date"] for s in sessoes] == ["2026-09-02", "2026-08-28"]
+
+    recorrentes = process.summarize_person_memory(sessoes)["recurring_topics"]
+    assert recorrentes == [{"topic": "Power BI", "count": 2}]

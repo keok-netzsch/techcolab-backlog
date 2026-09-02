@@ -29,6 +29,13 @@ offline — no external API keys required.
 - **Backlog items:** `{VAULT_ROOT}/backlog items/idea-NNN.md`
 - **Agent reports:** `{VAULT_ROOT}/agent-reports/`
 - **Daily logs:** the vault's daily note — `{VAULT}/Daily/YYYY-MM-DD.md`, section `## 🗂️ Backlog`
+  - **Hierarquia ano/mes desde 2026-09-02:** `Daily/YYYY/MM/YYYY-MM-DD.md`, com
+    indice por ano e por mes (`_Daily-index.md`, `_2026-index.md`,
+    `_2026-09-index.md`). A pasta plana ganhava ~250 arquivos por ano. Organizar e
+    regerar indice: `python -m backlog.daily_index --aplicar` (simula sem a flag).
+    **Os leitores aceitam os dois formatos de proposito** — o `techcolab-vault-mcp`
+    e a skill `obsidian-second-brain` tambem escrevem em `Daily/`, e skill
+    reinstalada volta a gravar plano sem avisar.
   - **Moved 2026-08-26 (Toolkit 2.0, idea-067).** Was a separate diary at `{VAULT_ROOT}/Log/diario-YYYY-MM-DD.md`; that parallel record is retired and its 25 historical files live in `Log/archive/`. Read logs through `backlog.daily_log.read_log_lines(date)` — the single reader that covers both locations. Note `Daily/` is a **vault-root** folder, not under `App/Personal toolkit/`.
 - **Weekly brief:** `{VAULT_ROOT}/weekly-briefs/brief-YYYY-Wnn.md` — the decision loop (see below)
 - **Team (direct reports):** `{VAULT_ROOT}/Team/{Person}/` — `1on1.md`, `OKR.md`, `PDI.md`, `Overview.md`
