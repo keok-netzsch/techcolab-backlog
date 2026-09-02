@@ -124,6 +124,24 @@ half comes out as fluent Portuguese, and no text check can tell that apart from 
 real Portuguese transcript. If a recording holds two calls in two languages, treat
 the second one as a paraphrase until it is re-transcribed with its own language.
 
+## Filing is faster now, and a hand-corrected note is safe (since 2026-09-02)
+
+Structuring a 1:1, a stakeholder call or an agenda runs on the NETZSCH gateway
+instead of the local model. A batch that took hours now takes minutes, and the
+laptop stops swapping while it runs. Inbox notes still run locally.
+
+If you corrected a note by hand, reprocessing that call will not overwrite it. It
+stops and tells you which note is protected and why. To overwrite anyway:
+
+```powershell
+python process.py transcript --person Ana-Leite --transcript <ficheiro> --date 2026-08-27 --force
+```
+
+Use `--force` when you know the old note is worse than what the model will write.
+The default is the other way round because it already went wrong once: on
+2026-09-02 three notes were regenerated from cleaner transcripts and all three came
+out worse, because the model rewrote away corrections a human had made.
+
 ## When something looks wrong
 
 - **A call is missing:** check the Windows volume mixer first — a dead channel usually

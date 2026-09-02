@@ -74,3 +74,5 @@ scripts/vault-central-snapshot.csv
 # O script fica so neste disco; a tarefa agendada nao depende dele.
 scripts/validate-vault-setup.ps1
 call-recorder/logs-queue-*.log
+call-recorder/logs-*.log
+call-recorder/*.log

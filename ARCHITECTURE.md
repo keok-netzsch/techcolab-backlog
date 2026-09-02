@@ -86,7 +86,7 @@ Proposta não aprovada **nunca** é aplicada — nem por timeout, nem por lote, 
 Consolidação e publicação são código, não modelo. O LLM entra na captura e na proposta;
 nunca na linha que vira registro. É o que garante que toda linha publicada rastreia até uma
 fonte datada. Ver o docstring de `tma_consolidate.py`.
-Corolário: **dado de pessoa é Ollama local**. A única exceção autorizada é o English Coach
+Corolário (revisto 2026-09-02): **dado de pessoa vai ao gateway NETZSCH para `oneonone`, `manager` e `agenda`** — decisão do Kelvin, motivada por RAM. Continuam locais `note`, `capture` e `transcript`: o Inbox recebe conteúdo da transição não anunciada e o gateway é logado pelo empregador (ADR 2026-08-31, decisão 4). Antes disso a única exceção era o English Coach
 (gateway NETZSCH), e ela é forçada por `purpose` em `coach_llm.py` — não por env var.
 
 ### 5. Erro tem que parecer erro

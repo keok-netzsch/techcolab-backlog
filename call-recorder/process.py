@@ -205,6 +205,36 @@ def _ollama_generate(prompt: str, stream: bool = True, model: str = OLLAMA_MODEL
         return r.json()["response"]
 
 
+# ── Escolha de provedor por proposito (2026-09-02) ───────────────────────────
+# Ate hoje este arquivo chamava `_ollama_generate` direto, com OLLAMA_URL fixo la em
+# cima. O CLAUDE.md afirmava que "todo LLM passa pelo coach_llm.py" e isso nunca foi
+# verdade para o process.py — a allowlist governava o coach e mais nada, entao a carga
+# mais pesada da maquina (estruturar 1:1, stakeholder, agenda) nunca teve escolha de
+# provedor. Agora tem.
+#
+# A decisao de QUAL proposito pode sair da maquina vive em `coach_llm.REMOTE_ALLOWED`,
+# nao aqui. Este wrapper so pergunta. Quem quiser mudar politica mexe la, onde o
+# comentario explica o que cada exclusao protege.
+def _generate(prompt: str, purpose: str, stream: bool = True,
+              model: str = OLLAMA_MODEL, keep_alive: str = None) -> str:
+    """Roda o prompt no backend permitido para `purpose`.
+
+    O caminho local mantem o streaming (o operador ve o texto nascendo numa call de
+    20 min). O gateway responde de uma vez e e ordens de grandeza mais rapido, entao
+    nao ha o que streamar. `expect_json=False`: estes prompts devolvem blocos de
+    markdown, nao JSON — pedir JSON ao gateway faria ele recusar o formato.
+    """
+    try:
+        import coach_llm
+        if coach_llm.active_provider(purpose) == "gateway":
+            print(f"  [gateway] {purpose} -> {coach_llm.describe()}", flush=True)
+            return coach_llm.generate(prompt, purpose=purpose, expect_json=False,
+                                      max_tokens=8000, timeout=OLLAMA_TIMEOUT)
+    except ImportError:
+        pass          # sem coach_llm no path, segue local — nunca falha por isso
+    return _ollama_generate(prompt, stream=stream, model=model, keep_alive=keep_alive)
+
+
 # A 33-minute call is ~40k characters. Feeding it whole to a 7B model on CPU is
 # slow and blows the context; feeding only the head (the old `transcript[:8000]`)
 # silently dropped everything after the first few minutes. Map over windows, then
@@ -224,6 +254,10 @@ def _chunks(text: str, size: int = SUMMARY_CHUNK, overlap: int = SUMMARY_OVERLAP
     return out
 
 
+# Usado so pelo cmd_capture. `capture` fica FORA da allowlist de proposito pelo
+# mesmo motivo de `note`: e sessao avulsa, e o conteudo pode ser qualquer coisa,
+# inclusive pessoal. Se um dia isso for para o gateway, tem que ser decisao
+# escrita, nao um parametro default trocado aqui.
 def _summarize_chunked(transcript: str, instructions: str, lang_word: str,
                        label: str, stream: bool = True) -> str:
     """Structure a full transcript without truncating it.
@@ -616,6 +650,62 @@ def _strip_dated_1on1(oneonone_path: Path, date: str,
         oneonone_path.write_text(re.sub(r"\n{3,}", "\n\n", new), encoding="utf-8")
 
 
+# ── Trava de nota revisada (2026-09-02) ─────────────────────────────
+# Em 02/09 regerei as notas de 27/08 de Pedro-Klein, Pedro-Hennig e Ana-Leite a
+# partir de transcricao limpa, achando que texto de entrada melhor daria nota
+# melhor. Foi regressao nas tres e tive que restaurar de backup. As notas tinham
+# sido corrigidas a mao em 31/08, e o modelo, re-derivando do zero, nao sabe o que
+# ja foi julgado errado: no Pedro-Klein voltou "(Kelvin) Confirmar a licenca", o
+# item exato que a correcao existia para matar; no Pedro-Hennig apareceu
+# "(Kelvin) Coordenar a decisao do NBSB sobre a transicao do Sergera", com dois
+# nomes que nao existem.
+#
+# A licao nao e "limpar melhor". E que regenerar por cima de nota revisada e
+# destrutivo por natureza, e nada checava isso.
+#
+# Mecanismo: toda nota gerada leva "gerado-hash" no frontmatter, o sha1 do corpo no
+# momento da escrita. Antes de sobrescrever, o corpo atual e re-hasheado. Se bate,
+# ninguem tocou e reprocessar e seguro. Se nao bate, houve edicao humana. Nota
+# antiga sem "gerado-hash" conta como possivelmente editada - e o caso das tres de
+# 31/08, e o default seguro e recusar.
+GERADO_HASH = "gerado-hash"
+_FRONTMATTER_FIM = "---" + chr(10) + chr(10)
+
+
+def _body_hash(body: str) -> str:
+    import hashlib
+    return hashlib.sha1(body.strip().encode("utf-8")).hexdigest()[:16]
+
+
+def _nota_foi_editada(path: Path):
+    """(foi_editada, motivo). Arquivo que nao existe nao foi editado."""
+    if not path.exists():
+        return False, ""
+    texto = path.read_text(encoding="utf-8", errors="replace")
+    marca = re.search("(?m)^" + GERADO_HASH + r":\s*([0-9a-f]+)\s*$", texto)
+    if not marca:
+        return True, "nota anterior sem marca de geracao (pode ter sido revisada a mao)"
+    corpo = texto.split(_FRONTMATTER_FIM, 1)[-1]
+    if _body_hash(corpo) == marca.group(1):
+        return False, ""
+    return True, "o corpo mudou depois de gerado - alguem editou a nota"
+
+
+def guard_sobrescrita(path: Path, force: bool = False) -> bool:
+    """True = pode escrever. False = travado, e ja explicou o motivo."""
+    editada, motivo = _nota_foi_editada(path)
+    if not editada:
+        return True
+    if force:
+        print("  [FORCE] sobrescrevendo nota editada: " + path.name + " (" + motivo + ")")
+        return True
+    print("  [TRAVADO] " + path.name + ": " + motivo + ".")
+    print("            Nada foi escrito. Para sobrescrever assim mesmo, use --force.")
+    print("            Regenerar por cima de nota revisada apagou correcao humana em")
+    print("            2026-09-02. A trava existe por causa disso.")
+    return False
+
+
 def slugify(s: str) -> str:
     """Filename-safe slug for a recorte label. Shared with `route.py`, which names
     the transcript slice with the same slug — the note and the exact text behind it
@@ -794,7 +884,7 @@ Formato: lista markdown com tempo por item. Responda em portugues."""
 
     print(f"\n  [Ollama] Sugestao de pauta para {person_name}:\n")
     print("  " + "-" * 50)
-    _ollama_generate(prompt, stream=True)
+    _generate(prompt, purpose="agenda", stream=True)
     print("  " + "-" * 50)
 
 
@@ -1482,13 +1572,22 @@ _STRUCTURED_QUESTIONS = [
 
 def cmd_transcript(person_folder: str, transcript_file: str, date: str,
                    structured: bool = False, lang: str = "pt",
-                   recorte: str | None = None):
+                   recorte: str | None = None, force: bool = False):
     """Process a 1:1 transcript and save structured blocks to the vault.
 
     `recorte` is the subject label when this transcript is one slice of a routed
     call (`route.py --assunto`). It keeps two slices of the same day from
     overwriting each other — see `_strip_dated_1on1`.
     """
+    # Trava antes de qualquer trabalho: se a nota desta sessao ja foi revisada
+    # a mao, nem o LLM roda. Gastar 8 minutos de modelo para so entao descobrir
+    # que nao pode escrever seria queimar CPU a toa.
+    _stem = f"{date}_1on1_{person_folder}"
+    if recorte:
+        _stem += f".{slugify(recorte)}"
+    if not guard_sobrescrita(Path(VAULT) / "Team" / person_folder / "1on1" / f"{_stem}.md", force):
+        return
+
     person_name = PEOPLE.get(person_folder, person_folder.replace("-", " "))
     first_name  = person_name.split()[0]
     team_path   = Path(VAULT) / "Team" / person_folder
@@ -1592,7 +1691,7 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
 
     label = "reuniao estruturada" if structured else "transcricao"
     print(f"\n  [Ollama] Processando {label}...\n")
-    response = _ollama_generate(prompt, stream=True)
+    response = _generate(prompt, purpose="oneonone", stream=True)
 
     # idempotent: replace this recorte's section, never a sibling's
     _strip_dated_1on1(team_path / "1on1.md", date, recorte=recorte)
@@ -1614,21 +1713,34 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
         f"---\ndate: {date}\nperson: {person_name}\n"
         f"type: 1on1-session\nlang: {lang}\n"
         + (f"recorte: {recorte}\n" if recorte else "")
-        + "tags: [1on1, team]\n---\n\n"
+        + "tags: [1on1, team]\n"
     )
+    # A guarda roda ANTES de qualquer escrita: se a nota da sessao ja foi revisada
+    # a mao, nada e tocado - nem ela, nem o 1on1.md. Ver `guard_sobrescrita`.
+    header += f"{GERADO_HASH}: {_body_hash(response)}\n---\n\n"
     standalone_file.write_text(header + response, encoding="utf-8")
     print(f"  [OK] Nota standalone: {standalone_file.name}")
     print(f"\n  Concluido. {saved + 1} arquivo(s) atualizados.")
 
 
 def cmd_manager(manager_folder: str, transcript_file: str, date: str,
-                lang: str = "pt", recorte: str | None = None):
+                lang: str = "pt", recorte: str | None = None,
+                force: bool = False):
     """Process a manager/stakeholder call transcript and save to vault.
 
     `recorte` is the subject label when this is one slice of a routed call — see
     `cmd_transcript`. A Jour Fixe routed by subject lands here several times for
     the same stakeholder on the same day.
     """
+    # Trava antes de qualquer trabalho: se a nota desta sessao ja foi revisada
+    # a mao, nem o LLM roda. Gastar 8 minutos de modelo para so entao descobrir
+    # que nao pode escrever seria queimar CPU a toa.
+    _stem = f"{date}_1on1_{manager_folder}"
+    if recorte:
+        _stem += f".{slugify(recorte)}"
+    if not guard_sobrescrita(Path(VAULT) / "Stakeholders" / manager_folder / "1on1" / f"{_stem}.md", force):
+        return
+
     manager_name = MANAGERS.get(manager_folder, manager_folder.replace("-", " "))
     first_name   = manager_name.split()[0]
     stk_path     = Path(VAULT) / "Stakeholders" / manager_folder
@@ -1682,7 +1794,7 @@ Para cada categoria COM conteudo, gere um bloco usando EXATAMENTE este formato:
 Responda APENAS com os blocos gerados, sem texto adicional."""
 
     print("\n  [Ollama] Processando transcricao do gestor...\n")
-    response = _ollama_generate(prompt, stream=True)
+    response = _generate(prompt, purpose="manager", stream=True)
 
     # idempotent: replace this recorte's section, never a sibling's
     _strip_dated_1on1(stk_path / "1on1.md", date, recorte=recorte)
@@ -1702,8 +1814,11 @@ Responda APENAS com os blocos gerados, sem texto adicional."""
         f"---\ndate: {date}\nperson: {manager_name}\n"
         f"type: manager-call\nlang: {lang}\n"
         + (f"recorte: {recorte}\n" if recorte else "")
-        + "tags: [manager, stakeholder]\n---\n\n"
+        + "tags: [manager, stakeholder]\n"
     )
+    # A guarda roda ANTES de qualquer escrita: se a nota da sessao ja foi revisada
+    # a mao, nada e tocado - nem ela, nem o 1on1.md. Ver `guard_sobrescrita`.
+    header += f"{GERADO_HASH}: {_body_hash(response)}\n---\n\n"
     standalone_file.write_text(header + response, encoding="utf-8")
     print(f"  [OK] Nota standalone: {standalone_file.name}")
     print(f"\n  Concluido. {saved + 1} arquivo(s) atualizados.")
@@ -1733,7 +1848,10 @@ def cmd_note(transcript_path: str, date: str, lang: str = "pt", time_str: str = 
         f"=== TRANSCRICAO ===\n{transcript[:6000]}"
     )
     print("\n  [Ollama] Resumindo nota avulsa...\n")
-    summary = _ollama_generate(prompt, stream=True).strip()
+    # `note` fica FORA da allowlist de proposito: o Inbox e onde cai conteudo
+    # pessoal do Kelvin (a fatia do visto de 02/09, a conversa com o RH sobre a
+    # ida para a Alemanha). ADR 2026-08-31, decisao 4. Ver coach_llm.REMOTE_ALLOWED.
+    summary = _generate(prompt, purpose="note", stream=True).strip()
 
     inbox = Path(VAULT) / "Inbox"
     inbox.mkdir(parents=True, exist_ok=True)
@@ -2563,6 +2681,7 @@ def main():
     t.add_argument("--lang",       default="pt", choices=["pt", "en"],
                    help="Recording language — pt (default) or en")
 
+    t.add_argument("--force", action="store_true", help="sobrescreve nota ja revisada a mao; sem isso, nota editada por humano e protegida")
     m = sub.add_parser("manager", help="Process a manager/stakeholder call transcript")
     m.add_argument("--manager",    required=True, help="Manager folder, e.g. Alberto-Reuters")
     m.add_argument("--transcript", required=True, help="Path to transcript .txt")
@@ -2570,6 +2689,7 @@ def main():
     m.add_argument("--lang",       default="pt", choices=["pt", "en"],
                    help="Recording language — pt (default) or en")
 
+    m.add_argument("--force", action="store_true", help="sobrescreve nota ja revisada a mao; sem isso, nota editada por humano e protegida")
     n = sub.add_parser("note", help="Save a standalone (loose) note to Inbox for later triage")
     n.add_argument("--transcript", required=True, help="Path to transcript .txt")
     n.add_argument("--date",       required=True, help="YYYY-MM-DD")
@@ -2651,9 +2771,10 @@ def main():
         cmd_agenda(args.person)
     elif args.command == "transcript":
         cmd_transcript(args.person, args.transcript, args.date,
-                       structured=args.structured, lang=args.lang)
+                       structured=args.structured, lang=args.lang, force=args.force)
     elif args.command == "manager":
-        cmd_manager(args.manager, args.transcript, args.date, lang=args.lang)
+        cmd_manager(args.manager, args.transcript, args.date, lang=args.lang,
+                    force=args.force)
     elif args.command == "note":
         cmd_note(args.transcript, args.date, lang=args.lang, time_str=args.time)
     elif args.command == "capture":

@@ -365,6 +365,74 @@ routing and self-tests without revealing the key.
 - Ollama must be running for the local path: `ollama serve`
 - Local model: `qwen2.5-coder:latest`
 
+## Provedor por proposito: o process.py entrou no roteador (2026-09-02)
+
+Ate 02/09 este arquivo afirmava que "todo LLM passa pelo `coach_llm.py`". **Nao
+passava.** O `process.py` chamava `_ollama_generate` direto, com `OLLAMA_URL` fixo
+no topo, entao a allowlist governava o coach e mais nada. A carga mais pesada da
+maquina - estruturar 1:1, stakeholder e agenda - nunca teve escolha de provedor, e
+mexer em `REMOTE_ALLOWED` nao movia um grama de trabalho.
+
+Agora existe `process._generate(prompt, purpose, ...)`, que pergunta ao
+`coach_llm.active_provider` e cai no Ollama quando o proposito nao pode sair. O
+caminho local mantem streaming; o gateway responde de uma vez.
+
+### O que sai e o que fica (decisao do Kelvin, "A parcial")
+
+| Proposito | Onde | Por que |
+|---|---|---|
+| `coach`, `coach-probe` | gateway | fala do proprio Kelvin, decisao de 26/08 |
+| `oneonone` | gateway | 1:1 do time roteado |
+| `manager` | gateway | call de stakeholder |
+| `agenda` | gateway | preparo de agenda |
+| `note` | **local** | Inbox: e onde cai conteudo pessoal dele |
+| `capture` | **local** | sessao avulsa, conteudo imprevisivel |
+| `transcript` | **local** | resumo de contexto do coach, dispara por idioma |
+
+**Motivo pratico da mudanca:** o Ollama segurava 4,2 GB numa maquina de 16 GB que
+ficava com 300-500 MB livres, e rotear uma leva de gravacoes levava horas.
+
+**Motivo das duas exclusoes, que nao sao arbitrarias:**
+
+- `note` e `capture` sao o Inbox. Em 02/09 caiu ali a fatia da call com o Stefan
+  sobre visto, divorcio e pensao, e a conversa com o RH sobre a ida para a
+  Alemanha. O ADR `2026-08-31-sistema-de-estudo-mdm.md`, decisao 4: *"conteudo da
+  transicao nunca roda no gateway NETZSCH - a transicao nao e anunciada; o gateway
+  e logado pelo empregador"*. Mandar `note` para la revogaria isso de lado.
+- `transcript` ja e o proposito do `coach._context_summary`, que dispara por
+  IDIOMA e alcanca 1:1 do time. O 1:1 roteado usa **`oneonone`**, nome novo de
+  proposito - reaproveitar `transcript` teria aberto aquela fronteira sem ninguem
+  perceber. Travado em `tests/test_coach_context.py`.
+
+Travado tambem em `tests/test_provedor_por_proposito.py`, que quebra se alguem
+adicionar `note` ou `capture` a allowlist.
+
+## Nota revisada a mao nao e sobrescrita (2026-09-02)
+
+Em 02/09 regerei as notas de 27/08 de Pedro-Klein, Pedro-Hennig e Ana-Leite a
+partir de transcricao limpa, na premissa de que entrada melhor daria nota melhor.
+**Foi regressao nas tres** e tive que restaurar de backup. As notas ja tinham sido
+corrigidas a mao em 31/08, e o modelo re-derivando do zero nao sabe o que ja foi
+julgado errado:
+
+- Pedro-Klein: voltou `(Kelvin) Confirmar a licenca`, o item exato que a correcao
+  de 31/08 existia para matar ("nao era dele nem estava em aberto").
+- Pedro-Hennig: inventou `(Kelvin) Coordenar a decisao do NBSB sobre a transicao
+  do Sergera` - dois nomes que nao existem.
+- Ana-Leite: trocou dois itens concretos por vagos e gravou `[contexto relevante]`,
+  placeholder do proprio prompt, dentro da nota.
+
+Mecanismo: toda nota gerada leva `gerado-hash` no frontmatter, sha1 do corpo na
+hora da escrita. Antes de sobrescrever, o corpo atual e re-hasheado. Bate =
+ninguem tocou = pode reprocessar. Nao bate, ou nao ha marca (nota antiga) = recusa,
+e diz por que. `--force` passa por cima, em voz alta.
+
+A guarda roda **no inicio** de `cmd_transcript` e `cmd_manager`, antes de chamar o
+LLM: descobrir depois de 8 minutos de modelo que nao pode escrever seria so
+queimar CPU.
+
+Travado em `tests/test_nota_revisada.py`.
+
 ## Guard modules (added 2026-08-26)
 
 | File | Purpose |

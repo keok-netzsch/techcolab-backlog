@@ -27,10 +27,29 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
 # Only these purposes are ever allowed to reach a remote API. Kept as an explicit
 # allowlist so adding a caller is a deliberate act, not an accident.
-REMOTE_ALLOWED = {"coach", "coach-probe"}
+# Propositos que PODEM sair da maquina. Tudo que nao esta aqui e forcado para o
+# Ollama por `active_provider`, e `generate` levanta ProviderError se alguem tentar
+# contornar. Adicionar aqui e decisao, nunca conveniencia.
+#
+# 2026-09-02, decisao do Kelvin ("A parcial"): conteudo de time e de trabalho passa
+# a usar o gateway. Motivo pratico: o Ollama segurava 4,2 GB numa maquina de 16 GB
+# que ficava com 300-500 MB livres, e o roteamento de uma leva levava horas.
+#
+# O QUE NAO ENTROU, e por que: `note` e `capture` continuam locais. E por onde passa
+# o Inbox, e foi ali que caiu a fatia da call de 02/09 com o visto, o divorcio e a
+# pensao do Kelvin, mais a conversa com a Janaina sobre a ida para a Alemanha. O ADR
+# 2026-08-31-sistema-de-estudo-mdm.md, decisao 4, e explicito: "conteudo da transicao
+# nunca roda no gateway NETZSCH - a transicao nao e anunciada; o gateway e logado
+# pelo empregador". Mandar `note` para la revogaria isso de lado, sem ninguem decidir.
+#
+# `transcript` tambem fica de fora, e por outro motivo: e o purpose do resumo de
+# contexto do coach (`coach._context_summary`), que dispara por IDIOMA e alcanca 1:1
+# do time. Ver tests/test_coach_context.py. O 1:1 roteado usa `oneonone`.
+REMOTE_ALLOWED = {"coach", "coach-probe", "oneonone", "manager", "agenda"}
 
 GATEWAY_URL = os.environ.get(
     "NETZSCH_LLM_BASE_URL", "https://litellm.chatbot.netzsch.com/v1")
@@ -229,8 +248,17 @@ if __name__ == "__main__":
     print("roteamento por proposito")
     check("coach pode ir remoto quando ha chave",
           active_provider("coach") == ("gateway" if _api_key() else "ollama"))
-    check("1:1 NUNCA vai remoto", active_provider("transcript") == "ollama")
-    check("PDI/OKR NUNCA vai remoto", active_provider("manager") == "ollama")
+    # Mudou em 2026-09-02 (decisao "A parcial"): 1:1 e stakeholder passam a poder ir
+    # ao gateway. O que estes checks travam agora e o que NAO pode ir.
+    check("1:1 roteado pode ir remoto quando ha chave",
+          active_provider("oneonone") == ("gateway" if _api_key() else "ollama"))
+    check("stakeholder pode ir remoto quando ha chave",
+          active_provider("manager") == ("gateway" if _api_key() else "ollama"))
+    check("nota avulsa (Inbox) NUNCA vai remoto",
+          active_provider("note") == "ollama")
+    check("capture NUNCA vai remoto", active_provider("capture") == "ollama")
+    check("resumo de contexto do coach NUNCA vai remoto",
+          active_provider("transcript") == "ollama")
 
     os.environ["COACH_LLM"] = "ollama"
     check("COACH_LLM=ollama força local", active_provider("coach") == "ollama")
@@ -239,14 +267,19 @@ if __name__ == "__main__":
     print("seguranca")
     check("describe() nao vaza a chave",
           not (_api_key() or "") or _api_key() not in describe())
-    try:
-        generate("x", purpose="transcript")
-        remote_blocked = True          # went to ollama, which is the point
-    except ProviderError:
-        remote_blocked = True
-    except Exception:
-        remote_blocked = True          # network/ollama down is not what we test
-    check("proposito nao permitido nunca usa API", remote_blocked)
+    # Este check nao gera texto de proposito. A versao anterior chamava generate()
+    # de verdade e, com o Ollama frio, ficava minutos carregando 4,2 GB so para
+    # provar uma regra de roteamento. Pior: numa maquina sem RAM ele nunca voltava.
+    # O que interessa e que generate() recuse mesmo se alguem forcar o provedor.
+    import unittest.mock as _mock
+    with _mock.patch.object(sys.modules[__name__], "active_provider",
+                            lambda _p: "gateway"):
+        try:
+            generate("x", purpose="note")
+            remote_blocked = False
+        except ProviderError:
+            remote_blocked = True
+    check("proposito nao permitido nunca usa API mesmo se forcado", remote_blocked)
 
     print(f"\nconfig atual: {describe()}")
     print("TODOS OS TESTES PASSARAM" if ok else "FALHAS ACIMA")

@@ -71,6 +71,31 @@ queue. `--listar` shows what is currently marked.
 of research, not a gap in the decision: the answer was already in `CLAUDE.md`. Corrected
 2026-08-30.)
 
+## Where transcript content is processed — changed 2026-09-02
+
+Until 2026-09-02 every processing step except the English Coach ran on the local
+model. Kelvin changed that: team 1:1s, stakeholder calls and agenda preparation now
+go to the NETZSCH LiteLLM gateway. The trigger was operational, not editorial — the
+local model held 4.2 GB on a 16 GB laptop that was running with 300-500 MB free, and
+one batch of recordings took hours to file.
+
+Two categories did **not** move, and the reason belongs on the record.
+
+The gateway is inside NETZSCH's contract, and it is **logged by the employer**. That
+is a different property from "does not reach a third party", and it is the property
+that matters for one specific case: Kelvin's move to Germany has not been announced.
+An ADR of 2026-08-31 already settled it — content about the transition never runs on
+the gateway. The Inbox is where that content lands, so `note` and `capture` stay
+local. On 2026-09-02 alone the Inbox received the slice of a call covering his visa,
+his divorce and alimony, plus an HR conversation about the move.
+
+The coach's context summary also stays local. It is triggered by language, not by
+call type, so it reaches team 1:1s that happen to be in English.
+
+What this means for anyone reading a note: a note written from a 1:1 or a
+stakeholder call was processed by a model the employer can audit. A note in the
+Inbox was not. Neither was recorded differently, and neither changed what is kept.
+
 ## Retention — DECIDED 2026-08-31
 
 Kelvin confirmed the current numbers as policy (ledger `P-005`, his words: *"por mim

@@ -46,3 +46,23 @@ The vault path comes from `TECHCOLAB_VAULT`, with no fallback: `config.py` raise
 import when it is unset. Avoid hardcoding
 personal absolute paths (`C:\Users\<you>\OneDrive\...`) in committed files — some docs
 still contain them (cleanup tracked separately); prefer the env var / placeholders.
+
+## LLM routing — changed 2026-09-02
+
+Team 1:1s, stakeholder calls and agenda preparation are processed on the NETZSCH
+LiteLLM gateway (`litellm.chatbot.netzsch.com`), decided by Kelvin on 2026-09-02.
+This supersedes, for those three purposes, the rule that people data never leaves
+the machine.
+
+Still local, and not by omission:
+
+- `note` and `capture` — the Inbox, where content about Kelvin's unannounced move
+  to Germany lands. The gateway is logged by the employer; ADR
+  `2026-08-31-sistema-de-estudo-mdm.md`, decision 4.
+- `transcript` — the coach's context summary, which fires by language and so
+  reaches team 1:1s held in English.
+
+The allowlist is `REMOTE_ALLOWED` in `call-recorder/coach_llm.py`. A purpose outside
+it cannot reach the gateway even if the environment says otherwise, and
+`generate()` raises rather than falling through. Enforced by
+`tests/test_provedor_por_proposito.py`.

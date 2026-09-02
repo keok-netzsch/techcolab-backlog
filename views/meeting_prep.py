@@ -575,16 +575,27 @@ def render() -> None:
                 return full_html, h_px
 
             _call_bg = "#1A1D2E" if dark_mode else "#F9FAFB"
-            for _c in sorted(_calls, key=lambda x: x["date"], reverse=True):
-                _ck = f"wb_call_{_c['member']}_{_c['date'].isoformat()}"
+            # A chave era `membro_data`, que era unica enquanto uma call dava uma nota.
+            # Desde o roteamento por assunto (2026-08-28) uma call vira N notas, e em
+            # 02/09 a Weekly Sync com o Stefan produziu 3 fatias no mesmo dia: a tela
+            # quebrou com StreamlitDuplicateElementKey. O nome do arquivo ja carrega o
+            # slug do recorte, entao ele e o discriminador que faltava.
+            for _c in sorted(_calls, key=lambda x: (x["date"], x["path"].name),
+                             reverse=True):
+                _cid = f"{_c['member']}_{_c['date'].isoformat()}_{_c['path'].stem}"
+                _ck = f"wb_call_{_cid}"
                 if _ck not in st.session_state:
                     st.session_state[_ck] = False
                 _tcol, _hcol = st.columns([0.5, 11], vertical_alignment="center")
                 if _tcol.button("▲" if st.session_state[_ck] else "▼",
-                                key=f"wb_ct_{_c['member']}_{_c['date'].isoformat()}"):
+                                key=f"wb_ct_{_cid}"):
                     st.session_state[_ck] = not st.session_state[_ck]
                     st.rerun()
-                _hcol.markdown(f"📞 **{_c['member']}** — {_c['date'].strftime('%d/%m/%Y')}")
+                # O recorte no cabecalho: com 3 fatias do mesmo dia, "Stefan - 02/09"
+                # tres vezes nao diz qual e qual.
+                _rec = _c["path"].stem.split(".", 1)[1].replace("-", " ") if "." in _c["path"].stem else ""
+                _hcol.markdown(f"📞 **{_c['member']}** — {_c['date'].strftime('%d/%m/%Y')}"
+                               + (f" · _{_rec}_" if _rec else ""))
                 if st.session_state[_ck]:
                     _raw  = _c["path"].read_text(encoding="utf-8", errors="replace")
                     _fhtml, _fh = _call_to_html(_raw[:4000], _call_bg, dark_mode)
