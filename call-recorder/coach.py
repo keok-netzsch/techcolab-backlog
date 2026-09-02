@@ -350,12 +350,14 @@ def _evaluate(transcript: str, topic: str, topic_type: str = "") -> dict:
         )
 
     # ── Context-specific guidance ─────────────────────────────────────────────
-    # FIXME(2026-09-02): type_guidance and `rubric` below are built and never
-    # injected into the prompt - only `context_block` reaches the f-string further
-    # down. So the topic guidance and the scoring rules never get to the model.
-    # Wiring them in changes how the coach grades, so it is a call for the owner,
-    # not something to silently fix while cleaning lint. Flagged 2026-09-02.
-    type_guidance = TOPIC_TYPE_GUIDANCE.get(topic_type, "")  # noqa: F841
+    # Both this and `rubric` below were built and never injected into the prompt
+    # until 2026-09-02: only `context_block` reached the f-string. The scoring
+    # rules therefore never got to the model, which graded on the CRITICAL RULES
+    # alone. Wired in below.
+    type_guidance = TOPIC_TYPE_GUIDANCE.get(topic_type, "")
+    type_block = (
+        f"RECORDING TYPE ({topic_type}): {type_guidance}\n" if type_guidance else ""
+    )
 
     context_block = (
         f"RECORDING CONTEXT:\n"
@@ -368,7 +370,7 @@ def _evaluate(transcript: str, topic: str, topic_type: str = "") -> dict:
     )
 
     # ── Per-dimension rubric (compact — keep prompt size manageable for CPU LLMs) ─
-    rubric = (  # noqa: F841
+    rubric = (
         "SCORING RULES (apply strictly before grading):\n"
         "Grammar: evaluate patterns only — isolated slips and sentence fragments in reactive speech are NOT errors.\n"
         "Vocabulary: domain/technical terms (APIs, KPIs, data pipelines) signal expertise, NOT limited range. "
@@ -418,6 +420,9 @@ CRITICAL RULES
    treat basic grammar as LOW signal. Weight vocabulary, collocation, register and
    discourse structure instead.
 
+{rubric}
+
+{type_block}
 {session_header}
 
 {context_block}
