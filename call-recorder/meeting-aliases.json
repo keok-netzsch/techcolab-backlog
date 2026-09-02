@@ -1,4 +1,8 @@
 {
   "_comment": "Titulo de reuniao recorrente -> destino. A chave e casada por SUBSTRING, sem acento e sem maiuscula, contra o titulo da janela do Teams. Consultado ANTES do casamento por nome, para que apelido e sigla ganhem de heuristica. Edite a vontade.",
-  "jour fixe ko <> ar": { "kind": "manager", "target": "Alberto-Reuters" }
+  "_2026-09-02": "As duas 'Weekly - Kelvin & X' caiam em note/Inbox porque o titulo nao tem sobrenome e o casamento por nome nao acha. Sao 1:1 e tem que ir para Team/. Nao ha ambiguidade: o vault tem uma Ana (Ana-Leite) e um Daniel (Daniel-Lima), em Team e em Stakeholders. Se um dia entrar outro Ana/Daniel, estas duas chaves precisam do sobrenome no titulo da serie, nao de palpite aqui.",
+  "jour fixe ko <> ar": { "kind": "manager", "target": "Alberto-Reuters" },
+  "weekly - kelvin & daniel": { "kind": "person", "target": "Daniel-Lima" },
+  "weekly - kelvin & ana": { "kind": "person", "target": "Ana-Leite" },
+  "weekly sync kelvin <-> stefan": { "kind": "manager", "target": "Stefan-Lautenschlager" }
 }

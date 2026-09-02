@@ -1,0 +1,26 @@
+{
+  "_comment": "Glossario de nome proprio, aplicado ao texto da transcricao ANTES de o modelo escrever a nota. O Whisper destroi nome: num arquivo de 33 min (2026-09-02_08-03) foram 30 casos. Nome errado na entrada vira nome errado na nota, e nota e o que sobra.",
+  "_regras": "Chave = o que o Whisper produz, valor = o certo. Casamento por palavra inteira, sem acento e sem maiuscula. Chave de UMA palavra so entra se for inequivoca no contexto do Kelvin - 'Pedro' NAO entra, porque existem Pedro-Hennig e Pedro-Klein e o glossario nao tem como saber qual. Preferir chave multi-palavra.",
+  "_origem": "Correcoes dadas pelo Kelvin em 2026-09-02 durante a triagem.",
+  "_nao_encodadas": "Duas correcoes dele ficaram de fora, de proposito. 'Jan' -> 'Yang' (a mesma do Perform project): chave de uma palavra que colide com o mes em texto em ingles. E o 'Pedro' de 'Pedro doesn't speak Spanish' na call de 02/09: ele nao reconheceu o nome, e como ha dois Pedro no vault o glossario nao tem como decidir - fica como esta ate ele dizer quem era.",
+
+  "natch": "NETZSCH",
+  "netch": "NETZSCH",
+  "kuritiba": "Curitiba",
+  "pomerod": "Pomerode",
+  "ale garvalho": "Alan Carvalho",
+  "alain carvalho": "Alan Carvalho",
+  "allan carvalho": "Alan Carvalho",
+  "petra lutik": "Petra Lutke",
+  "shana": "Janaina Hardt",
+  "jana": "Janaina Hardt",
+  "singe": "Simge Mustafa",
+  "mbs": "NBS",
+  "tecolab": "Techco.lab",
+  "teco lab": "Techco.lab",
+  "tech lab": "Techco.lab",
+  "teclep": "Techco.lab",
+  "heidkutter": "Jens Heidkuter",
+  "heidmetter": "Jens Heidkuter",
+  "red cutter": "Jens Heidkuter"
+}

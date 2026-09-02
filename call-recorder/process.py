@@ -523,16 +523,81 @@ def _parse_and_save(response: str, base_path: Path,
             print(f"  [IGNORADO] {block_type}: modelo devolveu o gabarito do "
                   f"prompt, sem conteudo")
             continue
+        # Irmao da checagem de eco acima: la o modelo devolveu o gabarito do
+        # prompt, aqui ele disse "nao ha atualizacao". Nos dois casos ele acertou
+        # que nao havia o que registrar, e nos dois o erro seria virar arquivo.
+        # Em 2026-09-02 foram 3 de 24 propostas numa leva so, cada uma gerando
+        # pendencia no ledger para escrever uma linha inutil no PDI da pessoa.
+        # Fica AQUI, e nao no _stage_for_review, porque este e o ponto que ja
+        # decide se um bloco conta - e porque o gate nao e o unico consumidor.
+        if _bloco_vazio(content):
+            print(f"  [vazio] {block_type}: modelo nao achou atualizacao - "
+                  f"nada gravado")
+            continue
+
         if block_type in GATED_BLOCKS:
-            _stage_for_review(base_path, block_type, section_map[block_type],
-                              content.strip(), date=date, recorte=recorte)
-            saved += 1
+            # None = bloco vazio, que nao vira proposta. Contar como salvo faria o
+            # "Concluido. N arquivo(s)" mentir e, pior, esconderia do _fallback_1on1
+            # o caso em que NADA foi extraido.
+            if _stage_for_review(base_path, block_type, section_map[block_type],
+                                 content.strip(), date=date, recorte=recorte):
+                saved += 1
             continue
         fpath = str(base_path / section_map[block_type])
         save_block(fpath, content.strip(), mode=section_mode.get(block_type, "append"))
         print(f"  [OK] Atualizado: {section_map[block_type]}")
         saved += 1
     return saved
+
+
+# Frases com que o modelo declara que nao ha o que registrar. Comparadas sobre o
+# texto normalizado (sem acento, minusculo), porque a redacao varia entre rodadas.
+_SEM_ATUALIZACAO = (
+    "nao ha atualizacao",
+    "sem atualizacao",
+    "nao houve atualizacao",
+    "nada a registrar",
+    "no update",
+    "nenhuma atualizacao",
+)
+
+
+def _bloco_vazio(content: str) -> bool:
+    corpo = []
+    achou = False
+    for ln in (content or "").splitlines():
+        if ln.lstrip().startswith("## "):
+            achou = True
+            continue
+        if achou:
+            corpo.append(ln)
+    texto = " ".join(corpo).strip() if achou else (content or "").strip()
+    if not texto:
+        return True
+    # So duas coisas contam como vazio: nada, ou o modelo dizendo em palavras que
+    # nao ha o que registrar. NAO existe piso de tamanho — a primeira versao usava
+    # 25 caracteres e reprovou um bloco 1on1 legitimo cujo corpo era
+    # "**Topics:** - Projeto ENH". Bloco curto e bloco curto, nao bloco vazio.
+    reduzido = _fold(texto)
+    return len(texto) < 120 and any(f in reduzido for f in _SEM_ATUALIZACAO)
+
+
+def _provedor_do_bloco() -> str:
+    """Quem escreveu, para o cabecalho da proposta.
+
+    Dizia sempre "modelo local". Desde 2026-09-02 o 1:1 e o stakeholder vao ao
+    gateway, entao o rotulo passou a mentir na direcao pior: quem revisa lia
+    "modelo local" e calibrava a confianca para baixo justamente no material mais
+    confiavel.
+    """
+    try:
+        import coach_llm
+        if coach_llm.active_provider("oneonone") == "gateway":
+            import os
+            return "gateway " + os.environ.get("COACH_MODEL", coach_llm.DEFAULT_REMOTE_MODEL)
+    except Exception:
+        pass
+    return "modelo local " + OLLAMA_MODEL
 
 
 def _stage_for_review(base_path: Path, block_type: str, target_file: str,
@@ -554,8 +619,8 @@ def _stage_for_review(base_path: Path, block_type: str, target_file: str,
     out = review_dir / f"{stem}-{block_type}.md"
     out.write_text(
         f"---\nstatus: draft\nblock: {block_type}\ntarget: {target_file}\n"
-        f"date: {day}\nsource: process.py (modelo local)\n---\n\n"
-        f"> Proposta escrita por um modelo local a partir de uma transcricao. "
+        f"date: {day}\nsource: process.py ({_provedor_do_bloco()})\n---\n\n"
+        f"> Proposta escrita por {_provedor_do_bloco()} a partir de uma transcricao. "
         f"**Nao e fato ate o Kelvin aprovar.** Ele NAO aprova aqui: a proposta e "
         f"apresentada a ele NO CHAT pelo ledger de pendencias, e aplicada com "
         f"`process.py review --approve <id>`. Editar este arquivo a mao e caminho "
@@ -599,7 +664,7 @@ def _register_pending(person: str, block_type: str, day: str,
     args = [sys.executable, str(repo / "agent" / "pending.py"), "add",
             "--tipo", "decisao", "--prioridade", "alta",
             "--texto", f"Revisar {block_type} proposto para {person} ({day}){escopo} — "
-                       f"escrito por modelo local, aguarda aprovacao",
+                       f"escrito por {_provedor_do_bloco()}, aguarda aprovacao",
             "--origem", f"call-recorder/process.py review --approve {person}/{stem}-{block_type}"]
     if draft_path:
         args += ["--ref", str(draft_path)]
@@ -648,6 +713,66 @@ def _strip_dated_1on1(oneonone_path: Path, date: str,
     new = pattern.sub("", text)
     if new != text:
         oneonone_path.write_text(re.sub(r"\n{3,}", "\n\n", new), encoding="utf-8")
+
+
+# ── Glossario de nome proprio (2026-09-02) ──────────────────────────
+# O Whisper destroi nome proprio: 30 casos num unico arquivo de 33 minutos
+# (2026-09-02_08-03). Shana era Janaina, Natch era NETZSCH, Ale Garvalho era Alan
+# Carvalho. Nome errado na entrada vira nome errado na nota, e a nota e o que
+# sobra depois que o audio e podado aos 7 dias.
+#
+# Aplicado ao TEXTO DA TRANSCRICAO, antes do prompt: assim o modelo ja ve o nome
+# certo e acerta tanto o topico quanto o dono do action item. Corrigir a nota
+# depois nao teria o mesmo efeito - o modelo ja teria raciocinado sobre o nome
+# errado.
+#
+# O arquivo original em transcripts/ NAO e alterado. Ele e evidencia do que o
+# Whisper produziu, e reescrever evidencia para caber na conclusao e o oposto do
+# que este repo faz.
+ALIASES_NOMES = Path(__file__).parent / "name-aliases.json"
+_GLOSSARIO_CACHE = None
+
+
+def _glossario() -> dict:
+    global _GLOSSARIO_CACHE
+    if _GLOSSARIO_CACHE is None:
+        try:
+            bruto = json.loads(ALIASES_NOMES.read_text(encoding="utf-8"))
+        except Exception:
+            bruto = {}
+        _GLOSSARIO_CACHE = {k.lower(): v for k, v in bruto.items()
+                            if not k.startswith("_")}
+    return _GLOSSARIO_CACHE
+
+
+def aplicar_glossario(texto: str):
+    """(texto_corrigido, [(errado, certo, quantas_vezes)]).
+
+    Casamento por PALAVRA INTEIRA e sem diferenciar maiuscula. Chave de uma
+    palavra so entra no arquivo quando e inequivoca - 'Pedro' nao entra, porque
+    ha dois Pedro no vault e o glossario nao tem como escolher.
+    """
+    g = _glossario()
+    if not g or not texto:
+        return texto, []
+    trocas = []
+    for errado in sorted(g, key=len, reverse=True):
+        certo = g[errado]
+        padrao = re.compile(r"\b" + re.escape(errado) + r"\b", re.IGNORECASE)
+        texto, n = padrao.subn(certo, texto)
+        if n:
+            trocas.append((errado, certo, n))
+    return texto, trocas
+
+
+def _ler_transcricao(caminho: str) -> str:
+    """read_file + glossario. Todo comando que estrutura nota passa por aqui."""
+    texto = read_file(caminho)
+    texto, trocas = aplicar_glossario(texto)
+    if trocas:
+        resumo = ", ".join(f"{e}->{c} ({n}x)" for e, c, n in trocas)
+        print(f"  [glossario] {len(trocas)} nome(s) corrigido(s): {resumo}")
+    return texto
 
 
 # ── Trava de nota revisada (2026-09-02) ─────────────────────────────
@@ -941,7 +1066,7 @@ def cmd_diarize(transcript_file: str, people: str = None, output: str = None) ->
     """CLI: label speakers in a transcript file. Writes `<name>.diarized.txt` next
     to the input (or --output) and returns the path. Standalone on purpose — it is
     a second LLM pass (~minutes on CPU), so it is not forced into every 1:1 flow."""
-    transcript = read_file(transcript_file)
+    transcript = _ler_transcricao(transcript_file)
     if not transcript.strip():
         print(f"[ERROR] Transcricao vazia ou nao encontrada: {transcript_file}")
         sys.exit(1)
@@ -1595,7 +1720,7 @@ def cmd_transcript(person_folder: str, transcript_file: str, date: str,
     overview   = read_file(str(team_path / "Overview.md"),  max_chars=1500)
     okr        = read_file(str(team_path / "OKR.md"),       max_chars=1000)
     pdi        = read_file(str(team_path / "PDI.md"),       max_chars=1000)
-    transcript = read_file(transcript_file)
+    transcript = _ler_transcricao(transcript_file)
 
     if not transcript.strip():
         print(f"[ERROR] Transcricao vazia ou nao encontrada: {transcript_file}")
@@ -1690,7 +1815,7 @@ Para cada categoria COM conteudo, gere um bloco usando EXATAMENTE este formato:
 Responda APENAS com os blocos gerados, sem texto adicional."""
 
     label = "reuniao estruturada" if structured else "transcricao"
-    print(f"\n  [Ollama] Processando {label}...\n")
+    print(f"\n  Processando {label}...\n")
     response = _generate(prompt, purpose="oneonone", stream=True)
 
     # idempotent: replace this recorte's section, never a sibling's
@@ -1746,7 +1871,7 @@ def cmd_manager(manager_folder: str, transcript_file: str, date: str,
     stk_path     = Path(VAULT) / "Stakeholders" / manager_folder
 
     overview   = read_file(str(stk_path / "Overview.md"), max_chars=1500)
-    transcript = read_file(transcript_file)
+    transcript = _ler_transcricao(transcript_file)
 
     if not transcript.strip():
         print(f"[ERROR] Transcricao vazia ou nao encontrada: {transcript_file}")
@@ -1793,7 +1918,7 @@ Para cada categoria COM conteudo, gere um bloco usando EXATAMENTE este formato:
 
 Responda APENAS com os blocos gerados, sem texto adicional."""
 
-    print("\n  [Ollama] Processando transcricao do gestor...\n")
+    print("\n  Processando transcricao do gestor...\n")
     response = _generate(prompt, purpose="manager", stream=True)
 
     # idempotent: replace this recorte's section, never a sibling's
@@ -1831,7 +1956,7 @@ def cmd_note(transcript_path: str, date: str, lang: str = "pt", time_str: str = 
     a team member or stakeholder, so it is captured + summarized and parked in the
     vault Inbox to be classified later (turn into a backlog idea, attach to a
     person, or discard)."""
-    transcript = read_file(transcript_path)
+    transcript = _ler_transcricao(transcript_path)
     if not transcript.strip():
         print("[ERROR] Transcript vazio.")
         sys.exit(1)
@@ -1882,7 +2007,7 @@ def cmd_capture(mode: str, transcript_path: str, date: str,
         print(f"[ERROR] Modo de captura desconhecido: {mode}")
         sys.exit(1)
 
-    transcript = read_file(transcript_path)
+    transcript = _ler_transcricao(transcript_path)
     if not transcript.strip():
         print("[ERROR] Transcript vazio.")
         sys.exit(1)
@@ -2681,6 +2806,7 @@ def main():
     t.add_argument("--lang",       default="pt", choices=["pt", "en"],
                    help="Recording language — pt (default) or en")
 
+    t.add_argument("--recorte", default=None, help="rotulo do recorte, quando a nota e uma fatia de uma call roteada; entra no nome do arquivo e no cabecalho")
     t.add_argument("--force", action="store_true", help="sobrescreve nota ja revisada a mao; sem isso, nota editada por humano e protegida")
     m = sub.add_parser("manager", help="Process a manager/stakeholder call transcript")
     m.add_argument("--manager",    required=True, help="Manager folder, e.g. Alberto-Reuters")
@@ -2689,6 +2815,7 @@ def main():
     m.add_argument("--lang",       default="pt", choices=["pt", "en"],
                    help="Recording language — pt (default) or en")
 
+    m.add_argument("--recorte", default=None, help="rotulo do recorte, quando a nota e uma fatia de uma call roteada; entra no nome do arquivo e no cabecalho")
     m.add_argument("--force", action="store_true", help="sobrescreve nota ja revisada a mao; sem isso, nota editada por humano e protegida")
     n = sub.add_parser("note", help="Save a standalone (loose) note to Inbox for later triage")
     n.add_argument("--transcript", required=True, help="Path to transcript .txt")
@@ -2771,10 +2898,11 @@ def main():
         cmd_agenda(args.person)
     elif args.command == "transcript":
         cmd_transcript(args.person, args.transcript, args.date,
-                       structured=args.structured, lang=args.lang, force=args.force)
+                       structured=args.structured, lang=args.lang,
+                       recorte=args.recorte, force=args.force)
     elif args.command == "manager":
         cmd_manager(args.manager, args.transcript, args.date, lang=args.lang,
-                    force=args.force)
+                    recorte=args.recorte, force=args.force)
     elif args.command == "note":
         cmd_note(args.transcript, args.date, lang=args.lang, time_str=args.time)
     elif args.command == "capture":

@@ -305,18 +305,22 @@ must stay in `brand.css` (always loaded, both light and dark) — do not remove 
 ## What NOT to do
 
 - **NEVER commit vault data into this PUBLIC repo** — no `Team/`, `Stakeholders/`, `PDI.md`, `OKR.md`, `Overview.md`, `Performance/`, `1on1/`, `backlog items/`, `agent-reports/`, or any HR/compensation content. The vault is a separate local-only repo (OneDrive); this repo only runs *against* it via `TECHCOLAB_VAULT`. See `SECURITY.md`. A `.githooks/pre-commit` guard enforces this (`git config core.hooksPath .githooks`).
-- **Ollama is the default, and the only option for anything touching people data.**
-  `process.py` (1:1s, `manager`, `note`, `capture`, agendas, team reports) handles HR
-  content and must stay local — see `SECURITY.md`. The one exception, approved by Kelvin
-  on 2026-08-26, is the **English Coach**: it evaluates Kelvin's own speech in project
-  calls, and a 7B local model was demonstrably not good enough for it (see
-  `Areas/English-Learning/COACH-REWORK-PLAN.md`). Route every LLM call through
-  `call-recorder/coach_llm.py`, which allows remote **only** for the `coach` /
-  `coach-probe` purposes and forces Ollama for everything else.
-  "Remote" is the **NETZSCH LiteLLM gateway** (`litellm.chatbot.netzsch.com`,
-  key in `NETZSCH_LLM_API_KEY`) — there is no personal Anthropic account, and the
-  gateway keeps traffic inside the company boundary as the 13/08 assessment required.
-  Never hardcode a key — read it from the environment; this repo is PUBLIC.
+- **O provedor e escolhido por PROPOSITO, em `call-recorder/coach_llm.py`.** A regra
+  "Ollama e a unica opcao para dado de pessoa" valeu ate 2026-09-02 e foi **revista pelo
+  Kelvin** naquele dia (decisao "A parcial"), porque o Ollama segurava 4,2 GB numa maquina
+  de 16 GB que ficava com 300-500 MB livres.
+  - **Vao ao gateway NETZSCH:** `coach`, `coach-probe`, `oneonone` (1:1 do time roteado),
+    `manager` (stakeholder), `agenda`.
+  - **Ficam locais, e nao por descuido:** `note` e `capture` — o Inbox e onde cai conteudo
+    pessoal dele, e o ADR `2026-08-31-sistema-de-estudo-mdm.md` (decisao 4) diz que
+    conteudo da transicao nunca roda no gateway, *porque o gateway e logado pelo
+    empregador*. E `transcript`, que e o resumo de contexto do coach e dispara por idioma,
+    alcancando 1:1 do time.
+  - Ate 02/09 o `process.py` chamava o Ollama direto e **nunca passou pela allowlist** —
+    o que este arquivo afirmava era falso. Agora passa por `process._generate(prompt,
+    purpose)`. Travado em `tests/test_provedor_por_proposito.py`.
+  - O gateway e `litellm.chatbot.netzsch.com`, chave em `NETZSCH_LLM_API_KEY`. Nunca
+    hardcodar a chave — este repo e PUBLICO.
 - Do not hardcode the vault path — always read from `TECHCOLAB_VAULT` env var or `config.py`
 - Do not use `%USERPROFILE%\Desktop` for shortcuts — use `GetFolderPath("Desktop")`
 - Do not commit `__pycache__/`, `.venv/`, or `.pyc` files — they are in `.gitignore`

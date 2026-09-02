@@ -216,6 +216,61 @@ def non_latin_lines(rows: list) -> list:
     return fora
 
 
+# ── Contaminacao de canal (2026-09-02) ────────────────────────────
+# A captura 2.0 promete atribuicao exata porque o falante vem do canal: ch0 e o
+# microfone do Kelvin, ch1 o loopback. Isso so vale se cada canal tiver uma voz.
+# Com caixa de som em vez de fone, o microfone dele pega o outro lado, o Whisper
+# transcreve a fala do interlocutor no ch0 e rotula "Kelvin".
+#
+# O Kelvin relatou o sintoma em 02/09 ("linhas do Stefan aparecem como suas") e a
+# medicao confirmou: em 6 das 17 gravacoes a soma de `active_pct` dos dois canais
+# passa de 120%. Numa conversa de duas pessoas ela deveria ficar perto de 100%.
+#
+#   2026-08-28_09-56  84,8 + 53,7 = 138%
+#   2026-08-28_11-46  66,9 + 66,5 = 133%
+#   2026-09-02_08-03  76,1 + 46,9 = 123%
+#
+# O numero ja e escrito na captura, dentro do `.pending.json`. Nada olhava para
+# ele: o `verify_capture.py` so pergunta se o interlocutor tem fala, nunca se o
+# canal do Kelvin esta contaminado - a falha oposta, e a que corrompe atribuicao.
+#
+# Consequencia ja medida: o English Coach de 02/09 filtrou "so as linhas do
+# Kelvin" e avaliou, em parte, o ingles do Stefan.
+SOMA_SUSPEITA = 120.0     # % somados dos dois canais
+SOMA_GRAVE = 130.0
+
+
+def contaminacao_de_canal(base: str, rdir=None):
+    """(nivel, soma, detalhe) lendo o sidecar de captura. nivel: '', 'aviso', 'grave'.
+
+    Le o `.pending.json` (ou o `.classified`, depois que o classify renomeia).
+    Gravacao sem sidecar devolve nivel vazio - ausencia de dado nao e acusacao.
+    """
+    import json
+    raiz = Path(rdir) if rdir else (Path(__file__).parent / "recordings")
+    stem = base.split(".")[0]
+    for sufixo in (".pending.json", ".pending.json.classified"):
+        p = raiz / (stem + sufixo)
+        if not p.exists():
+            continue
+        try:
+            cp = (json.loads(p.read_text(encoding="utf-8")) or {}).get("channel_profile") or {}
+        except Exception:
+            return "", 0.0, ""
+        k = (cp.get("Kelvin") or {}).get("active_pct")
+        i = (cp.get("Interlocutor") or {}).get("active_pct")
+        if k is None or i is None:
+            return "", 0.0, ""
+        soma = float(k) + float(i)
+        detalhe = f"Kelvin {k:.1f}% + interlocutor {i:.1f}% = {soma:.1f}%"
+        if soma >= SOMA_GRAVE:
+            return "grave", soma, detalhe
+        if soma >= SOMA_SUSPEITA:
+            return "aviso", soma, detalhe
+        return "", soma, detalhe
+    return "", 0.0, ""
+
+
 def scan(text: str) -> dict:
     """Full report. `suspect` holds the raw lines that should not be trusted."""
     rows = parse(text)
@@ -287,10 +342,16 @@ def clean(text: str):
 
 def _relatorio(path: Path, verbose: bool = True) -> dict:
     rep = scan(path.read_text(encoding="utf-8", errors="replace"))
+    nivel, _soma, detalhe = contaminacao_de_canal(path.stem)
+    rep["contaminacao"] = nivel
+    rep["contaminacao_detalhe"] = detalhe
     n = len(rep["suspect"])
     marca = "OK  " if rep["ok"] else "AVISO"
     print(f"{marca} {path.name[:44]:44s} {rep['rows']:5d} linhas  "
           f"{n:4d} suspeitas" + (f"  ({rep['duration_min']} min)" if rep.get("duration_min") else ""))
+    if nivel:
+        rotulo = "CANAL CONTAMINADO" if nivel == "grave" else "canal suspeito"
+        print(f"        {rotulo}: {detalhe} - atribuicao de falante nao e confiavel")
     if verbose and n:
         for sp, d in rep["speakers"].items():
             if d["suspeitas"]:

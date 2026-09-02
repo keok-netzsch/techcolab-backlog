@@ -254,7 +254,7 @@ def _pair_routes(argv):
     return routes
 
 
-def aplicar(p: Path, routes, dry_run=False):
+def aplicar(p: Path, routes, dry_run=False, force=False):
     import process as proc
 
     j = _load(p)
@@ -311,10 +311,10 @@ def aplicar(p: Path, routes, dry_run=False):
         if kind == "person":
             proc.cmd_transcript(target, str(spath), date,
                                 structured=j.get("structured", False), lang=lang,
-                                recorte=topic or None)
+                                recorte=topic or None, force=force)
         elif kind == "manager":
             proc.cmd_manager(target, str(spath), date, lang=lang,
-                             recorte=topic or None)
+                             recorte=topic or None, force=force)
         elif kind == "note":
             proc.cmd_note(str(spath), date, lang=lang, time_str=j.get("time"))
         else:
@@ -369,6 +369,11 @@ def main():
     ap.add_argument("--texto", action="store_true", help="imprime a transcricao")
     ap.add_argument("--descartar", action="store_true")
     ap.add_argument("--dry-run", action="store_true")
+    # Sem isto nao havia saida quando a trava de nota revisada mordia: a
+    # unica forma de refazer uma fatia era apagar a nota na mao, que e
+    # exatamente o que a trava existe para evitar.
+    ap.add_argument("--force", action="store_true",
+                    help="sobrescreve nota ja revisada a mao")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("-h", "--help", action="store_true")
     a, _ = ap.parse_known_args()
@@ -392,7 +397,8 @@ def main():
     if not a.para:
         raise SystemExit("nada a fazer: use --para, --texto ou --descartar")
 
-    return aplicar(p, _pair_routes(sys.argv[1:]), dry_run=a.dry_run)
+    return aplicar(p, _pair_routes(sys.argv[1:]), dry_run=a.dry_run,
+                   force=a.force)
 
 
 if __name__ == "__main__":
