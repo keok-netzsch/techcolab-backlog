@@ -73,3 +73,4 @@ scripts/vault-central-snapshot.csv
 # Roster do time (nomes + paths de maquina dos liderados) - repo e PUBLICO.
 # O script fica so neste disco; a tarefa agendada nao depende dele.
 scripts/validate-vault-setup.ps1
+call-recorder/logs-queue-*.log
