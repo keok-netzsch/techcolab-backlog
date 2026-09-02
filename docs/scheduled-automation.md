@@ -67,7 +67,7 @@ rule at the bottom exists to prevent.
 | Routine | Cron | When | What it does |
 |---|---|---|---|
 | `pendencias-do-kelvin` | `30 8 * * 1-5` | weekdays 08:30 | Renders the pending ledger as a clickable widget and closes what Kelvin resolves. Dedicated session on purpose (his ask, 2026-08-31): the ritual must not get lost inside coding sessions. **1×/day since 2026-08-31**, was 3× |
-| `linkedin-engagement-reminder` | `0 8 * * 1-5` | weekdays 08:00 | Reminder to engage on LinkedIn across the 3 pillars before the golden hour |
+| `linkedin-engagement-reminder` | `0 8 * * 2,4` | Tue and Thu 08:00 | Reminder to engage on LinkedIn across the 3 pillars before the golden hour. **2×/week since 2026-09-02**, was every weekday |
 | `closer-semanal` | `30 8 * * 1` | Mon 08:30 | Reads the weekly brief + backlog and drafts the action for every open point, ready for one-line approval |
 | `triagem-gravacoes` | `0 9 * * 1-5` | weekdays 09:00 | Reads the calls transcribed overnight and proposes, by subject, where each slice should be filed in the vault. Kelvin decides |
 | `team-memory-alerta` | `7 11 * * 1-5` | weekdays 11:07 | Checks whether the Team Memory Agent captured and drafted today; speaks only on failure |
