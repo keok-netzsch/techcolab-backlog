@@ -20,6 +20,21 @@ if [ -n "$blocked_paths" ]; then
   fail=1
 fi
 
+# 1b) Run logs are never source. Added 2026-09-02 after `logs-regerar3.log` was
+#     committed and pushed to this PUBLIC repo carrying generated 1:1 blocks —
+#     topics and action items naming three people. The path check below could not
+#     see it: the filename says nothing, the CONTENT was the vault.
+blocked_logs=$(printf '%s\n' "$staged" | grep -Ei '\.log$')
+if [ -n "$blocked_logs" ]; then
+  echo "==============================================================="
+  echo " COMMIT BLOCKED — log de execucao nao entra no repo:"
+  printf '%s\n' "$blocked_logs"
+  echo " Log de rotina carrega o que a rotina processou. Em 2026-09-02"
+  echo " um deles levou nota de 1:1 de 3 pessoas para o GitHub publico."
+  echo "==============================================================="
+  fail=1
+fi
+
 # 2) Block by sensitive content markers in the staged diff.
 #    Exclude this repo's own guard + security docs, which legitimately *name* the
 #    markers as examples (otherwise the hook blocks its own documentation).
@@ -28,6 +43,18 @@ if [ -n "$content_files" ] && printf '%s\n' "$content_files" | xargs git diff --
   echo "==============================================================="
   echo " COMMIT BLOCKED — staged content has vault HR markers"
   echo " (e.g. compensation-band, promotion-status, flight-risk)."
+  echo "==============================================================="
+  fail=1
+fi
+
+# 2b) Vault CONTENT markers, not just HR frontmatter. The 2026-09-02 leak had
+#     none of the markers above — it had the shape of a generated vault note.
+#     These strings only appear in vault output or in text quoting it.
+if [ -n "$content_files" ] && printf '%s\n' "$content_files" | xargs git diff --cached -- 2>/dev/null | grep -Eiq '### BLOCO 1on1|Nota standalone:|_1on1_[A-Z]|type:[[:space:]]*1on1-session|type:[[:space:]]*manager-call|TechColab_D&A_KO'; then
+  echo "==============================================================="
+  echo " COMMIT BLOCKED — staged content looks like a generated vault note"
+  echo " (BLOCO 1on1, 'Nota standalone:', type: 1on1-session, vault path)."
+  echo " O nome do arquivo pode ser inocente; o conteudo e que e o vault."
   echo "==============================================================="
   fail=1
 fi
