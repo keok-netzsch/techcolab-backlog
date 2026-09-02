@@ -51,6 +51,38 @@ unless noted. This is the "production = hardened local" record required by the A
 | `study-notify-diario` | daily 15:40 | `scripts/notify.ps1 -Profile study-reminder` → body from `scripts/notify-body/study-body.ps1` (reads `study-plan.json` + area trackers, zero LLM; silent when every active area already studied today); pairs with the `/study` skill. Migrated to the engine 2026-08-30 as messagebox (was balloon — Focus Assist rationale); old `vault/study-notify.ps1` retired |
 | `NETZSCH-AI-Usage-Capture` | daily 09:00 | `~/NETZSCH-AI-Usage/Capture-Usage.ps1` |
 
+
+## Claude scheduled routines — the full list
+
+These do NOT live in Task Scheduler. They are Claude routines, listed by
+`list_scheduled_tasks`, each backed by a `SKILL.md` under
+`C:\Users\Kelvin.okuda\.claude\scheduled-tasks\<taskId>\`. They fire a fresh Claude
+session at the cron time, and each one carries a jitter of a few minutes, so the wall-clock
+time drifts from the cron expression.
+
+Verified against `list_scheduled_tasks` on 2026-09-02. Until that date this file listed only
+4 of them; 6 had been created without the table being updated, which is exactly the gap the
+rule at the bottom exists to prevent.
+
+| Routine | Cron | When | What it does |
+|---|---|---|---|
+| `pendencias-do-kelvin` | `30 8 * * 1-5` | weekdays 08:30 | Renders the pending ledger as a clickable widget and closes what Kelvin resolves. Dedicated session on purpose (his ask, 2026-08-31): the ritual must not get lost inside coding sessions. **1×/day since 2026-08-31**, was 3× |
+| `linkedin-engagement-reminder` | `0 8 * * 1-5` | weekdays 08:00 | Reminder to engage on LinkedIn across the 3 pillars before the golden hour |
+| `closer-semanal` | `30 8 * * 1` | Mon 08:30 | Reads the weekly brief + backlog and drafts the action for every open point, ready for one-line approval |
+| `triagem-gravacoes` | `0 9 * * 1-5` | weekdays 09:00 | Reads the calls transcribed overnight and proposes, by subject, where each slice should be filed in the vault. Kelvin decides |
+| `team-memory-alerta` | `7 11 * * 1-5` | weekdays 11:07 | Checks whether the Team Memory Agent captured and drafted today; speaks only on failure |
+| `study-diario` | `40 15 * * *` | daily 15:40 | The single study routine: `/study` status + day menu, and when the focus is CDMP it already delivers the question. Absorbed `cdmp-diario` on 2026-08-31 |
+| `vault-daily-commit` | `30 17 * * 1-5` | weekdays 17:30 | Consolidates the daily note, commits the local vault, and proposes what deserves to graduate to the central vault. Absorbed `vault-central-graduation` on 2026-08-31 |
+| `timesheet-check-sexta` | `40 16 * * 5` | Fri 16:40 | Weekly ServiceNow timesheet check for the team (coverage + quality) |
+| `organize-downloads-semanal` | `0 20 * * 0` | Sun 20:00 | Reorganises the Downloads folder, reversible, deletes nothing |
+| `lembrete-fechamento-fatura` | `0 9 28 * *` | day 28, 09:00 | Monthly reminder to update bank balance and card statements, with the previous month's closing report |
+
+Personal, not work: `linkedin-engagement-reminder`, `organize-downloads-semanal` and
+`lembrete-fechamento-fatura`.
+
+Four of these also appear in the topic tables above, where their domain context lives.
+This table is the authoritative list of what exists.
+
 ## Disabled / retired
 
 - `TechColab Daily Agent` — **deleted 2026-08-29** (was the second task pointing at
