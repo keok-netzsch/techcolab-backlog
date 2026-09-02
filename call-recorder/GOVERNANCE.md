@@ -112,6 +112,23 @@ Two consequences that are governance, not engineering:
 Nothing here changes what is recorded, kept, or shared. It changes how much a
 transcript is worth as a claim.
 
+## Ordering is not classification (2026-09-02)
+
+Calls with Stefan Lautenschlager and Alberto Reuters are now transcribed before the
+rest of the nightly batch. This is a scheduling preference, and it is worth writing
+down why it stays one.
+
+The signal available before transcription is the Teams window title, which carries a
+first name at best. The vault holds two people called Stefan. Letting a bare first
+name decide **order** costs a call being transcribed ahead of another; letting it
+decide **destination** writes one person's words into another person's note. So the
+priority rule reads the title and stops there: no `kind`, no `target`, no inference
+that survives into routing.
+
+Nothing about what is recorded, kept, or shared changes. Every recording in the batch
+is still transcribed, and every autocaptured one still parks for the morning triage
+where Kelvin decides where it goes.
+
 ## A note that disappears is a governance failure too (2026-09-01)
 
 Same day, second defect, same shape as the one above: the system said it had done

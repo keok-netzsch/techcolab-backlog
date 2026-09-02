@@ -15,6 +15,7 @@ Requires:
 
 import argparse
 import json
+import unicodedata
 import os
 import re
 import subprocess
@@ -2358,6 +2359,51 @@ def _resolve_recording(target: str, rdir: Path):
     return None
 
 
+# ── Prioridade na fila de transcricao (2026-09-02, decisao do Kelvin) ────────
+# "As calls com Stefan e Alberto tem prioridade maxima." A fila era estritamente
+# cronologica (`sorted(glob)`), entao uma call com o chefe gravada as 08:00
+# esperava atras de tudo que fosse anterior - e um lote de 214 min de audio
+# significa que ela so sairia horas depois. Agora ela sai primeiro.
+#
+# O sinal e o titulo da janela do Teams (campo `meeting`) e o `target` que o
+# classify.py resolveu. Titulo e o UNICO sinal disponivel antes de transcrever -
+# e a mesma limitacao que motivou o roteamento-por-assunto (ADR 2026-08-28).
+#
+# LIMITE DELIBERADO: prioridade muda a ORDEM, nunca o DESTINO. Existem dois
+# Stefan no vault (Stefan-Lautenschlager e Stefan-Weiss) e um titulo com o
+# primeiro nome so nao distingue os dois. Errar a ordem custa transcrever uma
+# call na frente da outra; errar o destino escreve na nota da pessoa errada.
+# Por isso o casamento por primeiro nome vale aqui e NAO vale no classify.py.
+PRIORITY_TARGETS = ("stefan-lautenschlager", "alberto-reuters")
+PRIORITY_TITLES = ("stefan", "alberto", "jour fixe ko <> ar", "ko <> ar")
+
+
+def _job_priority(job: dict) -> int:
+    """0 = fura a fila, 1 = ordem normal. Ver bloco acima."""
+    target = _fold(str(job.get("target") or ""))
+    if target in PRIORITY_TARGETS:
+        return 0
+    title = _fold(str(job.get("meeting") or ""))
+    if any(k in title for k in PRIORITY_TITLES):
+        return 0
+    return 1
+
+
+def _fold(s: str) -> str:
+    """minusculas sem acento - mesma normalizacao do classify.py."""
+    return "".join(c for c in unicodedata.normalize("NFD", s.lower())
+                   if unicodedata.category(c) != "Mn")
+
+
+def _load_job_quiet(path) -> dict:
+    """Le um .job.json so para ordenar. Job ilegivel vai para o fim da fila em
+    vez de estourar - quem trata o erro de verdade e o laco em _queue_run."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
     """Process queued recordings produced by the decoupled recorder: a `<base>.wav`
     plus a `<base>.job.json` sidecar. Transcribes with Whisper, then routes to the
@@ -2377,7 +2423,9 @@ def cmd_queue(recordings_dir: str = None, dry_run: bool = False) -> dict:
             print("[queue] classificando pendentes do autocapture...")
             subprocess.run([sys.executable, str(classify_py), "--apply"], check=False)
 
-    jobs = sorted(rdir.glob("*.job.json")) if rdir.exists() else []
+    jobs = (sorted(rdir.glob("*.job.json"),
+               key=lambda p: (_job_priority(_load_job_quiet(p)), p.name))
+        if rdir.exists() else [])
     if not jobs:
         return result
 

@@ -13,6 +13,29 @@ occasional manual recording.
 3. **09:00 weekdays** — the triage reminder (`CallRecorder-Triage-Reminder`) points you at
    yesterday's parked transcripts.
 
+## Stefan and Alberto jump the queue (since 2026-09-02)
+
+The 20:00 queue used to transcribe strictly oldest-first, so a call with your boss
+recorded this morning waited behind every older recording in the batch. It no longer
+does: anything whose Teams title or resolved target points at Stefan Lautenschlager
+or Alberto Reuters is transcribed first, and the rest of the batch keeps its usual
+oldest-first order.
+
+Two things this does **not** do:
+
+- It does not change where a call is filed. Routing still happens in the morning
+  triage, against the content, with you deciding. The queue only picks what to
+  transcribe first.
+- It does not tell the two Stefans apart. A title that says only "Stefan" gets
+  priority either way, which is cheap to be wrong about; the destination is never
+  guessed from a first name.
+
+To run one specific call now instead of waiting for 20:00:
+
+```powershell
+python process_one.py 2026-09-02_08-03
+```
+
 ## Your morning triage (the one ritual)
 
 Review the parked jobs and let `route.py` file them by content — one call can feed

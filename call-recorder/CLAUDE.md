@@ -92,6 +92,37 @@ transcribed to read. Review belongs in the morning, after the 20:00 batch.
   `route.py` e aparece na propria listagem (humana e `--json`, campo `rule`) -
   a sessao que roteia a ve sem depender deste arquivo.
 
+### Stefan e Alberto furam a fila de transcricao (2026-09-02)
+
+Decisao do Kelvin: **"as calls com Stefan e Alberto tem prioridade maxima"**. A fila
+era `sorted(rdir.glob("*.job.json"))` - estritamente cronologica pelo nome. Com um
+lote grande parado (em 01/09 eram 214 min de audio), uma call com o chefe gravada as
+08:00 so sairia horas depois de tudo que fosse anterior a ela.
+
+`_job_priority(job)` em `process.py` devolve 0 para o que fura a fila e 1 para o
+resto; a ordenacao virou `(prioridade, nome)`, entao dentro de cada faixa a ordem
+continua cronologica. Dois sinais dao prioridade 0:
+
+| Sinal | Vem de |
+|---|---|
+| `target` em `PRIORITY_TARGETS` | o `classify.py` ja resolveu (alias ou nome) |
+| `meeting` casa `PRIORITY_TITLES` | titulo da janela do Teams, sem depender do classify |
+
+O titulo sozinho tem que bastar: `Weekly Sync Kelvin <-> Stefan` sai do classify como
+`kind: project` + `needs_review`, sem `target` nenhum. Se a prioridade dependesse do
+`target`, a call do chefe nao seria priorizada.
+
+**Prioridade muda a ORDEM, nunca o DESTINO.** Ha dois Stefan no vault
+(`Stefan-Lautenschlager` e `Stefan-Weiss`) e um titulo com o primeiro nome so nao
+distingue os dois. Errar a ordem custa transcrever uma call na frente da outra;
+errar o destino escreve na nota da pessoa errada. Por isso o casamento por primeiro
+nome vale aqui e continua proibido no `classify.py` e no roteamento.
+
+Job ilegivel nao derruba a ordenacao - `_load_job_quiet` devolve `{}` e ele cai para
+o fim da fila, onde o laco de `_queue_run` trata o erro como sempre tratou.
+
+Travado em `tests/test_queue_priority.py`.
+
 ### Duas fatias para a mesma pessoa no mesmo dia (2026-09-01)
 
 Roteamento por assunto permite N destinos - e nada impedia que **dois desses
