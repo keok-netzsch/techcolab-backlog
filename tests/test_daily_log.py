@@ -117,9 +117,16 @@ def test_entry_inserted_into_existing_backlog_section(daily_dir):
     assert "\n\n## ✅ Feito" in content
 
 
+@pytest.mark.daily_path_real
 def test_read_log_lines_reads_new_and_legacy(tmp_path, monkeypatch):
-    """One reader covers both locations, so history survives the move."""
+    """One reader covers both locations, so history survives the move.
+
+    Ate 2026-09-02 este teste patchava VAULT_ROOT e passava, enquanto o escritor
+    ja usava VAULT_BASE — o teste media uma coisa e a producao fazia outra. Agora
+    os dois saem de `_daily_note_path`, e o patch e no mesmo lugar que ela le.
+    """
     import backlog.daily_log as dl
+    monkeypatch.setattr(dl, "VAULT_BASE", tmp_path)
     monkeypatch.setattr(dl, "VAULT_ROOT", tmp_path)
     (tmp_path / "Daily").mkdir()
     (tmp_path / "Log").mkdir()
@@ -171,6 +178,7 @@ def test_section_created_when_missing_from_existing_note(daily_dir):
 # Daily/ instead of the vault-root Daily/, so entries landed in a folder nothing
 # reads and "diario unico" (Toolkit 2.0 Pacote 2) never actually happened.
 
+@pytest.mark.daily_path_real
 def test_daily_note_resolves_under_vault_base():
     from pathlib import Path
 
@@ -181,3 +189,43 @@ def test_daily_note_resolves_under_vault_base():
     assert resolved == Path(VAULT_BASE) / "Daily" / "2026-09-01.md"
     # VAULT_ROOT is the app's working area, one level deeper — never the daily note's home.
     assert Path(VAULT_ROOT) not in resolved.parents
+
+
+def test_leitor_e_escritor_usam_o_mesmo_caminho(tmp_path, monkeypatch):
+    """O defeito de 2026-09-02, travado.
+
+    O escritor gravava em VAULT_BASE/Daily e o leitor procurava em
+    VAULT_ROOT/Daily. Como VAULT_ROOT/Daily nao existia, toda leitura caia no
+    fallback do diario legado — que parou de ser escrito em 26/08. Meeting Prep,
+    dashboard e a aba Backlog ficaram uma semana sem atividade diaria, sem erro.
+
+    Este teste escreve pelo caminho de producao e le pelo caminho de producao. Se
+    os dois divergirem de novo, ele quebra aqui.
+    """
+    import backlog.daily_log as dl
+
+    monkeypatch.setattr(dl, "VAULT_BASE", tmp_path)
+    monkeypatch.setattr(dl, "VAULT_ROOT", tmp_path / "App" / "Personal toolkit")
+    monkeypatch.setattr(dl, "_daily_note_path",
+                        lambda today=None: tmp_path / "Daily" / f"{(today or date.today()).isoformat()}.md")
+
+    dia = date(2026, 9, 2)
+    caminho = dl._daily_note_path(dia)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    caminho.write_text("---\ntype: daily\n---\n\n## 🗂️ Backlog\n"
+                       "- 09:00 `CRIADA` [idea-200] Real\n", encoding="utf-8")
+
+    assert dl.read_log_lines(dia) == ["- 09:00 `CRIADA` [idea-200] Real"]
+
+
+def test_leitura_nao_cria_pasta(tmp_path, monkeypatch):
+    """Ler nao pode ter efeito colateral: um dashboard abrindo nao cria Daily/."""
+    import backlog.daily_log as dl
+
+    monkeypatch.setattr(dl, "VAULT_BASE", tmp_path)
+    monkeypatch.setattr(dl, "VAULT_ROOT", tmp_path)
+    monkeypatch.setattr(dl, "_daily_note_path",
+                        lambda today=None: tmp_path / "Daily" / f"{(today or date.today()).isoformat()}.md")
+
+    assert dl.read_log_lines(date(2026, 9, 2)) == []
+    assert not (tmp_path / "Daily").exists()

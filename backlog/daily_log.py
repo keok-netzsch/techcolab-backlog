@@ -37,10 +37,12 @@ def _daily_note_path(today: date | None = None) -> Path:
     # server resolves it that way), so VAULT_ROOT here was writing to a second,
     # unread <vault>/App/Personal toolkit/Daily/. That is why "diario unico" from
     # Toolkit 2.0 Pacote 2 never actually landed in the daily note.
+    # Sem mkdir: esta funcao virou tambem o caminho do LEITOR (ver read_log_lines),
+    # e leitura que cria pasta e efeito colateral escondido — um dashboard abrindo
+    # passaria a criar Daily/ num vault onde ela nao deveria existir. Quem escreve
+    # cria a pasta explicitamente.
     d = today or date.today()
-    daily_dir = Path(VAULT_BASE) / "Daily"
-    daily_dir.mkdir(parents=True, exist_ok=True)
-    return daily_dir / f"{d.isoformat()}.md"
+    return Path(VAULT_BASE) / "Daily" / f"{d.isoformat()}.md"
 
 
 def _legacy_log_path(d: date) -> Path:
@@ -63,7 +65,17 @@ def read_log_lines(d: date) -> list[str]:
     diario file. Single reader for every consumer (views, reports) so the
     two-location logic lives in exactly one place.
     """
-    note = Path(VAULT_ROOT) / "Daily" / f"{d.isoformat()}.md"
+    # Mesmo caminho do escritor, e nao um proprio. Ate 2026-09-02 esta linha usava
+    # VAULT_ROOT enquanto `_daily_note_path` ja usava VAULT_BASE: o escritor gravava
+    # em <vault>/Daily/ e o leitor procurava em <vault>/App/Personal toolkit/Daily/,
+    # que nao existe. Toda leitura caia no fallback do diario legado, que parou de
+    # ser escrito em 26/08 — entao Meeting Prep, dashboard e a aba Backlog ficaram
+    # SEM atividade diaria por uma semana, sem erro nenhum.
+    #
+    # A correcao de 01/09 arrumou o escritor e nao o leitor. E o padrao que mais
+    # aparece neste repo: a mudanca cai onde o sintoma foi visto, nao na superficie
+    # inteira. Por isso o caminho agora sai de uma funcao unica.
+    note = _daily_note_path(d)
     if note.exists():
         text = note.read_text(encoding="utf-8", errors="replace")
         if BACKLOG_SECTION in text:
@@ -105,6 +117,7 @@ def log_entry(action: str, idea, detail: str = "") -> None:
     """
     today = date.today()
     path = _daily_note_path(today)
+    path.parent.mkdir(parents=True, exist_ok=True)   # so o escritor cria a pasta
 
     now = datetime.now().strftime("%H:%M")
     label = _ACTION_LABEL.get(action, action.upper())
