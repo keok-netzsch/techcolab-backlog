@@ -267,6 +267,10 @@ def _report_dialog():
         with col_save:
             if st.button("💾 Save to vault"):
                 fname = f"report-{start.isoformat()}-{end.isoformat()}.md"
+                # log_dir was never defined here: the button raised NameError on
+                # every click. Same location the daily log uses (backlog/daily_log.py).
+                log_dir = Path(VAULT_ROOT) / "Log"
+                log_dir.mkdir(parents=True, exist_ok=True)
                 out   = log_dir / fname
                 fm    = f"---\ndate: {today.isoformat()}\ntype: report\nperiodo: {period_str}\ntags: [report, backlog]\n---\n\n"
                 out.write_text(fm + report_md, encoding="utf-8")
