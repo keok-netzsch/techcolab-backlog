@@ -622,6 +622,29 @@ def _transcribe_dual(model, audio_path: str, language: str | None):
         if float(np.sqrt(np.mean(track.astype(np.float64) ** 2))) < 1e-5:
             print(f"[WARN] canal {idx} ({label}) esta mudo - pulando.")
             continue
+
+        # Zumbido de rede fora, SO no canal do microfone (idx 0). O `.wav` fica
+        # com o sinal original de proposito — filtrar na gravacao apagaria a
+        # evidencia do problema de captacao, e este e o unico ponto onde o audio
+        # precisa estar limpo.
+        #
+        # O canal 1 nao passa por aqui: e loopback digital, piso medido em
+        # -68.9 dBFS contra -32.1 do microfone, e cortar 250 Hz da voz do outro
+        # seria estragar o unico canal que sempre funcionou.
+        if idx == 0:
+            try:
+                import capture_multi
+                limpo = np.ascontiguousarray(capture_multi.dehum(track, sr))
+                if float(np.sqrt(np.mean(limpo.astype(np.float64) ** 2))) > 1e-6:
+                    track = limpo
+                    print(f"[INFO] canal {idx}: zumbido de rede filtrado "
+                          f"(high-pass {capture_multi.HUM_HIGHPASS_HZ:.0f} Hz).")
+            except Exception as e:
+                # Transcrever com zumbido e pior que sem, e muito melhor que nao
+                # transcrever: o filtro nunca pode derrubar a fila da noite.
+                print(f"[WARN] canal {idx}: filtro de zumbido falhou ({e}) - "
+                      f"seguindo com o audio original.")
+
         print(f"[INFO] Transcrevendo canal {idx} ({label})...")
         # Mesmo vad_filter do caminho de 1 canal, pela mesma razao. Ele faltava
         # AQUI, e por isso a correcao de 26/08 nunca alcancou a captura de 2
