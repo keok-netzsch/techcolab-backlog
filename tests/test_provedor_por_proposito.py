@@ -27,10 +27,8 @@ from pathlib import Path
 CR = Path(__file__).resolve().parent.parent / "call-recorder"
 sys.path.insert(0, str(CR))
 
-import pytest  # noqa: E402
-
 import coach_llm  # noqa: E402
-
+import pytest  # noqa: E402
 
 PODEM_SAIR = ["coach", "coach-probe", "oneonone", "manager", "agenda"]
 NUNCA_SAEM = ["note", "capture", "transcript", "diarize", "qualquer-coisa-nova"]

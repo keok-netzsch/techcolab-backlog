@@ -15,11 +15,11 @@ Requires:
 
 import argparse
 import json
-import unicodedata
 import os
 import re
 import subprocess
 import sys
+import unicodedata
 from datetime import date as _date
 from datetime import datetime
 from pathlib import Path

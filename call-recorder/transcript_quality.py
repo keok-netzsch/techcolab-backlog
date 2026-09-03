@@ -176,7 +176,10 @@ def loop_runs(rows: list, min_run: int = LOOP_MIN_RUN) -> list:
         if len(bloco) < min_run:
             return None
         ts = [x[0] for x in bloco]
-        gaps = sorted(b - a for a, b in zip(ts, ts[1:]))
+        # strict=False de proposito: e o idioma de pares consecutivos, entao
+        # ts[1:] tem um elemento a menos que ts. Aqui truncar e o comportamento
+        # correto, nao um bug a ser pego.
+        gaps = sorted(b - a for a, b in zip(ts, ts[1:], strict=False))
         mediana = gaps[len(gaps) // 2]
         return bloco if mediana <= LOOP_MAX_GAP else None
 
