@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import os
 import threading
+import time
 
 SAMPLE_RATE = 16000
 SPOOL_SUBDIR = "_multi"
@@ -227,15 +228,64 @@ def capture_all(stop_flag, base_dir: str, log=print, mics=None, loops=None) -> d
     def pump_loop(name, dev, i):
         label = f"sys:{name[:28]}"
         path = os.path.join(d, f"sys_{i}.wav")
+
+        # COM e POR THREAD, e esta funcao roda numa thread nova. `soundcard`
+        # fala com o WASAPI via COM: sem CoInitializeEx aqui, `dev.recorder`
+        # morre com 0x800401f0 (CO_E_NOTINITIALIZED) no instante em que abre, os
+        # dois endpoints caem juntos e o canal 1 vai para o disco zerado.
+        #
+        # A mesma correcao ja existia em `record.pump_sys` desde 2026-08-27. O
+        # commit f8d936b escreveu ela la e, no mesmo dia, ligou ESTE caminho como
+        # padrao (CAPTURE_REDUNDANT=1) — a correcao nasceu no ramo que deixou de
+        # rodar. De 27/08 a 03/09 o loopback falhou assim em 7 gravacoes, entre
+        # elas uma call de 115 min e uma de 48 min.
+        #
+        # Intermitente de proposito enganoso: uma thread sem CoInitializeEx so
+        # funciona enquanto OUTRA thread do processo mantem a MTA viva, entao
+        # reiniciar o autocapture "consertava" ate a proxima vez.
+        import ctypes
+        com_ready = False
         try:
-            with sf.SoundFile(path, "w", samplerate=SAMPLE_RATE, channels=1,
-                              subtype="PCM_16") as w, \
-                 dev.recorder(samplerate=SAMPLE_RATE, channels=1) as rec:
-                while not stop_flag():
-                    w.write(rec.record(numframes=SAMPLE_RATE // 5))
+            hr = ctypes.windll.ole32.CoInitializeEx(None, 0)  # 0 = APARTMENTTHREADED
+            com_ready = hr in (0, 1)          # S_OK | S_FALSE (ja inicializado)
+            if not com_ready:
+                log(f"[multi] loopback '{name}': CoInitializeEx devolveu "
+                    f"0x{hr & 0xFFFFFFFF:08x}")
+        except Exception as e:
+            log(f"[multi] loopback '{name}': CoInitializeEx falhou ({e})")
+
+        try:
+            # Uma falha transitoria ao abrir nao pode custar o canal inteiro —
+            # mesmo retry do caminho classico.
+            rec_ctx, last_err = None, None
+            for tentativa in range(3):
+                try:
+                    rec_ctx = dev.recorder(samplerate=SAMPLE_RATE, channels=1)
+                    rec_ctx.__enter__()
+                    if tentativa:
+                        log(f"[multi] loopback '{name}': aberto na tentativa {tentativa + 1}")
+                    break
+                except Exception as e:
+                    last_err, rec_ctx = e, None
+                    time.sleep(0.5)
+            if rec_ctx is None:
+                raise last_err or RuntimeError("loopback nao abriu")
+            try:
+                with sf.SoundFile(path, "w", samplerate=SAMPLE_RATE, channels=1,
+                                  subtype="PCM_16") as w:
+                    while not stop_flag():
+                        w.write(rec_ctx.record(numframes=SAMPLE_RATE // 5))
+            finally:
+                rec_ctx.__exit__(None, None, None)
             paths[label] = path
         except Exception as e:
             log(f"[multi] loopback '{name}' falhou: {e}")
+        finally:
+            if com_ready:
+                try:
+                    ctypes.windll.ole32.CoUninitialize()
+                except Exception:
+                    pass
 
     for idx, name in mics:
         threads.append(threading.Thread(target=pump_mic, args=(idx, name), daemon=True))

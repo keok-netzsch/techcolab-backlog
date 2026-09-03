@@ -528,6 +528,42 @@ nunca ter rodado no caminho real.** O ADR de 29/08 olhou esta mesma call, viu as
 30 linhas alucinadas, construiu o `transcript_quality.py` para detecta-las — e
 nao procurou a causa. Detector do sintoma nao substitui a correcao.
 
+## O CoInitializeEx faltava no caminho redundante (2026-09-03)
+
+Mesmo defeito do `vad_filter` acima, e nao e coincidencia: **a correcao foi
+escrita no ramo que o mesmo commit desativou.**
+
+`soundcard` fala com o WASAPI via COM, e COM e por thread. `capture_multi.pump_loop`
+roda numa thread nova e nunca chamava `CoInitializeEx`, entao `dev.recorder()`
+morria com `0x800401f0` (CO_E_NOTINITIALIZED) ao abrir. Os dois endpoints caem
+juntos, e `capture_dual` cumpre o contrato dela — nunca perder o mic por causa do
+loopback — gravando o canal 1 **zerado**. Dai o `-240 dBFS` exato no
+`verify_capture.py`: nao e sinal fraco, e ausencia de dado.
+
+`record.pump_sys` tem essa correcao desde 27/08, com o codigo do erro no
+comentario. O commit `f8d936b`, do MESMO dia, ligou a captura redundante como
+padrao (`CAPTURE_REDUNDANT=1`) e deixou o ramo novo sem ela.
+
+Medido em 03/09 sobre os sidecars e o `record.log`: **7 gravacoes com o canal 1
+mudo**, correlacao de 1 para 1 com as ocorrencias do erro no log — 27/08 14:20,
+01/09 07:55 (115 min) e 10:00, 02/09 09:46, e as tres de 03/09 (07:59, 08:53,
+09:34). Nas calls sem o erro no log o canal 1 gravou normalmente.
+
+**Por que parecia hardware.** O erro e intermitente: uma thread sem
+`CoInitializeEx` ainda funciona enquanto outra thread do processo mantiver a MTA
+viva. Reiniciar o autocapture "consertava" ate a proxima vez, o que apontava para
+fone/caixa/endpoint — nenhum deles era a causa. O proprio veredito do
+`verify_capture.py` manda "conferir no autocapture.log qual endpoint foi usado", e
+o `autocapture.log` nao registra endpoint nenhum: o dado esta no `record.log`.
+
+**A correcao so vale para captura NOVA, e depois de reiniciar o autocapture** — o
+processo carrega o codigo antigo em memoria. Gravacao ja feita com o canal 1
+zerado nao melhora sozinha.
+
+Cuidado de metodo: nao consegui reproduzir a falha sob demanda num processo
+limpo, porque nele o COM ja estava inicializado — que e exatamente a condicao em
+que o bug NAO aparece. Ausencia de reproducao aqui nao e evidencia contraria.
+
 ## O gate ganhou laco-entre-linhas, alfabeto e linha vazia (2026-09-02)
 
 A lacuna anterior era real: o gate so via repeticao DENTRO de uma linha e
