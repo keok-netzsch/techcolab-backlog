@@ -76,3 +76,8 @@ scripts/validate-vault-setup.ps1
 call-recorder/logs-queue-*.log
 call-recorder/logs-*.log
 call-recorder/*.log
+
+# Log de execucao da suite na raiz (a regra de call-recorder/ nao alcanca aqui).
+# O pre-commit ja bloqueia qualquer .log staged desde 02/09, quando um log com
+# blocos de 1:1 nomeando tres pessoas foi parar neste repo, que e PUBLICO.
+logs-*.log

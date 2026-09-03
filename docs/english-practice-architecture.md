@@ -155,7 +155,7 @@ The feature reuses the existing coach output format exactly:
 ```
 Areas/English-Learning/
   sessions/
-    YYYY-MM-DD_HH-MM_english-coach.md   ← same format as today's sessions
+    YYYY-MM-DD_english-coach.md         ← one report per DAY since 2026-09-02
   progress.md                            ← same append row format
   _index.md                              ← same Current Status update
 ```

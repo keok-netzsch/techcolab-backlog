@@ -11,6 +11,7 @@ them to get at one is not a real option during the working day.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -33,7 +34,7 @@ def find_job(fragment: str) -> Path:
     return hits[0]
 
 
-def main():
+def _main_travado():
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
@@ -49,6 +50,25 @@ def main():
     wav = RECORDINGS / Path(job["wav"]).name
     if not wav.exists():
         raise SystemExit(f"wav ausente: {wav}")
+
+    # MESMA trava da fila. Este arquivo nasceu depois do single-flight de 29/08 e
+    # nunca a pegou — e a fila e o process_one leem a MESMA lista de jobs.
+    #
+    # Custou em 2026-09-02: enquanto a fila processava o 2026-09-02_08-03, outra
+    # sessao rodou process_one na mesma gravacao. Os dois transcreveram e os dois
+    # chamaram o coach. O mesmo audio de 32,6 min saiu com 2296, 2338 e 2296
+    # palavras (tres transcricoes distintas) e foi avaliado B1, B2 e C1 no espaco
+    # de uma hora. O segundo a terminar ainda bateu num WinError 183 ao tentar
+    # estacionar um job que o primeiro ja tinha estacionado.
+    #
+    # Sem trava aqui, a trava da fila protege a fila de si mesma e de mais nada.
+    lock = proc.acquire_queue_lock(RECORDINGS)
+    if lock is None:
+        raise SystemExit(
+            "[one] outra fila (ou outro process_one) ja esta rodando - saindo sem "
+            "tocar em nada.\n"
+            "      Transcrever a mesma gravacao duas vezes gera duas notas e duas "
+            "avaliacoes do coach, com veredictos diferentes.")
 
     print(f"[one] {wav.name}  kind={job['kind']}  target={job.get('target') or '-'}")
     print(f"[one] reuniao: {job.get('meeting', '-')}")
@@ -95,6 +115,25 @@ def main():
     # transcribe this file all over again tonight.
     jf.rename(jf.with_suffix(".json.done"))
     print(f"[one] concluido. Job consumido: {jf.name} -> .done")
+
+
+def main():
+    """Envolve `_main_travado` so para liberar a trava num finally.
+
+    finally, e nao no fim do corpo: uma excecao que escape deixaria a trava presa
+    e nenhuma fila rodaria de novo ate alguem notar. E a mesma razao pela qual
+    `cmd_queue` faz assim desde 29/08.
+    """
+    import process as proc
+    try:
+        return _main_travado()
+    finally:
+        lock = RECORDINGS / getattr(proc, "QUEUE_LOCK_NAME", ".queue.lock")
+        try:
+            if lock.exists() and lock.read_text(encoding="utf-8").split()[0] == str(os.getpid()):
+                lock.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

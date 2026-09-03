@@ -221,6 +221,69 @@ def _transcript_stats(transcript: str) -> dict:
     return {"words": word_count, "duration_min": round(duration_sec / 60, 1), "lines": len(lines)}
 
 
+def _ram_livre_mb() -> int:
+    """RAM fisica livre, em MB. -1 quando nao da para medir."""
+    try:
+        import ctypes
+
+        class _Mem(ctypes.Structure):
+            _fields_ = [("dwLength", ctypes.c_ulong),
+                        ("dwMemoryLoad", ctypes.c_ulong),
+                        ("ullTotalPhys", ctypes.c_ulonglong),
+                        ("ullAvailPhys", ctypes.c_ulonglong),
+                        ("ullTotalPageFile", ctypes.c_ulonglong),
+                        ("ullAvailPageFile", ctypes.c_ulonglong),
+                        ("ullTotalVirtual", ctypes.c_ulonglong),
+                        ("ullAvailVirtual", ctypes.c_ulonglong),
+                        ("ullAvailExtendedVirtual", ctypes.c_ulonglong)]
+
+        m = _Mem()
+        m.dwLength = ctypes.sizeof(_Mem)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m)):
+            return -1
+        return int(m.ullAvailPhys / (1024 * 1024))
+    except Exception:  # noqa: BLE001
+        return -1
+
+
+def _ollama_pode_servir(timeout: int = 25) -> tuple[bool, str]:
+    """Manda tres palavras ao Ollama e ve se volta. Nada mais indireto que isso.
+
+    Tentei antes duas sondas baratas e as duas mentiram nesta maquina, em
+    2026-09-02:
+
+      - `/api/ps` listava `qwen2.5-coder` como carregado enquanto um prompt de
+        tres palavras estourava 120 s. Modelo "carregado" com 629 MB de RAM livre
+        esta paginado em disco, e o Ollama nao distingue os dois casos.
+      - RAM livre contra o peso do modelo inverte o sinal quando o modelo esta
+        mesmo residente: os 4,7 GB dele SAO a memoria ocupada, entao a maquina
+        saudavel parece a maquina cheia.
+
+    O custo do teste real e 25 s no pior caso. O que ele evita: 300 s por chamada
+    (o timeout do resumo), duas vezes por call. Em 02/09 isso deixou o
+    reprocessamento da call do Stefan 12 minutos parado, com 0,09 s de CPU, para
+    no fim devolver string vazia — o resumo de contexto e opcional por design.
+
+    Vies: so recusa com PROVA. Erro de rede ou sonda que nao decide deixa passar,
+    senao um probe furado apagaria o contexto de todo relatorio em silencio.
+    """
+    try:
+        import requests
+        r = requests.post(
+            "http://127.0.0.1:11434/api/generate",
+            json={"model": os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:latest"),
+                  "prompt": "Responda apenas: ok", "stream": False},
+            timeout=timeout)
+        r.raise_for_status()
+        return True, ""
+    except Exception as e:  # noqa: BLE001
+        nome = type(e).__name__
+        if "Timeout" in nome:
+            return False, (f"nao respondeu a um prompt de 3 palavras em {timeout} s "
+                           f"({_ram_livre_mb()} MB de RAM livre)")
+        return True, ""
+
+
 def _context_summary(full_transcript: str, max_chars: int = 12_000) -> str:
     """Duas frases dizendo do que era a call — geradas LOCALMENTE, no Ollama.
 
@@ -242,6 +305,13 @@ def _context_summary(full_transcript: str, max_chars: int = 12_000) -> str:
     """
     if not full_transcript.strip():
         return ""
+
+    pode, motivo = _ollama_pode_servir()
+    if not pode:
+        print(f"[coach] contexto pulado - Ollama sem memoria ({motivo}).")
+        return ("(nao gerado - o modelo local nao coube na memoria da maquina no "
+                f"momento do processamento: {motivo})")
+
     try:
         import coach_llm
         prompt = (
@@ -252,8 +322,14 @@ def _context_summary(full_transcript: str, max_chars: int = 12_000) -> str:
             "nomes de terceiros, nao liste topicos - so o contexto.\n\n"
             f"{full_transcript[:max_chars]}"
         )
+        # 120 s, nao 300 (2026-09-02). Quando o Ollama esta saudavel nesta
+        # maquina ele devolve 3 palavras em ~5 s; quando esta paginando, nao
+        # devolve o resumo em 300 s tampouco — medido tres vezes seguidas na
+        # mesma noite, sempre estourando o timeout cheio. Os 180 s a mais eram
+        # espera pura, duas vezes por call, e o relatorio sai sem contexto de
+        # qualquer jeito.
         txt = coach_llm.generate(prompt, purpose="transcript", expect_json=False,
-                                 max_tokens=300, timeout=300)
+                                 max_tokens=300, timeout=120)
         return " ".join((txt or "").split())[:600]
     except Exception as e:  # noqa: BLE001
         print(f"[coach] contexto nao gerado ({e}) - o relatorio segue sem ele.")
@@ -492,6 +568,28 @@ def _render_session(ev: dict, transcript: str, topic: str, session_dt: datetime,
         f"# English Coach Session — {session_dt.strftime('%Y-%m-%d')}",
         "",
     ]
+    # Aviso de contaminacao de canal (2026-09-02). O coach filtra "so as linhas do
+    # Kelvin" — e isso so vale se o canal 0 tiver a voz dele sozinha. Com caixa de
+    # som em vez de fone, o mic dele capta o outro lado e a avaliacao mistura os
+    # dois. Medido na call do Stefan de 02/09: soma de 123%, e o relatorio B2 saiu
+    # avaliando, em parte, o ingles do Stefan.
+    #
+    # O aviso vai DENTRO do relatorio, nao so no console: quem abre o arquivo
+    # semanas depois nao viu o console, e um numero sem ressalva le como limpo.
+    try:
+        import transcript_quality as _tq
+        _stem = Path(getattr(_render_session, "_fonte", "") or "").stem
+        _nivel, _soma, _detalhe = _tq.contaminacao_de_canal(_stem) if _stem else ("", 0, "")
+        if _nivel:
+            lines += [
+                f"> **Atencao — canal contaminado ({_detalhe}).** O microfone captou "
+                f"tambem o outro lado, entao parte do que foi avaliado como fala do "
+                f"Kelvin nao e dele. Trate a nota como indicativa, nao como medida.",
+                "",
+            ]
+    except Exception:
+        pass
+
     # Contexto ANTES da avaliacao: sem ele o relatorio julga frases sem dizer a
     # que se respondia (pedido do Kelvin, P-012). Gerado localmente no Ollama.
     if contexto:
@@ -664,9 +762,166 @@ def _append_progress(ev: dict, session_dt: datetime, topic: str, topic_type: str
             "|------|---------|-------|--------|-------|\n"
         )
         PROGRESS_FILE.write_text(header + row, encoding="utf-8")
+        return
+
+    # UMA linha por dia (2026-09-02). Antes era uma por call, e um dia com 4
+    # calls em ingles enchia o log com 4 linhas da mesma data — o grafico de
+    # evolucao passava a medir frequencia de reuniao, nao progresso.
+    dia = session_dt.strftime("%Y-%m-%d")
+    linhas = PROGRESS_FILE.read_text(encoding="utf-8").splitlines(keepends=True)
+    for i, ln in enumerate(linhas):
+        if ln.startswith(f"| {dia} |"):
+            linhas[i] = row
+            break
     else:
-        existing = PROGRESS_FILE.read_text(encoding="utf-8")
-        PROGRESS_FILE.write_text(existing + row, encoding="utf-8")
+        linhas.append(row)
+    PROGRESS_FILE.write_text("".join(linhas), encoding="utf-8")
+
+
+# ── Um relatorio por DIA (2026-09-02) ────────────────────────────
+# Ate hoje cada call virava um arquivo (`{data}_{hora}_english-coach.md`) e uma
+# linha no progress. So em 02/09 foram 4 arquivos — o coach dispara por IDIOMA,
+# entao toda call em ingles gera um. O Kelvin: "prefiro que o english coach gere
+# um relatorio por dia ou semana, com tudo junto, ja que e assim".
+#
+# Agora e `{data}_english-coach.md`, com uma secao por call dentro. O progress
+# ganha UMA linha por dia, substituida quando o dia recebe outra call.
+SESSION_SUFFIX = "_english-coach.md"
+
+
+def _hora_da_call(caminho: str):
+    """Extrai a data e a hora da CALL do nome do arquivo de transcricao.
+
+    O relatorio passou a ser por dia em 2026-09-02, e no primeiro reprocessamento
+    a secao saiu como `## Call 1 - 21:53`: a hora em que o coach rodou, nao a hora
+    em que a conversa aconteceu. Duas consequencias, nao uma:
+
+      - a ordem das calls do dia vira a ordem da FILA. A call das 08:39 apareceu
+        como Call 1 e a das 08:03 iria como Call 2.
+      - a fila noturna roda as 20:00 e pode virar a meia-noite. Uma call de terca
+        processada 00:10 de quarta abriria o relatorio de quarta.
+
+    Nome esperado: `YYYY-MM-DD_HH-MM_...`. Fora desse formato devolve None e quem
+    chama cai no relogio, que e o comportamento antigo.
+    """
+    import re
+    m = re.search(r"(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})", Path(caminho or "").name)
+    if not m:
+        return None
+    try:
+        from datetime import date as _d
+        d = _d.fromisoformat(m.group(1))
+        return datetime(d.year, d.month, d.day, int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def _daily_session_file(session_dt) -> Path:
+    return SESSIONS_DIR / f"{session_dt.strftime('%Y-%m-%d')}{SESSION_SUFFIX}"
+
+
+def _consolidar_no_dia(caminho: Path, session_md: str, session_dt, ordem: int) -> str:
+    """Devolve o conteudo do arquivo do dia com esta call acrescentada.
+
+    A primeira call do dia escreve o arquivo inteiro. As seguintes viram uma
+    secao `## Call N` e o frontmatter do dia passa a contar quantas foram — quem
+    abre o arquivo precisa ver de cara que o dia teve mais de uma conversa, senao
+    o cabecalho da primeira parece o dia todo.
+    """
+    hora = session_dt.strftime("%H:%M")
+    if not caminho.exists():
+        corpo = session_md.replace(
+            f"# English Coach Session — {session_dt.strftime('%Y-%m-%d')}",
+            f"# English Coach — {session_dt.strftime('%Y-%m-%d')}"
+            + chr(10) + chr(10) + f"## Call 1 — {hora}", 1)
+        return corpo.replace("calls: 1" + chr(10), "", 1)
+
+    atual = caminho.read_text(encoding="utf-8", errors="replace")
+
+    # O frontmatter que vale e o do dia: mantem o primeiro e atualiza a contagem.
+    # `level` e `overall` do dia acompanham a avaliacao MAIS RECENTE, nao a
+    # primeira. `_level_history` le so os primeiros 600 chars do arquivo, entao
+    # sem isso o dia inteiro ficaria ancorado no nivel da primeira call e o clamp
+    # de CEFR passaria a comparar contra um numero velho.
+    novos = {}
+    for ln in session_md.splitlines():
+        for campo in ("level:", "overall:", "assessment_valid:"):
+            if ln.startswith(campo):
+                novos[campo] = ln
+    linhas = atual.splitlines()
+    tem_calls = False
+    for i, ln in enumerate(linhas):
+        if ln.startswith("calls: "):
+            linhas[i] = f"calls: {ordem}"
+            tem_calls = True
+        for campo, valor in novos.items():
+            if ln.startswith(campo):
+                linhas[i] = valor
+    if not tem_calls:
+        for i, ln in enumerate(linhas):
+            if ln.startswith("type: english-coach"):
+                linhas.insert(i + 1, f"calls: {ordem}")
+                break
+    atual = chr(10).join(linhas)
+
+    # Do bloco novo aproveita so o corpo, sem o frontmatter e sem o H1 do dia.
+    novo = session_md
+    if novo.startswith("---"):
+        novo = novo.split("---", 2)[-1]
+    novo = chr(10).join(ln for ln in novo.splitlines()
+                        if not ln.startswith("# English Coach"))
+
+    return _montar_dia(atual, f"## Call X — {hora}" + chr(10) + novo.strip(), hora)
+
+
+def _montar_dia(atual: str, secao_nova: str, hora_nova: str) -> str:
+    """Reordena as calls do dia por horario e renumera de 1 a N.
+
+    A numeracao antiga vinha de `_calls_no_dia`, que CONTA secoes. Contagem e
+    ordem de chegada, e a ordem de chegada e a da fila: em 2026-09-02 a call das
+    08:39 foi processada primeiro e virou Call 1, com a das 08:03 entrando como
+    Call 2 depois. Quem le o relatorio do dia le a conversa da tarde antes da
+    manha.
+
+    Corrigir o horario do cabecalho (feito antes) nao resolvia isto sozinho: o
+    rotulo passou a estar certo e a posicao continuava errada.
+    """
+    marcador = chr(10) + "## Call "
+    i = atual.find(marcador)
+    if i < 0:
+        return atual.rstrip() + chr(10) * 2 + "---" + chr(10) * 2 +             secao_nova.replace("## Call X", "## Call 2") + chr(10)
+
+    cabecalho = atual[:i]
+    corpo = atual[i + 1:]
+
+    secoes = []
+    for pedaco in corpo.split(chr(10) * 2 + "---" + chr(10) * 2):
+        pedaco = pedaco.strip()
+        if not pedaco:
+            continue
+        primeira = pedaco.splitlines()[0]
+        hora = primeira.split("—")[-1].strip() if "—" in primeira else "99:99"
+        secoes.append((hora, pedaco))
+    secoes.append((hora_nova, secao_nova.strip()))
+    secoes.sort(key=lambda p: p[0])
+
+    saida = []
+    for n, (hora, texto) in enumerate(secoes, 1):
+        linhas = texto.splitlines()
+        linhas[0] = f"## Call {n} — {hora}"
+        saida.append(chr(10).join(linhas))
+
+    return (cabecalho.rstrip() + chr(10) * 2
+            + (chr(10) * 2 + "---" + chr(10) * 2).join(saida) + chr(10))
+
+
+def _calls_no_dia(session_dt) -> int:
+    """Quantas calls o dia ja teve, contando esta."""
+    caminho = _daily_session_file(session_dt)
+    if not caminho.exists():
+        return 1
+    texto = caminho.read_text(encoding="utf-8", errors="replace")
+    return texto.count(chr(10) + "## Call ") + 1
 
 
 def main():
@@ -746,7 +1001,7 @@ def main():
         print("[coach] Sessao NAO avaliada. Nenhuma nota ou nivel sera gravado.")
         sys.exit(0)
 
-    now = datetime.now()
+    now = _hora_da_call(getattr(args, "transcript", "")) or datetime.now()
     if args.date:
         try:
             from datetime import date as _date_cls
@@ -796,13 +1051,24 @@ def main():
     # returned level=None on a transcript the gateway rated C1 — writing that into
     # progress.md would poison the very history the anchoring now depends on.
     if coach_llm.last_run_degraded():
-        if not ev.get("level") or ev.get("level") not in guards.CEFR:
-            print("[coach] Fallback local devolveu avaliacao invalida "
-                  f"(level={ev.get('level')!r}). NADA sera gravado.")
-            sys.exit(0)
-        print("[coach] Sessao avaliada pelo modelo LOCAL - marcando confianca baixa.")
-        ev["level_confidence"] = "low"
-        ev["degraded"] = True
+        # NENHUMA nota vinda do modelo local e gravada (2026-09-02). O guarda
+        # antigo so recusava quando o `level` vinha invalido, e passar nesse
+        # teste nao significa nada: em 02/09 o gateway devolveu 504 tres vezes
+        # na call das 08:03, o `qwen2.5-coder` respondeu no lugar dele com
+        # `level: A2` — formato perfeito — e o texto dizia "Kelvin's Italian is
+        # generally understandable", com "Top issue: Pronunciation - moin, moin
+        # -> bonjour, bonjour". A transcricao e 100% ingles e o portao de idioma
+        # tinha aprovado. Formato valido, conteudo inventado.
+        #
+        # Mesmo principio da recusa por idioma, 20 linhas acima: recusar nunca
+        # pode parecer nota baixa. Um B1 falso em progress.md envenena a
+        # ancoragem de nivel de todas as sessoes seguintes, e o Kelvin le o
+        # grafico como progresso.
+        print("[coach] Sessao NAO avaliada: o gateway falhou e quem respondeu foi "
+              "o modelo local, que inventa avaliacao de ingles.")
+        print("[coach] Nada gravado. Rodar de novo com o gateway de pe:")
+        print(f"        python coach.py --transcript {args.transcript}")
+        sys.exit(0)
 
     prev_level = _last_level()
     ev["level"], capped = guards.clamp_level(ev.get("level", ""), prev_level)
@@ -828,7 +1094,9 @@ def main():
 
     # Save session note
     SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-    session_file = SESSIONS_DIR / f"{session_dt}_english-coach.md"
+    ordem = _calls_no_dia(now)
+    session_file = _daily_session_file(now)
+    _render_session._fonte = args.transcript      # para o aviso de canal
     session_md = _render_session(ev, transcript, args.topic, now, args.topic_type, contexto)
 
     # Targets: carry the suggestion forward and measure it next time. Inserted
@@ -849,8 +1117,9 @@ def main():
     except Exception as _e:  # noqa: BLE001 - never lose a session over the ledger
         print(f"[targets] skipped: {_e}")
 
-    session_file.write_text(session_md, encoding="utf-8")
-    print(f"[coach] Session note saved: {session_file}")
+    session_file.write_text(_consolidar_no_dia(session_file, session_md, now, ordem),
+                            encoding="utf-8")
+    print(f"[coach] Relatorio do dia atualizado (call {ordem}): {session_file}")
 
     # Append to progress log
     _append_progress(ev, now, args.topic, args.topic_type)

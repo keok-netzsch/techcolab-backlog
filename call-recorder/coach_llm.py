@@ -116,8 +116,21 @@ def _generate_gateway(prompt: str, expect_json: bool, max_tokens: int,
         # on a long transcript and fell straight through to the local model, which
         # answered with level=None. Retrying costs seconds; demoting the model
         # costs the whole evaluation.
+        # Cinco tentativas, nao tres (2026-09-02). O 504 do gateway e o timeout
+        # DELE esperando o modelo, e o tempo de geracao acompanha o tamanho do
+        # prompt. Medido na call do Stefan daquele dia:
+        #
+        #     08-39   12.914 chars de prompt ->  49,6 s  -> passa quase sempre
+        #     08-03   19.645 chars de prompt -> 111,3 s  -> fica em cima do corte
+        #
+        # A call de 32,6 min falhou 9 vezes seguidas em tres execucoes e passou na
+        # decima, em 111 s. Cada tentativa e uma moeda perto do limite; tres
+        # moedas nao bastavam. E o custo de errar nao era perder o relatorio: era
+        # cair no `qwen2.5-coder` local, que respondeu "Kelvin's Italian is
+        # generally understandable" numa call 100% em ingles.
+        ESPERAS = (0, 5, 20, 45, 90)
         data = None
-        for backoff in (0, 5, 20):
+        for i, backoff in enumerate(ESPERAS):
             if backoff:
                 _time.sleep(backoff)
             try:
@@ -127,12 +140,15 @@ def _generate_gateway(prompt: str, expect_json: bool, max_tokens: int,
             except urllib.error.HTTPError as e:
                 if e.code < 500:
                     raise                       # 401/429 are not worth retrying here
-                print(f"[coach-llm] gateway HTTP {e.code} - nova tentativa em "
-                      f"{20 if backoff else 5}s.")
+                proxima = ESPERAS[i + 1] if i + 1 < len(ESPERAS) else None
+                print(f"[coach-llm] gateway HTTP {e.code} "
+                      + (f"- nova tentativa em {proxima}s "
+                         f"({i + 1}/{len(ESPERAS)} usadas)." if proxima
+                         else f"- {len(ESPERAS)} tentativas esgotadas."))
             except (TimeoutError, OSError) as e:
                 print(f"[coach-llm] gateway {type(e).__name__} - nova tentativa.")
         if data is None:
-            raise ProviderError("gateway falhou em 3 tentativas (5xx/timeout)")
+            raise ProviderError(f"gateway falhou em {len(ESPERAS)} tentativas (5xx/timeout)")
 
         choice = data["choices"][0]
         content = choice.get("message", {}).get("content")

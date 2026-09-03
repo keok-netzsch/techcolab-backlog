@@ -16,6 +16,19 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "call-recorder"
 
 import coach  # noqa: E402
 import coach_llm  # noqa: E402
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _sonda_nao_vai_a_rede(monkeypatch):
+    """`_context_summary` sonda o Ollama antes de gastar 300 s nele (2026-09-02).
+
+    A sonda manda 3 palavras de verdade ao 11434. Dentro do teste isso e uma
+    chamada de rede real: na maquina do Kelvin, com 528 MB livres, ela recusava e
+    o teste passava a medir a RAM da maquina em vez do codigo. Aqui a sonda sempre
+    libera; o caso do "nao pode servir" tem teste proprio, mais abaixo.
+    """
+    monkeypatch.setattr(coach, "_ollama_pode_servir", lambda *a, **k: (True, ""))
 
 DUAL = ("[001.0s] Kelvin: so the export policy needs a decision\n"
         "[012.0s] Interlocutor: my concern is the PDI of one person here\n")
@@ -55,6 +68,21 @@ def test_falha_do_contexto_nao_derruba_o_relatorio(monkeypatch, capsys):
     monkeypatch.setattr(coach_llm, "generate", explode)
     assert coach._context_summary(DUAL) == ""
     assert "contexto nao gerado" in capsys.readouterr().out
+
+
+def test_sonda_recusando_pula_o_modelo_e_diz_por_que(monkeypatch, capsys):
+    """Sem a sonda a chamada pendura 300 s. Com ela o relatorio sai na hora — e
+    diz no corpo que faltou memoria, nao que a call era vazia. Voltar isso para
+    string vazia esconderia a lacuna de quem le o arquivo semanas depois."""
+    monkeypatch.setattr(coach, "_ollama_pode_servir",
+                        lambda *a, **k: (False, "512 MB de RAM livre"))
+    monkeypatch.setattr(coach_llm, "generate",
+                        lambda *a, **k: (_ for _ in ()).throw(
+                            AssertionError("nao devia nem tentar")))
+    out = coach._context_summary(DUAL)
+    assert "nao coube na memoria" in out
+    assert "512 MB de RAM livre" in out
+    assert "contexto pulado" in capsys.readouterr().out
 
 
 def test_transcricao_vazia_nao_chama_modelo(monkeypatch):
