@@ -9,7 +9,9 @@ $ErrorActionPreference = 'Stop'
 $VaultRoot = if ($env:TECHCOLAB_VAULT_ROOT) { $env:TECHCOLAB_VAULT_ROOT }
              else { Join-Path $env:USERPROFILE 'OneDrive - NETZSCH\Documents\TechColab_D&A_KO\vault' }
 
-$planPath = Join-Path $VaultRoot 'study-plan.json'
+# Movido 2026-09-02 para vault\study-tools\study\; os trackers em $a.tracker continuam
+# resolvidos a partir de $VaultRoot (a pasta vault), por isso só o plano muda de lugar.
+$planPath = Join-Path $VaultRoot 'study-tools\study\study-plan.json'
 if (-not (Test-Path $planPath)) { Write-Host "study-plan.json ausente em $VaultRoot"; exit 1 }
 $plan  = Get-Content $planPath -Raw -Encoding utf8 | ConvertFrom-Json
 

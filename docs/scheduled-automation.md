@@ -46,9 +46,9 @@ unless noted. This is the "production = hardened local" record required by the A
 | Task | When | Runs |
 |---|---|---|
 | `TechColab English Coach` | Mon 08:30 | `run_english_coach.bat` → `agent/english_coach.py` |
-| `CDMP Daily Study Reminder` | weekdays 15:30 | vault `cdmp-notify.ps1` |
+| `CDMP Daily Study Reminder` | weekdays 15:30 | vault `study-tools/cdmp/cdmp-notify.ps1` (a ação da tarefa foi repontada em 2026-09-02, quando o estado de estudo saiu de `vault/` para `vault/study-tools/<área>/`) |
 | `study-diario` | daily 15:40 | Claude scheduled routine (not Task Scheduler) — the **single** study routine: `/study` status + day menu, and when the focus is CDMP it already delivers the ready question. **Absorbed `cdmp-diario` on 2026-08-31** (it fired 3 min earlier for the same purpose). Pairs with the `study-reminder` toast |
-| `study-notify-diario` | daily 15:40 | `scripts/notify.ps1 -Profile study-reminder` → body from `scripts/notify-body/study-body.ps1` (reads `study-plan.json` + area trackers, zero LLM; silent when every active area already studied today); pairs with the `/study` skill. Migrated to the engine 2026-08-30 as messagebox (was balloon — Focus Assist rationale); old `vault/study-notify.ps1` retired |
+| `study-notify-diario` | daily 15:40 | `scripts/notify.ps1 -Profile study-reminder` → body from `scripts/notify-body/study-body.ps1` (reads `study-tools/study/study-plan.json` + area trackers, zero LLM; silent when every active area already studied today); pairs with the `/study` skill. Migrated to the engine 2026-08-30 as messagebox (was balloon — Focus Assist rationale); old `vault/study-notify.ps1` retired |
 | `NETZSCH-AI-Usage-Capture` | daily 09:00 | `~/NETZSCH-AI-Usage/Capture-Usage.ps1` |
 
 
