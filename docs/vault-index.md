@@ -50,11 +50,14 @@ texto do vault, e o repo é público), fora do git do vault (é derivado, não c
 
 Todos aceitam `--json` (flag global). O MCP `techcolab-vault` expõe `search` e `briefing` como
 `vault_search` e `vault_briefing`. Ele importa este pacote **em processo** (o venv dele tem
-`onnxruntime`, `tokenizers`, `numpy`), então o modelo carrega uma vez por vida do servidor:
-~8 s na primeira chamada, ~1 s nas seguintes. Sem essas dependências, cai para um subprocess
+`onnxruntime`, `tokenizers`, `numpy`), então o modelo carrega uma vez por vida do servidor: a
+subida pré-carrega as bibliotecas (~2 s), a primeira busca leva ~2 s e as seguintes ~0,4 s. Sem essas dependências, cai para um subprocess
 com o Python do `.venv` do repo (~12 s por chamada, o custo de importar e carregar o modelo a
 cada processo) e diz qual caminho usou no campo `bridge`. Na CLI, uma busca híbrida fria custa
-esses ~12 s; `--streams fts` responde em ~0,3 s.
+esses ~12 s; `--streams fts` responde em ~0,3 s. Quem embutir este pacote em outro servidor
+stdio: importar numpy/onnxruntime/tokenizers no main thread antes do event loop e fixar
+`OPENBLAS_NUM_THREADS=1`, senão o primeiro import trava (OpenBLAS cria threads no `DllMain`;
+visto em 2026-09-03, ADR §8).
 
 ## Corpus (`corpus.py`)
 
@@ -183,8 +186,8 @@ pergunta com `--details`. Roda com `include_sensitive=True`: mede recuperação,
 ## Briefing (`briefing.py`)
 
 Zero LLM. Última sessão em `AI/sessions/` (último bloco `# Session` do arquivo mais recente:
-contexto para a próxima sessão, threads abertos, itens `- [ ]`), ledger via
-`agent/pending.py list --json` (subprocess: quem lê o ledger é quem o escreve), notas com mtime
+contexto para a próxima sessão, threads abertos, itens `- [ ]`), ledger via `agent.pending` em
+processo (mesmo `_load` e mesmo filtro do `list`; o CLI por subprocess é o fallback), notas com mtime
 nos últimos N dias (fora `Daily/` e sessões), decisões (`type` decision/adr) dos últimos 30 dias,
 ideias do backlog que mexeram, estado do índice. Sensível fora, salvo `--sensitive`. Cabeçalhos
 de seção em EN ou PT são reconhecidos (`SECTION_ALIASES`).

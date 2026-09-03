@@ -119,6 +119,7 @@ def _changed_since(root: Path, rel_paths: list[str], since_iso: str) -> dict[str
                 capture_output=True,
                 text=True,
                 timeout=20,
+                stdin=subprocess.DEVNULL,  # a child of a stdio MCP server must never inherit its stdin
             )
             out[rel] = bool(r.stdout.strip()) if r.returncode == 0 else None
         except Exception:

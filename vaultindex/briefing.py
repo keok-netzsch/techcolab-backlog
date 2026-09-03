@@ -62,12 +62,29 @@ def extract_sections(text: str) -> dict[str, str]:
     return found
 
 
+_PRIORITY_ORDER = {"alta": 0, "media": 1, "média": 1, "baixa": 2}
+
+
+def _pending_in_process(repo_root: Path) -> dict:
+    """Open ledger items through the module that owns them (agent.pending), same filter as `list`."""
+    if str(repo_root) not in sys.path:
+        sys.path.insert(0, str(repo_root))
+    from agent import pending as P  # noqa: N812
+
+    data = P._load()
+    items = [i for i in data["itens"] if not i.get("resolvida_em") and not P._adiada(i)]
+    items.sort(key=lambda i: _PRIORITY_ORDER.get(i.get("prioridade") or "media", 1))
+    return {"open": len(items), "items": items[:8]}
+
+
 def _pending_via_cli(repo_root: Path) -> dict:
-    """Open ledger items through the CLI that owns them (agent/pending.py), never by reading its file."""
+    """Fallback: the same list through the CLI. stdin closed on purpose: a child of a stdio MCP
+    server must never inherit its stdin (a 60 s hang on 2026-09-03 came from exactly that)."""
     script = repo_root / "agent" / "pending.py"
     try:
         r = subprocess.run(
-            [sys.executable, str(script), "list", "--json"], capture_output=True, text=True, timeout=60, cwd=str(repo_root)
+            [sys.executable, str(script), "list", "--json"],
+            capture_output=True, text=True, timeout=20, cwd=str(repo_root), stdin=subprocess.DEVNULL,
         )
         if r.returncode != 0:
             return {"error": f"pending.py saiu com {r.returncode}: {r.stderr.strip()[-300:]}"}
@@ -76,6 +93,15 @@ def _pending_via_cli(repo_root: Path) -> dict:
         return {"open": len(items), "items": items[:8]}
     except Exception as e:
         return {"error": f"{type(e).__name__}: {e}"}
+
+
+def _pending_default(repo_root: Path) -> dict:
+    try:
+        return _pending_in_process(repo_root)
+    except Exception as e:  # repo not importable here: ask the CLI
+        out = _pending_via_cli(repo_root)
+        out.setdefault("note", f"em processo falhou ({type(e).__name__}); usado o CLI")
+        return out
 
 
 def briefing(
@@ -100,7 +126,7 @@ def briefing(
     else:
         out["last_session"] = None
 
-    out["pending"] = (pending_loader or _pending_via_cli)(repo_root)
+    out["pending"] = (pending_loader or _pending_default)(repo_root)
 
     con = connect_ro(index_dir)
     try:

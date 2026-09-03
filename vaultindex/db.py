@@ -102,7 +102,8 @@ def _pid_alive(pid: int) -> bool:
         # os.kill(pid, 0) TERMINATES the process on Windows; ask tasklist instead.
         try:
             out = subprocess.run(
-                ["tasklist", "/FI", f"PID eq {pid}", "/NH"], capture_output=True, text=True, timeout=20
+                ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                capture_output=True, text=True, timeout=20, stdin=subprocess.DEVNULL,
             ).stdout
         except Exception:
             return True  # cannot tell -> assume alive, refuse to steal the lock
