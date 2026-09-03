@@ -32,7 +32,7 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 
 | Trabalho | O que resolve | Peças |
 |---|---|---|
-| **Memória** | nada do que acontece se perde | `call-recorder/`, `~/TeamMemoryAgent/`, vault, `~/voice-dictate/` |
+| **Memória** | nada do que acontece se perde | `call-recorder/`, `~/TeamMemoryAgent/`, vault, `~/voice-dictate/`, `vaultindex/` (busca sobre o vault) |
 | **Decisão** | decido rápido, com estado único | `backlog/` (BacklogStore), `agent/` (CLI + brief + Closer), `agent/pending.py`, app Streamlit |
 | **Entrega** | produzo material com marca | skill `techcolab-deck`, `Resources/loop-export`, Timeline |
 | **Aprendizado** | aprendo com cadência | `agent/english_coach.py`, skills `cdmp`/`deutsch`/`study` |
@@ -50,6 +50,7 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 | Registro do time | `10_2ndBrain/Team Memory/Topics/` | **só via gate** do TMA (aprovação semanal) |
 | Plano de estudo (sessões, prazos, next_focus) | `{VAULT_ROOT}/vault/study-tools/study/study-plan.json` | **só** `study-log.ps1` (sessions/next_focus) e a skill `/study` (areas/deadlines) |
 | Trackers de estudo por área (SRS, scores) | `{VAULT_ROOT}/vault/study-tools/<área>/` — `cdmp/cdmp-tracker.json`, `deutsch/deutsch-tracker.json`, … | **só** o recorder da área (`cdmp-record-answer.ps1`, `deutsch-record.ps1`); o monitor `/study` lê tudo e não escreve em nenhum |
+| Índice de busca do vault | derivado, não é estado: `%LOCALAPPDATA%\techcolab\vault-index\index.sqlite`, refeito do zero por `python -m vaultindex build --full` | **só** `vaultindex build` (um escritor, lock com PID); `search` e o MCP leem em `mode=ro`; `check` é o leitor independente que acusa divergência |
 
 ### O que roda sozinho
 
@@ -162,6 +163,7 @@ Removida com `pending.py remove --motivo`, que existe exatamente para isso.
 | 2026-08-31 | PDI/OKR/Overview só recebem texto de modelo via gate | `call-recorder/GOVERNANCE.md` |
 | 2026-08-31 | **Uma sessão por vez tocando o repo e o vault.** Rotinas fundidas para reduzir sessão automática | `vault/auditoria-tokens-2026-08-31.md` |
 | 2026-08-31 | Sistema de estudo MDM: estado no vault com 1 escritor por arquivo; monitor `/study` read-only sobre trackers; conteúdo da transição (não anunciada) nunca roda no gateway — só na conta Max; áudio de alemão é o P6 (deutsch v2), não uma 2ª solução | ADR `2026-08-31-sistema-de-estudo-mdm.md` |
+| 2026-09-03 | **Busca sobre o vault é índice derivado, local, sem LLM.** FTS5 hoje, embeddings ONNX na F2; sensível (`Team/`, `Stakeholders/`, tipos de 1:1) fora por padrão, com opt-in por chamada; índice fora do OneDrive e do repo. Palavras dele: *"segue sim. bora."* | ADR `2026-09-03-vault-index-busca-hibrida-local.md`, idea-097, `docs/vault-index.md` + `docs/vault-index-governanca.md` |
 
 **Decisão de ciclo de pessoas não se retoma aqui.** Mérito, bônus, promoção e IDP do FY26
 estão em `Team/FY26 - Assessment Findings & Cross-Manager Calibration.md`, com a seção

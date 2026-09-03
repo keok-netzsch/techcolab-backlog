@@ -62,6 +62,23 @@ VAULT_BASE = VAULT_ROOT.parent.parent
 # for TECHCOLAB_VAULT_ROOT, without overriding an explicit value.
 os.environ.setdefault("TECHCOLAB_VAULT_ROOT", str(VAULT_BASE))
 
+# ── Vault search index (vaultindex/) ──────────────────────────────────────────
+# Derived from the vault and rebuildable at any time (`python -m vaultindex build --full`).
+# It holds the vault's TEXT, so it lives outside OneDrive (SQLite in WAL mode inside a
+# synced folder gets corrupted), outside this public repo and outside the vault's own git.
+# Override with TECHCOLAB_VAULT_INDEX. The default is the per-user local data dir
+# (LOCALAPPDATA on Windows, ~/.local/share elsewhere): deterministic, not a placeholder.
+# The guard against convincing empty answers sits on the read path instead: a missing
+# index file raises vaultindex.db.IndexMissing, it never returns zero results.
+# ADR: vault/decisions/2026-09-03-vault-index-busca-hibrida-local.md
+_INDEX_ENV = os.environ.get("TECHCOLAB_VAULT_INDEX", "").strip()
+if _INDEX_ENV:
+    VAULT_INDEX_DIR = Path(_INDEX_ENV)
+elif os.environ.get("LOCALAPPDATA"):
+    VAULT_INDEX_DIR = Path(os.environ["LOCALAPPDATA"]) / "techcolab" / "vault-index"
+else:
+    VAULT_INDEX_DIR = Path.home() / ".local" / "share" / "techcolab" / "vault-index"
+
 # ── Team folder (under the vault base, TechColab_D&A_KO) ──────────────────────
 TEAM_DIR = VAULT_BASE / "Team"
 

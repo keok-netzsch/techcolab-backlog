@@ -190,6 +190,46 @@ O marcador `{bug}` é anexado ao final da linha do to-do no arquivo `.md`. Exemp
 
 Se o to-do foi adicionado via código externo (não pelo app) sem incluir esse sufixo, o campo `is_bug` aparecerá como `False` ao carregar. Corrigir diretamente no arquivo `.md` adicionando `{bug}` ao final da linha.
 
+## Busca no vault (`vaultindex`)
+
+### Como busco algo no vault sem abrir o Obsidian?
+
+```bat
+python -m vaultindex search "retenção call recorder"
+python -m vaultindex search --json -k 5 "quem é o dono do BIA-019"
+```
+
+Cada resultado traz título, `type`, data, caminho e um trecho com os termos marcados em `[ ]`.
+A primeira linha diz a idade do índice; a busca já roda um build incremental antes de responder.
+Filtros: `--type decision`, `--folder Projects/`, `--since 2026-08-01`, `--until 2026-08-31`.
+Na F2 a mesma busca vai estar disponível no chat pelo tool `vault_search` do MCP `techcolab-vault`.
+
+### Sei que a nota existe e ela não aparece
+
+Três causas, nesta ordem:
+
+1. **É sensível.** `Team/`, `Stakeholders/` e notas com `type` de 1:1 ficam fora por padrão. A
+   primeira linha da resposta mostra `N nota(s) sensível(is) fora`. Rode de novo com `--sensitive`.
+2. **Está numa pasta que o índice ignora:** `Templates/`, `rollback/`, qualquer `backup*`,
+   `_attachments/`, `.obsidian/`. Lista em `vaultindex/corpus.py` (`EXCLUDE_DIRS`).
+3. **O índice divergiu do disco.** `python -m vaultindex check` lista o que mudou; `build` corrige.
+
+### "Índice não encontrado em ..." (exit 2)
+
+Ainda não existe índice nesta máquina. Rode `python -m vaultindex build`. Leva cerca de 1,5 s
+para o vault inteiro. Isso é um erro de propósito: resposta vazia com exit 0 esconderia o problema.
+
+### "outro build está com o índice (PID n)" (exit 3)
+
+Um build está rodando. Espere e rode de novo. Se o PID não existir mais (processo morto), o
+próximo `build` remove o lock órfão sozinho.
+
+### Onde fica o índice e posso apagar?
+
+`%LOCALAPPDATA%\techcolab\vault-index\index.sqlite`. Pode apagar a pasta inteira: é derivado do
+vault e `python -m vaultindex build --full` refaz em segundos. Fica fora do OneDrive e do repo de
+propósito (`docs/vault-index-governanca.md`).
+
 ---
 
-*Atualizado em 2026-05-27. Para adicionar entradas, editar `docs/FAQ.md` diretamente.*
+*Atualizado em 2026-09-03. Para adicionar entradas, editar `docs/FAQ.md` diretamente.*

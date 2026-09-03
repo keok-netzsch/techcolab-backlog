@@ -63,6 +63,8 @@ O caminho do vault Obsidian é lido da variável de ambiente **`TECHCOLAB_VAULT`
 
 `config.py` deriva os demais caminhos a partir dela (`VAULT_BASE`, `TEAM_DIR`, `BACKLOG_DIR`, etc.) e expõe `TECHCOLAB_VAULT_ROOT` para o call-recorder. **Nunca aponte o vault para dentro deste repositório** e não hardcode caminhos pessoais.
 
+O índice de busca do vault (`python -m vaultindex search "..."`) fica em `%LOCALAPPDATA%\techcolab\vault-index` por padrão; `TECHCOLAB_VAULT_INDEX` troca o lugar. É derivado: pode ser apagado e refeito com `python -m vaultindex build --full`. Detalhes em `docs/vault-index.md`; governança em `docs/vault-index-governanca.md`.
+
 ---
 
 ## Modelo Ollama
@@ -96,6 +98,7 @@ techcolab-backlog/
 ├── config.py             # Caminhos do vault (TECHCOLAB_VAULT) e settings
 ├── agent/                # Agente diário (Fase 1 análise → relatório; status)
 ├── backlog/              # Camada de dados (store/schema/daily_log) — markdown + YAML
+├── vaultindex/           # Índice de busca do vault: FTS5 hoje, embeddings na F2 (docs/vault-index.md)
 ├── ingestion/            # Pipeline de ingestão de notas via Ollama
 ├── call-recorder/        # Subprojeto: gravação + Whisper STT + Ollama (1on1/English Coach)
 ├── assets/               # logo.svg + brand.css (carregados pelo app)
