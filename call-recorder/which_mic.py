@@ -124,7 +124,19 @@ def main():
             print(f"   {label[4:][:41]:41s} {s2['verdict']:9s} "
                   f"{s2['dynamic_db']:7.1f} dB {s2['active_pct']:6.1f}%")
 
-    good = [r for r in rows if r[1]["verdict"] == "speech" and r[1]["active_pct"] > 25]
+    # O criterio e o DA PRODUCAO, nao um numero proprio. `pick_best` escolhe
+    # qualquer stream com veredito "speech" (dinamica >= 12 dB e atividade >=
+    # MIN_ACTIVE_PCT, hoje 5%). Este arquivo exigia `> 25` — um limiar solto que
+    # nao vinha de lugar nenhum.
+    #
+    # Custo, medido em 2026-09-03: o Kelvin falou 20 s, quatro entradas ouviram
+    # ("speech", ate 19.4% e 17.5 dB), e o relatorio imprimiu "NENHUMA entrada
+    # ouviu a sua voz" mandando ele trocar o dispositivo padrao do Windows. A
+    # producao teria escolhido a melhor delas sem hesitar — a call de 09:34
+    # daquele dia gravou a voz dele com 12.2%. Diagnostico que mede diferente da
+    # producao manda consertar o que nao esta quebrado, e e assim que se cria o
+    # proximo defeito.
+    good = [r for r in rows if r[1]["verdict"] == "speech"]
     print()
     if good:
         best = max(good, key=lambda r: r[1]["active_pct"])
