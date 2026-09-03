@@ -141,6 +141,28 @@ aberta — pode ser texto que envelheceu.
 consentimento do autocapture, decidido pelo Kelvin em 26/08 e já registrado no `CLAUDE.md`.
 Removida com `pending.py remove --motivo`, que existe exatamente para isso.
 
+### 12. Detecção que não escala é o mesmo que não detectar
+Um sinal que só chega a um arquivo de log não protege nada — e é pior que a ausência dele,
+porque quem escreveu o detector marca o problema como resolvido. Todo detector precisa de um
+**consumidor nomeado**: o relatório das 07:00, um perfil do `notify.ps1`, o ledger, uma
+listagem que a rotina já roda. Se você não consegue dizer quem lê, ainda não terminou.
+*Custo (2026-09-03):* `capture_multi` escrevia `*** ALERTA: canal 1 sem fala ***` no
+`record.log` a cada ocorrência, correto e no momento certo, desde 27/08. Ninguém lia. Foram
+7 gravações pela metade em 7 dias — uma de 115 min — e **4 viraram nota no vault com um lado
+só da conversa**. A causa técnica (COM não inicializado na thread de loopback) levou 40
+minutos para achar depois que alguém finalmente olhou o log.
+
+### 13. Caminho novo herda o que o velho aprendeu
+Ao ligar um ramo por flag ou trocar o default, releia as correções que o ramo antigo
+acumulou e verifique quais o novo não tem. A suíte fica verde nos dois casos: o código velho
+continua correto, e o novo nunca foi exercitado no ponto que importa.
+*Custo:* duas vezes na mesma pasta. O `vad_filter` foi corrigido no ramo de 1 canal em 26/08
+enquanto a captura real usava o de 2 (descoberto em 01/09, 23 de 26 canais degenerados). O
+`CoInitializeEx` foi escrito em `record.pump_sys` no commit `f8d936b` que, no mesmo dia,
+ligou o `capture_multi` como padrão — a correção nasceu no ramo que aquele commit desativou.
+Este é o par de superfícies na forma mais cara: quem consertou saiu convencido de ter
+consertado.
+
 ---
 
 ## Decisões — não reabrir sem perguntar
@@ -181,6 +203,9 @@ uma sessão marcou como pendente o que já estava decidido desde julho.
 - [ ] Roda sozinho? Vai para `docs/scheduled-automation.md` no mesmo commit
 - [ ] Notifica? É perfil no `notify-config.json`
 - [ ] Toca `call-recorder/`? Atualiza a tríade
+- [ ] **Detecta alguma falha? Quem lê o resultado?** Nome do consumidor, não "vai para o log"
+- [ ] **Está ligando um caminho por flag/default?** Liste o que o caminho antigo aprendeu e
+      confirme, linha a linha, o que o novo não herdou
 
 ## Depois de construir
 
