@@ -29,6 +29,7 @@ unless noted. This is the "production = hardened local" record required by the A
 | `D&A Vault - Weekly Digest` | Fri 16:00 | `scripts/generate-weekly-vault-digest.ps1` |
 | `D&A Vault Central Consolidation` | daily 08:15 | `scripts/vault-central-consolidation-agent.ps1` — read-only watch of 10_2ndBrain graduation |
 | `D&A Vault Central Sensitive Scan` | 08:25 + hourly | `scripts/vault-central-sensitive-scan.ps1` vs `vault-central-sensitive-baseline.json` |
+| `TechColab Vault Index` | daily 18:00 (**since 2026-09-03**) | `scripts/vault-index-nightly.ps1` → `python -m vaultindex build --embed` with the repo `.venv`: incremental index of the vault + local ONNX embeddings for the chunks that lack one, then `lint` (regenerates `_reports/Vault-Lint.md`, 2 s). Log `logs/vault-index-YYYY-MM.log`. 18:00 sits after `vault-daily-commit` (17:30). 1h limit is slack, not an estimate: the typical night takes seconds. Exit 3 = a search refresh held the lock at that instant; tomorrow catches up. Docs: `docs/vault-index.md`, governance `docs/vault-index-governanca.md`, ADR 2026-09-03 (idea-097) |
 
 ## Backlog / Toolkit 2.0
 

@@ -21,7 +21,7 @@ from pathlib import Path
 
 from vaultindex.corpus import Note, file_sha256, iter_note_paths, parse_note, sha256_bytes
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # v2 (2026-09-03): embeddings keyed by (chunk_id, model) so two models can be benched side by side
 DB_NAME = "index.sqlite"
 LOCK_NAME = "index.lock"
 
@@ -69,19 +69,29 @@ def connect_ro(index_dir: Path | None = None) -> sqlite3.Connection:
         raise IndexMissing(f"Índice não encontrado em {p}. Rode: python -m vaultindex build")
     con = sqlite3.connect(_uri(p, "ro"), uri=True)
     con.row_factory = sqlite3.Row
-    version = _meta_value(con, "schema_version")
+    version = meta_value(con, "schema_version")
     if version is not None and int(version) != SCHEMA_VERSION:
         con.close()
         raise SchemaMismatch(f"índice em schema {version}, código espera {SCHEMA_VERSION}; rode build --full")
     return con
 
 
-def _meta_value(con: sqlite3.Connection, key: str):
+def meta_value(con: sqlite3.Connection, key: str):
     try:
         row = con.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
     except sqlite3.OperationalError:
         return None
     return row[0] if row else None
+
+
+def stale_chunks(con: sqlite3.Connection, model: str | None) -> int:
+    """Chunks with no vector for `model` (all of them when there is no model yet)."""
+    if not model:
+        return con.execute("SELECT count(*) FROM chunks").fetchone()[0]
+    return con.execute(
+        "SELECT count(*) FROM chunks c LEFT JOIN embeddings e ON e.chunk_id = c.id AND e.model = ? WHERE e.chunk_id IS NULL",
+        (model,),
+    ).fetchone()[0]
 
 
 # ── lock ──────────────────────────────────────────────────────────────────────
@@ -189,11 +199,13 @@ CREATE TABLE IF NOT EXISTS links (
 CREATE INDEX IF NOT EXISTS links_from ON links (from_note);
 CREATE INDEX IF NOT EXISTS links_to ON links (to_note);
 CREATE TABLE IF NOT EXISTS embeddings (
-    chunk_id INTEGER PRIMARY KEY REFERENCES chunks (id) ON DELETE CASCADE,
+    chunk_id INTEGER NOT NULL REFERENCES chunks (id) ON DELETE CASCADE,
     model TEXT NOT NULL,
     dim INTEGER NOT NULL,
-    vec BLOB NOT NULL
+    vec BLOB NOT NULL,
+    PRIMARY KEY (chunk_id, model)
 );
+CREATE INDEX IF NOT EXISTS embeddings_model ON embeddings (model);
 """
 
 
@@ -218,6 +230,8 @@ class BuildReport:
     links_resolved: int = 0
     sensitive_notes: int = 0
     no_frontmatter: int = 0
+    embedding_model: str | None = None
+    embedded: int = 0
     embeddings_stale_chunks: int = 0
     warnings: list[str] = field(default_factory=list)
 
@@ -256,7 +270,7 @@ class IndexWriter:
         self.con.row_factory = sqlite3.Row
         self.con.execute("PRAGMA journal_mode=WAL")
         self.con.execute("PRAGMA foreign_keys=ON")
-        version = _meta_value(self.con, "schema_version")
+        version = meta_value(self.con, "schema_version")
         if version is not None and int(version) != SCHEMA_VERSION:
             self.con.close()
             self._lock.__exit__(None, None, None)
@@ -406,9 +420,8 @@ class IndexWriter:
         report.links_resolved = self.con.execute("SELECT count(*) FROM links WHERE to_note IS NOT NULL").fetchone()[0]
         report.sensitive_notes = self.con.execute("SELECT count(*) FROM notes WHERE sensitive = 1").fetchone()[0]
         report.no_frontmatter = self.con.execute("SELECT count(*) FROM notes WHERE has_frontmatter = 0").fetchone()[0]
-        report.embeddings_stale_chunks = self.con.execute(
-            "SELECT count(*) FROM chunks c LEFT JOIN embeddings e ON e.chunk_id = c.id WHERE e.chunk_id IS NULL"
-        ).fetchone()[0]
+        report.embedding_model = meta_value(self.con, "embedding_model")
+        report.embeddings_stale_chunks = stale_chunks(self.con, report.embedding_model)
         report.seconds = round(time.monotonic() - t0, 2)
         meta = {
             "schema_version": str(SCHEMA_VERSION),
@@ -426,11 +439,34 @@ class IndexWriter:
 # ── public API ────────────────────────────────────────────────────────────────
 
 
-def build(root: Path | None = None, index_dir: Path | None = None, *, full: bool = False) -> BuildReport:
-    """Index the vault at `root` into `index_dir`. Incremental unless full=True."""
+def build(
+    root: Path | None = None,
+    index_dir: Path | None = None,
+    *,
+    full: bool = False,
+    embed: bool = False,
+    model: str | None = None,
+    embedder=None,
+    progress=None,
+) -> BuildReport:
+    """Index the vault at `root` into `index_dir`. Incremental unless full=True.
+
+    With embed=True, fills the missing vectors for `model` (default: the active model, or
+    the package default) under the same lock, then records that model as active.
+    """
     root = Path(root or default_root())
     with IndexWriter(index_dir, full=full) as w:
-        return w.build(root)
+        report = w.build(root)
+        if embed:
+            from vaultindex.embed import DEFAULT_MODEL, embed_missing
+
+            chosen = model or report.embedding_model or DEFAULT_MODEL
+            t0 = time.monotonic()
+            report.embedded = embed_missing(w.con, chosen, embedder=embedder, index_dir=index_dir, progress=progress)
+            report.embedding_model = chosen
+            report.embeddings_stale_chunks = stale_chunks(w.con, chosen)
+            report.seconds = round(report.seconds + (time.monotonic() - t0), 2)
+        return report
 
 
 def stats(index_dir: Path | None = None) -> dict:
@@ -441,7 +477,11 @@ def stats(index_dir: Path | None = None) -> dict:
             r["type"] or "(sem type)": r["n"]
             for r in con.execute("SELECT type, count(*) AS n FROM notes GROUP BY type ORDER BY n DESC")
         }
-        out = {
+        by_model = {
+            r["model"]: r["n"] for r in con.execute("SELECT model, count(*) AS n FROM embeddings GROUP BY model ORDER BY n DESC")
+        }
+        active = meta.get("embedding_model")
+        return {
             "index_dir": str(Path(index_dir or default_index_dir())),
             "db_bytes": db_path(index_dir).stat().st_size,
             "meta": meta,
@@ -451,10 +491,11 @@ def stats(index_dir: Path | None = None) -> dict:
             "links_resolved": con.execute("SELECT count(*) FROM links WHERE to_note IS NOT NULL").fetchone()[0],
             "sensitive_notes": con.execute("SELECT count(*) FROM notes WHERE sensitive = 1").fetchone()[0],
             "no_frontmatter": con.execute("SELECT count(*) FROM notes WHERE has_frontmatter = 0").fetchone()[0],
-            "embeddings": con.execute("SELECT count(*) FROM embeddings").fetchone()[0],
+            "embedding_model": active,
+            "embeddings_by_model": by_model,
+            "embeddings_stale_chunks": stale_chunks(con, active),
             "by_type": by_type,
         }
-        return out
     finally:
         con.close()
 

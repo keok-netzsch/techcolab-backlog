@@ -50,7 +50,7 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 | Registro do time | `10_2ndBrain/Team Memory/Topics/` | **só via gate** do TMA (aprovação semanal) |
 | Plano de estudo (sessões, prazos, next_focus) | `{VAULT_ROOT}/vault/study-tools/study/study-plan.json` | **só** `study-log.ps1` (sessions/next_focus) e a skill `/study` (areas/deadlines) |
 | Trackers de estudo por área (SRS, scores) | `{VAULT_ROOT}/vault/study-tools/<área>/` — `cdmp/cdmp-tracker.json`, `deutsch/deutsch-tracker.json`, … | **só** o recorder da área (`cdmp-record-answer.ps1`, `deutsch-record.ps1`); o monitor `/study` lê tudo e não escreve em nenhum |
-| Índice de busca do vault | derivado, não é estado: `%LOCALAPPDATA%\techcolab\vault-index\index.sqlite`, refeito do zero por `python -m vaultindex build --full` | **só** `vaultindex build` (um escritor, lock com PID); `search` e o MCP leem em `mode=ro`; `check` é o leitor independente que acusa divergência |
+| Índice de busca do vault | derivado, não é estado: `%LOCALAPPDATA%\techcolab\vault-index\index.sqlite`, refeito do zero por `python -m vaultindex build --full` | **só** `vaultindex build`/`embed` (um escritor, lock com PID); `search`, `briefing` e o MCP leem em `mode=ro`; `check` é o leitor independente que acusa divergência; `lint` só lê o índice e grava `_reports/Vault-Lint.md` (saída gerada) |
 
 ### O que roda sozinho
 

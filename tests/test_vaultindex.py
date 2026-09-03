@@ -167,7 +167,7 @@ def test_search_ranks_decision_first_and_explains_why(vault, index_dir):
     top = out["results"][0]
     assert top["path"] == ADR
     assert top["why"] == ["fts"]
-    assert top["authority"] == pytest.approx(1.15)
+    assert top["authority"] == pytest.approx(1.08)
     assert top["snippets"] and "[" in top["snippets"][0]["text"]
 
 
@@ -237,9 +237,10 @@ def test_cli_build_and_search_roundtrip(vault, index_dir, capsys):
 
 def test_fts_match_expression_quotes_and_prefixes():
     assert fts_match_expression("retenção call") == '"retenção"* OR "call"'
-    assert fts_match_expression("and or not") == '"and" OR "or" OR "not"'
+    assert fts_match_expression("and or not") == '"and" OR "not"'  # 2-letter tokens drop when longer ones exist
+    assert fts_match_expression("do de") == '"do" OR "de"'  # alone they stay
     assert fts_match_expression("a") is None
-    assert fts_match_expression('say "hi"') == '"say" OR "hi"'
+    assert fts_match_expression('say "hi"') == '"say"'
 
 
 def test_chunk_body_respects_cap_and_keeps_headings():
@@ -287,10 +288,12 @@ def test_authority_multiplier_is_bounded_and_typed():
         return base
 
     assert authority(note(), today) == 1.0
-    assert authority(note(type="decision"), today) == pytest.approx(1.15)
-    assert authority(note(type="session", date="2026-09-01"), today) == pytest.approx(0.9)
-    assert authority(note(type="session", date="2026-01-01"), today) == pytest.approx(0.72)
-    assert authority(note(type="daily", date=None), today) == pytest.approx(0.9)  # unknown age: no decay
-    assert authority(note(rel_path="Archive/_archived_x.md"), today) == pytest.approx(0.85)
-    assert authority(note(type="decision", pinned=1), today) == pytest.approx(1.3)  # 1.38 clamped
-    assert authority(note(type="session", date="2026-01-01", rel_path="Archive/x.md"), today) == pytest.approx(0.7)
+    assert authority(note(type="decision"), today) == pytest.approx(1.08)
+    assert authority(note(type="session", date="2026-09-01"), today) == pytest.approx(0.95)
+    assert authority(note(type="session", date="2026-01-01"), today) == pytest.approx(0.855)
+    assert authority(note(type="daily", date=None), today) == pytest.approx(0.95)  # unknown age: no decay
+    assert authority(note(rel_path="Archive/_archived_x.md"), today) == pytest.approx(0.95)
+    assert authority(note(rel_path="App/Personal toolkit/backlog items/_arquivo/idea-006.md"), today) == pytest.approx(0.95)
+    assert authority(note(type="decision", pinned=1), today) == pytest.approx(1.188)
+    assert authority(note(type="session", date="2026-01-01", rel_path="Archive/x.md"), today) == pytest.approx(0.81225)
+    assert authority(note(type="session", date="2026-01-01", rel_path="Archive/x.md", pinned=0), today) >= 0.8

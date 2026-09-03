@@ -44,7 +44,12 @@ SENSITIVE_TYPES = frozenset(
     {"1on1", "1on1-session", "1on1-log", "1on1-agenda", "manager-call", "devolutiva", "person"}
 )
 
-CHUNK_MAX = 900  # characters; stays under the 256-token window of the smaller candidate model
+# Characters per chunk. Env override exists for the chunk-size experiment only; the value that
+# wins the bench is what ships here, and every build of an index must use the same value
+# (a different one re-chunks everything and drops every vector on the next --full build).
+# 600 won the bench on 2026-09-03 against 900 (hybrid hit@5 0.763 vs 0.684, MRR 0.486 vs 0.447):
+# the active model has a 128-token window, and a 900-character chunk was losing its tail.
+CHUNK_MAX = int(os.environ.get("TECHCOLAB_CHUNK_MAX") or 600)
 CHUNK_MERGE_MIN = 200  # a section shorter than this merges into the previous chunk when it fits
 
 TYPED_LINK_FIELDS = ("supersedes", "superseded_by", "contradicts", "causes", "fixes")
@@ -146,7 +151,12 @@ def _as_list(value) -> list[str]:
         value = value.strip()
         return [value] if value else []
     if isinstance(value, (list, tuple, set)):
-        return [str(v).strip() for v in value if str(v).strip()]
+        out: list[str] = []
+        for v in value:
+            # `contradicts: [[Note]]` is YAML for a list inside a list: flatten one level
+            items = v if isinstance(v, (list, tuple, set)) else [v]
+            out.extend(str(x).strip() for x in items if str(x).strip())
+        return out
     return [str(value).strip()]
 
 
@@ -272,7 +282,7 @@ def chunk_body(body: str, chunk_max: int = CHUNK_MAX) -> list[Chunk]:
 
 
 def _clean_target(raw: str) -> str:
-    t = raw.strip().strip("[]").strip()
+    t = raw.strip().strip("[]").strip().strip("\"'").strip()
     if "|" in t:
         t = t.split("|", 1)[0].strip()
     if "#" in t:
@@ -314,7 +324,8 @@ def parse_note(path: Path, root: Path, *, raw: bytes | None = None, chunk_max: i
     rel = path.relative_to(root).as_posix()
     stem = path.stem
     folder = rel.rsplit("/", 1)[0] if "/" in rel else ""
-    title = str(fm.get("title") or "").strip() or _first_h1(body) or stem
+    # backlog ideas carry `titulo:` (PT schema); everything else `title:`
+    title = str(fm.get("title") or fm.get("titulo") or "").strip() or _first_h1(body) or stem
     ntype = _note_type(fm)
     date, date_source = _resolve_date(fm, stem, st.st_mtime)
     sensitive = rel.startswith(SENSITIVE_FOLDERS) or (ntype in SENSITIVE_TYPES)

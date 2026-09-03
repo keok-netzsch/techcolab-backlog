@@ -230,6 +230,48 @@ próximo `build` remove o lock órfão sozinho.
 vault e `python -m vaultindex build --full` refaz em segundos. Fica fora do OneDrive e do repo de
 propósito (`docs/vault-index-governanca.md`).
 
+### A busca diz `mode: fts-only`. O que faltou?
+
+O fluxo vetorial não rodou. A própria resposta diz por quê no campo `note`: sem modelo ativo
+(`python -m vaultindex embed`), sem vetores para o modelo (`embed` de novo), ou arquivo do
+modelo ausente e download desligado. O FTS continua respondendo; nada fica em branco.
+
+### Como comparo os dois modelos de embedding?
+
+```bat
+python -m vaultindex embed --model all-MiniLM-L6-v2 --no-activate
+python -m vaultindex embed --model paraphrase-multilingual-MiniLM-L12-v2
+python -m vaultindex bench --model all-MiniLM-L6-v2 --model paraphrase-multilingual-MiniLM-L12-v2 --details
+```
+
+O `bench` lê `App/Personal toolkit/bench/golden.jsonl` (perguntas reais, com a nota esperada) e
+imprime hit@1, hit@5 e MRR por modo (`fts`, `vec`, `hybrid`) e por modelo. Quem vence vira o
+modelo ativo com `embed --model <nome>`. O golden set fica no vault, nunca no repo.
+
+### O que é o `briefing`?
+
+`python -m vaultindex briefing` (ou o tool `vault_briefing` no chat): última sessão de
+`AI/sessions/` (contexto, threads abertos, ações não ticadas), pendências abertas do ledger,
+decisões dos últimos 30 dias, notas tocadas nos últimos 7 dias e backlog que mexeu. Zero LLM;
+sensível fora, salvo `--sensitive`.
+
+### O que o `lint` faz com o vault?
+
+Só lê. `python -m vaultindex lint` gera `_reports/Vault-Lint.md` (saída gerada por código, como
+o `Action-Dashboard.md`): wikilinks quebrados, notas sem frontmatter ou sem `type`, nomes de
+arquivo duplicados, marcadores `(as of YYYY-MM)` com mais de 6 meses, ligações tipadas
+(`contradicts`, `supersedes`) e o que ficou sem alvo. `--no-write` só imprime o resumo.
+
+### Dá para buscar na memória do Claude Code também?
+
+```bat
+python -m vaultindex --corpus memory build
+python -m vaultindex --corpus memory search "gateway logado pelo empregador"
+```
+
+É um segundo índice (`%LOCALAPPDATA%\techcolab\memory-index`) sobre `~/.claude/projects/<projeto>/memory/`,
+mesmo código, mesmas regras.
+
 ---
 
 *Atualizado em 2026-09-03. Para adicionar entradas, editar `docs/FAQ.md` diretamente.*

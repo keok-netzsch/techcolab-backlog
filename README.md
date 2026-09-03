@@ -98,7 +98,7 @@ techcolab-backlog/
 ├── config.py             # Caminhos do vault (TECHCOLAB_VAULT) e settings
 ├── agent/                # Agente diário (Fase 1 análise → relatório; status)
 ├── backlog/              # Camada de dados (store/schema/daily_log) — markdown + YAML
-├── vaultindex/           # Índice de busca do vault: FTS5 hoje, embeddings na F2 (docs/vault-index.md)
+├── vaultindex/           # Índice de busca do vault: FTS5 + embeddings ONNX locais, bench, briefing, lint (docs/vault-index.md)
 ├── ingestion/            # Pipeline de ingestão de notas via Ollama
 ├── call-recorder/        # Subprojeto: gravação + Whisper STT + Ollama (1on1/English Coach)
 ├── assets/               # logo.svg + brand.css (carregados pelo app)
