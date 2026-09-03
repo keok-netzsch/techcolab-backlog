@@ -243,6 +243,48 @@ SOMA_SUSPEITA = 120.0     # % somados dos dois canais
 SOMA_GRAVE = 130.0
 
 
+def canal_mudo(base: str, rdir=None):
+    """(mudo, detalhe) — um canal ficou em 0.0% enquanto o outro gravou.
+
+    A falha OPOSTA a da contaminacao, e a que este arquivo apontou em 02/09 sem
+    cobrir: "o verify_capture.py so pergunta se o interlocutor tem fala". Aquilo
+    e ferramenta manual que nada chama, entao a metade muda do problema nunca
+    teve gate. Sete gravacoes entre 27/08 e 03/09 sairam assim — uma de 115 min —
+    e quatro ja viraram nota no vault com um lado so da conversa.
+
+    Nao e o mesmo que "call silenciosa": os DOIS canais em 0.0% e gravacao vazia,
+    caso comum e sem interesse. O que interessa e a assimetria — um lado gravou,
+    o outro voltou zerado, e a nota resultante parece completa.
+
+    Somente `active_pct` decide. `dynamic_db` mede outra coisa e chega a passar de
+    200 dB quando o canal tem buracos de silencio digital, o que o tornaria um
+    criterio pior que nenhum.
+    """
+    import json
+    raiz = Path(rdir) if rdir else (Path(__file__).parent / "recordings")
+    stem = base.split(".")[0]
+    for sufixo in (".pending.json", ".pending.json.classified"):
+        p = raiz / (stem + sufixo)
+        if not p.exists():
+            continue
+        try:
+            cp = (json.loads(p.read_text(encoding="utf-8")) or {}).get("channel_profile") or {}
+        except Exception:
+            return False, ""
+        k = (cp.get("Kelvin") or {}).get("active_pct")
+        i = (cp.get("Interlocutor") or {}).get("active_pct")
+        if k is None or i is None:
+            return False, ""
+        if float(i) == 0.0 and float(k) > 0.0:
+            return True, (f"canal do interlocutor em 0.0% (Kelvin {float(k):.1f}%) - "
+                          f"so um lado da conversa foi gravado")
+        if float(k) == 0.0 and float(i) > 0.0:
+            return True, (f"canal do Kelvin em 0.0% (interlocutor {float(i):.1f}%) - "
+                          f"so um lado da conversa foi gravado")
+        return False, ""
+    return False, ""
+
+
 def contaminacao_de_canal(base: str, rdir=None):
     """(nivel, soma, detalhe) lendo o sidecar de captura. nivel: '', 'aviso', 'grave'.
 
@@ -355,6 +397,11 @@ def _relatorio(path: Path, verbose: bool = True) -> dict:
     if nivel:
         rotulo = "CANAL CONTAMINADO" if nivel == "grave" else "canal suspeito"
         print(f"        {rotulo}: {detalhe} - atribuicao de falante nao e confiavel")
+    mudo, det_mudo = canal_mudo(path.stem)
+    rep["canal_mudo"] = mudo
+    rep["canal_mudo_detalhe"] = det_mudo
+    if mudo:
+        print(f"        METADE DA CONVERSA: {det_mudo}")
     if verbose and n:
         for sp, d in rep["speakers"].items():
             if d["suspeitas"]:

@@ -124,6 +124,30 @@ half comes out as fluent Portuguese, and no text check can tell that apart from 
 real Portuguese transcript. If a recording holds two calls in two languages, treat
 the second one as a paraphrase until it is re-transcribed with its own language.
 
+## Half a conversation now announces itself (since 2026-09-03)
+
+A call can be recorded with one channel dead: your side arrives, the other
+person's comes back empty, and the note that follows reads as a complete record
+of the meeting. Seven recordings came out that way between 27/08 and 03/09 — one
+of them 115 minutes — and four had already become notes in the vault before
+anyone noticed. The capture code had been logging the failure correctly the whole
+time; nothing read the log.
+
+Two places tell you now, and neither needs you to remember anything:
+
+- **The 07:00 report** lists recent recordings with `METADE DA CONVERSA` and says
+  which channel was empty.
+- **`python transcript_quality.py --todos`**, which the morning triage already
+  runs, prints the same line under any affected transcript.
+
+What to do when you see it: the missing side is not recoverable from that file.
+Treat the note as your own half of the meeting — fine as a personal reminder,
+never as a record of what the other person said or agreed to. If it matters,
+ask them.
+
+`verify_capture.py` still exists for a deeper look at a single `.wav`, but you no
+longer have to think to run it. Its main question is now asked automatically.
+
 ## Filing is faster now, and a hand-corrected note is safe (since 2026-09-02)
 
 Structuring a 1:1, a stakeholder call or an agenda runs on the NETZSCH gateway

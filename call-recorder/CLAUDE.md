@@ -256,7 +256,7 @@ produzido e decisao do Kelvin, caso a caso.
 | `triage.py` | O Kelvin classifica o que a maquina nao soube. Gravacao marcada `needs_review` espera aqui em vez de ser arquivada sob palpite. `--lembrar` grava o titulo em `meeting-aliases.json`, entao reuniao recorrente se classifica sozinha da segunda vez — a decisao humana e tomada uma vez, nao toda semana. `--json` para consumo por script (o lembrete grafico lia o texto formatado com regex e passou a achar ZERO pendentes quando o formato mudou por um espaco). |
 | `process.py queue` (trava) | A fila e **single-flight**: `recordings/.queue.lock` com o PID. Segunda fila sai sem tocar em nada, e os jobs continuam intactos para o proximo lote. Existe desde 2026-08-29, quando a fila ganhou tarefa propria as 20:00 (`CallRecorder-Queue`) — um lote manual iniciado de dia ainda pode estar rodando na hora do gatilho, e as duas leem a MESMA lista de `.job.json`: a nota iria ao vault duas vezes e dois Whisper disputariam a mesma CPU. Trava de processo morto e tratada como orfa e removida (reboot no meio do lote nao pode impedir o lote seguinte). |
 | `process_one.py` | Processa UM job pelo nome. `cmd_queue` e tudo-ou-nada, o que e certo para o lote noturno e errado quando se quer uma call especifica agora: 45 min de audio sao ~1,5 h de Whisper nesta maquina, e transcrever dez gravacoes para chegar em uma nao e opcao durante o expediente. **Pega a MESMA trava da fila desde 2026-09-02.** Nasceu depois do single-flight de 29/08 e ficou de fora dele por 4 dias: em 02/09 uma sessao rodou `process_one` na gravacao que a fila ja estava processando, e o mesmo audio de 32,6 min saiu com 2296, 2338 e 2296 palavras — tres transcricoes — avaliadas B1, B2 e C1 pelo coach na mesma hora. Trava so na fila protege a fila de si mesma e de mais nada. |
-| `verify_capture.py` | Veredito sobre a captura em 2 canais da gravacao mais recente: o canal do interlocutor tem fala de verdade, ou o arquivo tem so o Kelvin? Ferramenta manual — nada a chama automaticamente. |
+| `verify_capture.py` | Veredito sobre a captura em 2 canais de UM `.wav`: o canal do interlocutor tem fala de verdade, ou o arquivo tem so o Kelvin? Ferramenta manual, para olhar fundo um arquivo — mas desde 03/09 a pergunta principal dela nao depende mais de alguem lembrar de rodar: `transcript_quality.canal_mudo` responde a mesma coisa pelo sidecar, no relatorio das 07:00 e no `--todos`. Ela le o audio, entao continua sendo a unica que enxerga o que o sidecar nao registrou. |
 | `audit_transcripts.py` | Varre `transcripts/` procurando transcricao degenerada no arquivo inteiro (o caso de 2026-08-26: 43 min que viraram 98% de "."). Ver `transcript_quality.py` para o caso complementar, de trecho. |
 | `transcripts/` | Persisted transcript archive (named `YYYY-MM-DD_HH-MM_Person.txt`) — output of the normal `call-recorder.ps1` flow (person/manager/note/capture), always routed through `process.py` into the vault. **This is where 1:1s, manager calls, and captures actually live — check here first.** |
 | `recordings/` | Saved raw audio `.wav` (same base name as transcript). **Auto-purged after 7 days** (`RECORDINGS_RETENTION_DAYS` in `record.py`). `.gitignore`d. |
@@ -563,6 +563,32 @@ zerado nao melhora sozinha.
 Cuidado de metodo: nao consegui reproduzir a falha sob demanda num processo
 limpo, porque nele o COM ja estava inicializado — que e exatamente a condicao em
 que o bug NAO aparece. Ausencia de reproducao aqui nao e evidencia contraria.
+
+### O defeito de verdade nao era o COM: era o alerta que ninguem lia
+
+`capture_multi` ja escrevia `*** ALERTA: canal 1 sem fala ***` no `record.log` a
+cada ocorrencia, certo e a tempo, desde 27/08. **Nada consumia esse alerta** — nem
+health check, nem notificacao, nem teste. Por isso o defeito durou 7 dias e 7
+gravacoes em vez de uma, e 4 delas viraram nota no vault antes de alguem olhar.
+
+Consertar o COM impede a proxima falha de captura por COM. Nao impede a proxima
+por outro motivo. O que impede e o sinal chegar ao Kelvin:
+
+| Onde | O que faz |
+|---|---|
+| `daily_report._check_capture_quality` | 07:00, janela de 72h, lista `METADE DA CONVERSA` |
+| `transcript_quality.canal_mudo` | aparece no `--todos` que a triagem das 09:00 ja roda |
+| `tests/test_captura_meia_conversa.py` | 11 testes; trava o sinal, nao a causa daquela vez |
+
+`canal_mudo` e o par que faltava de `contaminacao_de_canal`. As duas falhas sao
+opostas — soma > 120% e atribuicao corrompida; um canal em 0.0% e metade da
+conversa perdida — e o comentario de `transcript_quality.py` ja registrava em
+02/09 que so uma tinha gate, apontando a outra para o `verify_capture.py`, que e
+manual e nada chama. Escrever a observacao nao fecha a lacuna.
+
+**Ao ligar um caminho novo por flag ou default, conferir o que o caminho velho
+aprendeu e o novo nao herdou.** Foi o `vad_filter` em 01/09 e o `CoInitializeEx`
+agora, os dois nesta pasta, os dois com a suite verde.
 
 ## O gate ganhou laco-entre-linhas, alfabeto e linha vazia (2026-09-02)
 

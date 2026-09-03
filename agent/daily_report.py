@@ -711,6 +711,50 @@ def _update_claude_pro_data(ideas: list) -> None:
         safe_print(f"[agent] claude-pro-data update failed: {exc}")
 
 
+def _check_capture_quality(rdir, age_h, max_age_h: float = 72.0) -> list:
+    """Grava pela metade? Diz aqui. Devolve [(stem, detalhe)] do que acusou.
+
+    Qualidade da CAPTURA, nao o transito dela pelo pipeline. Uma call com um
+    canal em 0.0% atravessa classify, fila e roteamento sem atrito nenhum e vira
+    nota que parece completa.
+
+    O `capture_multi` ja gritava "*** ALERTA: canal 1 sem fala ***" no
+    `record.log` a cada ocorrencia, corretamente, desde 27/08. Nada consumia esse
+    alerta. Foram 7 gravacoes assim em 7 dias — uma de 115 min com a Ana — e 4
+    viraram nota no vault com um lado so da conversa antes de alguem abrir um log.
+    **Deteccao que nao escala e o mesmo que nao detectar.**
+
+    Funcao separada, e nao mais um bloco dentro de `main`, porque gate que nao da
+    para testar e como o alerta que ele substitui. Coberto por
+    `tests/test_captura_meia_conversa.py`.
+    """
+    achados = []
+    try:
+        import sys as _sysq
+        _crq = str(Path(__file__).parent.parent / "call-recorder")
+        if _crq not in _sysq.path:
+            _sysq.path.insert(0, _crq)
+        import transcript_quality as _tq
+        for _p in sorted(Path(rdir).glob("*.pending.json*")):
+            # Janela de 72h: alerta que repete para sempre vira ruido, e
+            # relatorio ruidoso deixa de ser lido — que e como isto sobreviveu.
+            if age_h(_p) > max_age_h:
+                continue
+            _stem = _p.name.split(".pending")[0]
+            _mudo, _det = _tq.canal_mudo(_stem, rdir=rdir)
+            if _mudo:
+                achados.append((_stem, _det))
+    except Exception as _e:
+        safe_print(f"[agent] Capture quality check skipped: {_e}")
+        return achados
+    if achados:
+        safe_print(f"[agent] !! {len(achados)} gravacao(oes) recente(s) com "
+                   f"METADE DA CONVERSA - a nota gerada nao vai dizer isso:")
+        for _n, _d in achados[:6]:
+            safe_print(f"[agent]    {_n}: {_d}")
+    return achados
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -833,6 +877,8 @@ def main() -> int:
                        f"se alguma for Daily BIZ, ela esta fora do registro do time:")
             for _n in _sem_titulo[:6]:
                 safe_print(f"[agent]    {_n}")
+
+        _check_capture_quality(_rdir, _age_h)
     except Exception as _e:
         safe_print(f"[agent] Queue health check failed: {_e}")
 

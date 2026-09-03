@@ -170,6 +170,30 @@ machine paraphrase of what someone said, not their words. It should not be quote
 back to the person, forwarded, or used as evidence of a commitment. The gate
 raises no objection to it, and that silence is not a clearance.
 
+## A note built from one side of the conversation (2026-09-03)
+
+Seven recordings between 27/08 and 03/09 captured only Kelvin's channel; the
+other party's came back digitally silent. Four had already been filed into the
+vault — three notes on Ana Leite from a 115-minute call, one on Daniel Lima, one
+on Pedro Hennig, two on projects. Each reads as a normal record of a meeting.
+
+This is an accuracy failure with a privacy shape, and it cuts both ways.
+
+Against the person recorded: a note that reports a 1:1 while containing none of
+what the other person said can only reflect Kelvin's own account of it. Used
+later for an OKR, a PDI, or a performance judgement, it would put weight on words
+that were never captured. **A note flagged as half a conversation must not be
+quoted as what someone said, and must not be used as evidence of anything they
+agreed to.**
+
+Against the record itself: the failure was detected correctly and logged at every
+occurrence for seven days, and no one was told. Detection that does not escalate
+offers the same protection as no detection at all, while looking like more. The
+gate now runs in the 07:00 report and in the transcript quality pass.
+
+The four notes already in the vault predate the gate. They carry no marker, and
+this document is the record that they exist.
+
 ## A note that disappears is a governance failure too (2026-09-01)
 
 Same day, second defect, same shape as the one above: the system said it had done
