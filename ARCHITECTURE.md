@@ -44,12 +44,12 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 | Backlog / status de ideia | `{VAULT_ROOT}/backlog items/idea-NNN.md` | **só** `create_idea.py` e `update_status.py` |
 | Pendências do Kelvin | `agent/pending.py` (JSON) → visão .md gerada | `pending.py`; nunca editar o .md |
 | Fatia acionável do backlog | derivada, não armazenada — `agent/curadoria.py` | ninguém escreve: lê o BacklogStore e reusa `weekly_brief.collect_decisions` |
-| Compromissos extraídos de call | notas roteadas → `Action-Dashboard.md` | a **sessão** das 09:00 escreve nas notas; `process.py dashboard` consolida |
+| Compromissos extraídos de call | notas roteadas → `_reports/Action-Dashboard.md` | a **sessão** das 09:00 escreve nas notas; `process.py dashboard` consolida |
 | Verdade sobre uma pessoa | `Team/<Pessoa>/PDI.md`, `OKR.md`, `Overview.md` | **só via gate** (`process.py review --approve`) |
 | Log de sessão 1:1 | `Team/<Pessoa>/1on1.md` | `process.py` direto (é log, não afirmação) |
 | Registro do time | `10_2ndBrain/Team Memory/Topics/` | **só via gate** do TMA (aprovação semanal) |
-| Plano de estudo (sessões, prazos, next_focus) | `{VAULT_ROOT}/study-plan.json` | **só** `study-log.ps1` (sessions/next_focus) e a skill `/study` (areas/deadlines) |
-| Trackers de estudo por área (SRS, scores) | `{VAULT_ROOT}/cdmp-tracker.json`, `deutsch-tracker.json`, … | **só** o recorder da área (`cdmp-record-answer.ps1`, `deutsch-record.ps1`); o monitor `/study` lê tudo e não escreve em nenhum |
+| Plano de estudo (sessões, prazos, next_focus) | `{VAULT_ROOT}/vault/study-tools/study/study-plan.json` | **só** `study-log.ps1` (sessions/next_focus) e a skill `/study` (areas/deadlines) |
+| Trackers de estudo por área (SRS, scores) | `{VAULT_ROOT}/vault/study-tools/<área>/` — `cdmp/cdmp-tracker.json`, `deutsch/deutsch-tracker.json`, … | **só** o recorder da área (`cdmp-record-answer.ps1`, `deutsch-record.ps1`); o monitor `/study` lê tudo e não escreve em nenhum |
 
 ### O que roda sozinho
 

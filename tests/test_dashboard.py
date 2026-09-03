@@ -9,7 +9,18 @@ import pytest
 CR_DIR = Path(__file__).resolve().parents[1] / "call-recorder"
 sys.path.insert(0, str(CR_DIR))
 
-import process  # noqa: E402
+import process
+
+
+def _dash_path(vault):
+    """Onde o dashboard e gravado.
+
+    Desde 2026-09-02 e `_reports/Action-Dashboard.md`, nao a raiz do vault: saida
+    gerada por codigo nao mora ao lado do `_CLAUDE.md`. O teste pergunta ao proprio
+    modulo em vez de repetir o caminho — repetir e como o leitor da daily acabou
+    apontando para uma pasta que nao existia.
+    """
+    return vault / process.REPORTS_DIRNAME / process.DASHBOARD_FILE  # noqa: E402
 
 
 @pytest.fixture
@@ -38,7 +49,7 @@ def test_dashboard_groups_by_due(vault):
     counts = process.cmd_dashboard()
 
     assert counts == {"total": 4, "overdue": 1, "today": 1, "upcoming": 1, "undated": 1}
-    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    out = _dash_path(vault).read_text(encoding="utf-8")
     assert "## Atrasadas (1)" in out
     assert "## Hoje (1)" in out
     assert "## Proximas (1)" in out
@@ -58,7 +69,7 @@ def test_dashboard_excludes_dirs_and_self(vault):
     counts = process.cmd_dashboard()
 
     assert counts["total"] == 1
-    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    out = _dash_path(vault).read_text(encoding="utf-8")
     assert "real task" in out
     assert "ignore me" not in out
     assert "archived" not in out
@@ -75,7 +86,7 @@ def test_dashboard_skips_plain_checklist_noise(vault):
     counts = process.cmd_dashboard()
 
     assert counts["total"] == 2  # only the owner + the dated task
-    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    out = _dash_path(vault).read_text(encoding="utf-8")
     assert "preencher nome" not in out
     assert "acao com dono" in out
 
@@ -83,7 +94,7 @@ def test_dashboard_skips_plain_checklist_noise(vault):
 def test_dashboard_empty_vault(vault):
     counts = process.cmd_dashboard()
     assert counts["total"] == 0
-    assert (vault / "Action-Dashboard.md").exists()
+    assert _dash_path(vault).exists()
 
 
 def test_dashboard_dedups_repeated_action(vault):
@@ -100,7 +111,7 @@ def test_dashboard_dedups_repeated_action(vault):
 
     assert counts["total"] == 1          # five copies collapse to one action
     assert counts["undated"] == 1
-    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    out = _dash_path(vault).read_text(encoding="utf-8")
     assert out.count("Entregar documentacao do pipeline") == 1
     assert "×5" in out                   # ×5 duplicate multiplier shown
     assert "[[1on1]]" in out                  # at least one source preserved
@@ -125,7 +136,7 @@ def test_dashboard_excludes_agent_reports(vault):
     counts = process.cmd_dashboard()
 
     assert counts["total"] == 1
-    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    out = _dash_path(vault).read_text(encoding="utf-8")
     assert "acao ecoada" not in out
     assert "acao real do projeto" in out
 
@@ -145,7 +156,7 @@ def test_dashboard_skips_closed_backlog_notes(vault):
     counts = process.cmd_dashboard()
 
     assert counts["total"] == 1                 # only the active idea contributes
-    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    out = _dash_path(vault).read_text(encoding="utf-8")
     assert "instalar Tailscale" not in out
     assert "tarefa ja concluida" not in out
     assert "feature ativa do roadmap" in out
@@ -159,6 +170,6 @@ def test_dashboard_caps_source_links(vault):
 
     process.cmd_dashboard()
 
-    out = (vault / "Action-Dashboard.md").read_text(encoding="utf-8")
+    out = _dash_path(vault).read_text(encoding="utf-8")
     assert f"+{3}" in out                     # 3 sources beyond the cap
     assert out.count("[[src") == process.MAX_SOURCES

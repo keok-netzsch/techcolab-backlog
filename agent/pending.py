@@ -33,7 +33,9 @@ STORE = VAULT_ROOT / "pendencias.json"
 # Congelado no import: os testes trocam STORE por um tmp_path, e a guarda de
 # _save compara contra ESTE valor para saber se o alvo e o vault de verdade.
 _STORE_REAL = STORE
-VIEW = VAULT_ROOT.parent.parent / "Pendencias.md"  # raiz do vault, ao lado do Action-Dashboard
+# _reports/ na raiz do vault (decisao do Kelvin, 2026-09-02): a raiz e para doc
+# de operacao, e esta view e gerada — regenerada inteira a cada mudanca.
+VIEW = VAULT_ROOT.parent.parent / "_reports" / "Pendencias.md"
 
 # "graduacao" = nota candidata ao vault central (10_2ndBrain), só o Kelvin aprova.
 # "verificacao" = algo que só ele consegue conferir (uma tela, uma rotina no app).
@@ -102,6 +104,7 @@ def _render(data: dict) -> None:
         lines.append(f"- ~~**{i['id']}**~~ `[{i['tipo']}]` {i['texto']}{como} "
                      f"({i['criada_em']} → {i['resolvida_em']})")
     lines.append("")
+    VIEW.parent.mkdir(parents=True, exist_ok=True)   # _reports/ pode nao existir
     VIEW.write_text("\n".join(lines), encoding="utf-8")
 
 

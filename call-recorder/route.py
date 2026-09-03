@@ -126,7 +126,7 @@ ROUTING_RULES = [
 #    --origin apontando a transcricao. Titulo duplicado e recusado pelo
 #    proprio create_idea (exit 2) - e o dedup entre conversas.
 #
-# Antes de criar, CRUZAR: conferir o Action-Dashboard.md (acoes ja abertas) e
+# Antes de criar, CRUZAR: conferir o _reports/Action-Dashboard.md (acoes ja abertas) e
 # o backlog (ideias ja registradas) - compromisso repetido em duas calls e
 # sinal de importancia, nao motivo para duplicar o item.
 EXTRACT_CONTRACT = (
@@ -136,7 +136,7 @@ EXTRACT_CONTRACT = (
     "sem data a linha e invisivel ao monitor); "
     "(2) oportunidades -> python agent/create_idea.py --title ... "
     "--status \"em analise\" --origin <transcricao> (curadoria do Kelvin); "
-    "(3) antes de criar, cruzar com Action-Dashboard.md e o backlog - "
+    "(3) antes de criar, cruzar com _reports/Action-Dashboard.md e o backlog - "
     "recorrencia consolida o item existente, nao duplica."
 )
 
@@ -197,7 +197,7 @@ def listar(as_json=False):
     print("EXTRACAO (para cada gravacao roteada):")
     print("   - compromissos -> '- [ ] (Dono) texto @YYYY-MM-DD' nas notas roteadas")
     print("   - oportunidades -> create_idea.py --status \"em analise\" --origin <transcricao>")
-    print("   - cruzar antes com Action-Dashboard.md e o backlog (nao duplicar)")
+    print("   - cruzar antes com _reports/Action-Dashboard.md e o backlog (nao duplicar)")
     print()
     print("Para rotear:")
     print("   python route.py <trecho> --para person:Ana-Leite --assunto \"...\"")

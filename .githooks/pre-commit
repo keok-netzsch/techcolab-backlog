@@ -50,10 +50,18 @@ fi
 # 2b) Vault CONTENT markers, not just HR frontmatter. The 2026-09-02 leak had
 #     none of the markers above — it had the shape of a generated vault note.
 #     These strings only appear in vault output or in text quoting it.
-if [ -n "$content_files" ] && printf '%s\n' "$content_files" | xargs git diff --cached -- 2>/dev/null | grep -Eiq '### BLOCO 1on1|Nota standalone:|_1on1_[A-Z]|type:[[:space:]]*1on1-session|type:[[:space:]]*manager-call|TechColab_D&A_KO'; then
+#
+#     O caminho do vault (TechColab_D&A_KO) NAO esta nesta lista, e a ausencia e
+#     deliberada. Na primeira versao ele estava, e no mesmo dia barrou um .ps1
+#     que apenas REFERENCIA o caminho como fallback — codigo legitimo, nao dado.
+#     Marcador fraco que acusa codigo normal e ruido, e gate que acusa tudo nao
+#     acusa nada. O caminho segue bloqueado no teste de CAMINHO (regra 1), que e
+#     onde ele significa alguma coisa. Verificado: o log que vazou em 02/09
+#     continua sendo pego pelos marcadores de nota acima.
+if [ -n "$content_files" ] && printf '%s\n' "$content_files" | xargs git diff --cached -- 2>/dev/null | grep -Eiq '### BLOCO 1on1|Nota standalone:|_1on1_[A-Z]|type:[[:space:]]*1on1-session|type:[[:space:]]*manager-call'; then
   echo "==============================================================="
   echo " COMMIT BLOCKED — staged content looks like a generated vault note"
-  echo " (BLOCO 1on1, 'Nota standalone:', type: 1on1-session, vault path)."
+  echo " (BLOCO 1on1, 'Nota standalone:', type: 1on1-session, manager-call)."
   echo " O nome do arquivo pode ser inocente; o conteudo e que e o vault."
   echo "==============================================================="
   fail=1

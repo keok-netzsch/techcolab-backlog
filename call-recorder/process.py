@@ -2070,9 +2070,14 @@ def cmd_capture(mode: str, transcript_path: str, date: str,
 
 # ── Action Dashboard: consolidate open `- [ ]` across the vault (idea-031) ────
 
+# Saida gerada mora em _reports/, nao na raiz (decisao do Kelvin, 2026-09-02).
+# A raiz do vault e para doc de operacao; relatorio gerado tinha virado lixo
+# solto ao lado do _CLAUDE.md. Underscore segue a convencao do _attachments:
+# marca o que e escrito por maquina e ordena no topo do explorador.
+REPORTS_DIRNAME = "_reports"
 DASHBOARD_FILE = "Action-Dashboard.md"
 DASHBOARD_EXCLUDE_DIRS = {
-    ".obsidian", "_attachments", "Archive", "raw", "Clippings",
+    ".obsidian", "_attachments", "Archive", "raw", "Clippings", REPORTS_DIRNAME,
     ".git", ".trash", "node_modules",
     "agent-reports",  # daily generated snapshots that echo open actions — not a task source
     # Proposals awaiting Kelvin's approval (the PDI/OKR/Overview gate). Without
@@ -2246,7 +2251,9 @@ def cmd_dashboard(output_name: str = DASHBOARD_FILE) -> dict:
         + _section("Sem prazo", undated)
     ).rstrip() + "\n"
 
-    (root / output_name).write_text(out, encoding="utf-8")
+    destino = root / REPORTS_DIRNAME / output_name
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_text(out, encoding="utf-8")
     counts = {"total": len(tasks), "overdue": len(overdue), "today": len(due_today),
               "upcoming": len(upcoming), "undated": len(undated)}
     print(f"[dashboard] {output_name}: total={counts['total']} overdue={counts['overdue']} "
@@ -2870,7 +2877,7 @@ def main():
     q.add_argument("--dry-run", action="store_true", help="List pending jobs without processing")
 
     db = sub.add_parser("dashboard", help="Consolidate all open '- [ ]' tasks in the vault into Action-Dashboard.md")
-    db.add_argument("--output", default=DASHBOARD_FILE, help=f"Output filename in vault root (default: {DASHBOARD_FILE})")
+    db.add_argument("--output", default=DASHBOARD_FILE, help=f"Nome do arquivo em {REPORTS_DIRNAME}/ (default: {DASHBOARD_FILE})")
 
     rv = sub.add_parser("review", help="Gate de aprovacao: blocos PDI/OKR/Overview escritos pelo modelo esperam revisao antes de entrar no arquivo real")
     rv.add_argument("--person", default=None, help="Folder da pessoa (ex: Ana-Leite). Omitir = todos")
