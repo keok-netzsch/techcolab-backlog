@@ -61,6 +61,8 @@ _HEADING_LINE_RE = re.compile(r"\A#{2,3}[ \t]+(.+?)[ \t]*$", re.M)
 _PARAGRAPH_SPLIT_RE = re.compile(r"(\n[ \t]*\n)")
 _WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
 _ISO_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
+_FENCE_RE = re.compile(r"^\s*(```|~~~)")
+_INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
 
 @dataclass
@@ -288,15 +290,39 @@ def _clean_target(raw: str) -> str:
         t = t.split("|", 1)[0].strip()
     if "#" in t:
         t = t.split("#", 1)[0].strip()
+    # `[[Nota\|texto]]`: dentro de tabela o Obsidian exige o pipe escapado, e a barra
+    # sobra grudada no alvo. Sem isso o link vira `Nota\` e nunca resolve.
+    t = t.rstrip("\\").strip()
     if t.lower().endswith(".md"):
         t = t[:-3]
     return t
 
 
+def _mask_code(body: str) -> str:
+    """Troca bloco de codigo e trecho entre crases por espaco, mantendo o tamanho.
+
+    `[[links]]` numa frase sobre sintaxe e codigo, nao link: o Obsidian nao resolve
+    o que esta entre crases, e contar isso enchia o lint de alvo que nunca existiu
+    (`[[Nome]]`, `[[wikilinks]]`, `[[...Playbook]]`).
+    """
+    out = []
+    em_bloco = False
+    for linha in body.splitlines(keepends=True):
+        if _FENCE_RE.match(linha):
+            em_bloco = not em_bloco
+            out.append(" " * len(linha.rstrip("\n")) + linha[len(linha.rstrip("\n")) :])
+            continue
+        if em_bloco:
+            out.append(" " * len(linha.rstrip("\n")) + linha[len(linha.rstrip("\n")) :])
+            continue
+        out.append(_INLINE_CODE_RE.sub(lambda m: " " * len(m.group(0)), linha))
+    return "".join(out)
+
+
 def extract_links(body: str, fm: dict) -> list[Link]:
     links: list[Link] = []
     seen: set[tuple[str, str]] = set()
-    for m in _WIKILINK_RE.finditer(body):
+    for m in _WIKILINK_RE.finditer(_mask_code(body)):
         target = _clean_target(m.group(1))
         key = ("wikilink", target.lower())
         if target and key not in seen:

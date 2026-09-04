@@ -302,6 +302,38 @@ def test_chunk_body_merges_tiny_sections():
     assert len(chunks) == 1 and "## C" in chunks[0].text
 
 
+def test_wikilink_inside_code_is_not_a_link():
+    body = (
+        "Regra: o Obsidian resolve `[[links]]` por basename.\n"
+        "Mas [[Nota Real]] conta.\n\n"
+        "```\n[[Dentro Do Bloco]]\n```\n"
+        "E [[Outra Real]] no fim.\n"
+    )
+    alvos = [l.target for l in corpus.extract_links(body, {})]
+    assert alvos == ["Nota Real", "Outra Real"]
+
+
+def test_wikilink_with_escaped_pipe_in_table_resolves(tmp_path, index_dir):
+    root = tmp_path / "tablevault"
+    _w(root, "Topics/Engineering Updates.md", "---\ntype: note\ndate: 2026-09-04\n---\n# Engineering Updates\n")
+    _w(
+        root,
+        "Threads.md",
+        "---\ntype: note\ndate: 2026-09-04\n---\n"
+        "| Tema | N |\n|---|---|\n"
+        "| [[Engineering Updates\\|Engineering Updates]] | 1 |\n",
+    )
+    db.build(root, index_dir)
+    con = db.connect_ro(index_dir)
+    row = con.execute(
+        "SELECT l.to_title, n.rel_path AS destino FROM links l LEFT JOIN notes n ON n.id = l.to_note "
+        "JOIN notes f ON f.id = l.from_note WHERE f.rel_path = 'Threads.md'"
+    ).fetchone()
+    con.close()
+    assert row["to_title"] == "Engineering Updates"  # sem a barra do escape
+    assert row["destino"] == "Topics/Engineering Updates.md"
+
+
 def test_split_frontmatter_tolerates_broken_yaml():
     fm, body, had = corpus.split_frontmatter("---\ntype: [unclosed\n---\ncorpo\n")
     assert had is True and fm == {} and body.strip() == "corpo"
