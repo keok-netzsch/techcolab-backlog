@@ -38,6 +38,13 @@
       "_source": "novo em 2026-08-31 (pedido do Kelvin: monitorar to-dos extraidos das conversas)",
       "_task": "TechColab Todo Reminder (weekdays 08:45)",
       "_nota": "Le o que a rotina de roteamento das 09:00 extraiu para o vault ('- [ ] (Dono) texto @data') e o backlog (curadoria). Silencioso quando nada vence e nada aguarda curadoria."
+    },
+    "tma-health": {
+      "mode": "messagebox",
+      "title": "Team Memory Agent - registro com problema",
+      "messageScript": "scripts/notify-body/tma-health-body.ps1",
+      "_task": "TeamMemoryAgent-Health (weekdays 17:30)",
+      "_nota": "Silencioso quando nao ha rejeitado nem dia util sem registro. Nasceu do padrao 12: a guarda de documento vazio (04/09) so escrevia no log, e o log do TMA nao tinha leitor."
     }
   },
   "_pendentes": {

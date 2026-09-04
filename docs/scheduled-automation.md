@@ -19,6 +19,7 @@ unless noted. This is the "production = hardened local" record required by the A
 |---|---|---|
 | `TeamMemoryAgent-Capture` | hourly | `bin/tma_capture.py` |
 | `TeamMemoryAgent-Weekly` | hourly | `bin/tma_weekly.py` — consolidates Fridays, graduates approved drafts every run |
+| `TeamMemoryAgent-Health` | weekdays 17:30 (**since 2026-09-04**) | `scripts/notify.ps1 -Profile tma-health` → `scripts/notify-body/tma-health-body.ps1` — flags documents the parser could not read (`_rejected/`) and weekdays with no record at all. Silent when both are clean. Born from pattern 12: on 04/09 the Facilitator emitted its section headers as capitalised `ListBullet`, the parser returned zero sections, and the new empty-document guard wrote `ERROR` to a log nobody reads — the same failure shape as the 7 half-recordings in 7 days. Reads the filesystem, never a formatted listing (the triage lesson: a regex over formatted text once reported "nothing pending" when a space moved) |
 
 ## Vault (personal + team library)
 
