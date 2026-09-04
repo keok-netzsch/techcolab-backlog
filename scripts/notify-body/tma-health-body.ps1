@@ -32,23 +32,14 @@ if (Test-Path $rejected) {
                 Where-Object { $_.LastWriteTime -gt (Get-Date).AddDays(-14) })
 }
 
-# --- 2. dias uteis recentes sem registro nenhum -------------------------------------
-# Nao ha fonte de calendario aqui, entao "dia util" e a melhor aproximacao disponivel.
-# Feriado e ferias aparecem como buraco — por isso a janela e curta e o texto diz
-# "sem registro", nunca "falhou": lembrete que grita errado para de ser lido.
+# Dia sem registro NAO e alertado (decisao do Kelvin, 2026-09-04: "pule os dias sem dados").
+# Sem fonte de calendario, feriado, ferias e dia sem daily eram indistinguiveis de perda real,
+# e o alerta tocaria errado com frequencia suficiente para deixar de ser lido — que e
+# exatamente o modo de falha que o padrao 12 descreve. Fica so o sinal inequivoco: documento
+# que existiu e o parser nao conseguiu ler.
 $semRegistro = @()
-if (Test-Path $daily) {
-    for ($i = 1; $i -le 5; $i++) {
-        $d = (Get-Date).AddDays(-$i)
-        if ($d.DayOfWeek -eq 'Saturday' -or $d.DayOfWeek -eq 'Sunday') { continue }
-        $iso = $d.ToString('yyyy-MM-dd')
-        if (-not (Get-ChildItem $daily -Filter "$iso*.json" -ErrorAction SilentlyContinue)) {
-            $semRegistro += $iso
-        }
-    }
-}
 
-if ($falhas.Count -eq 0 -and $semRegistro.Count -eq 0) { exit 0 }   # silencio proposital
+if ($falhas.Count -eq 0) { exit 0 }   # silencio proposital
 
 $partes = @()
 
