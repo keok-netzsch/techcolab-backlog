@@ -116,6 +116,32 @@ def test_links_resolved_by_stem_or_path(vault, index_dir):
     assert resolved["Projects/BIA-019"] is None  # file does not exist: stays unresolved, not invented
 
 
+def test_links_resolve_through_aliases_and_filename_still_wins(tmp_path, index_dir):
+    root = tmp_path / "aliasvault"
+    _w(
+        root,
+        "Stakeholders/Stefan-Lautenschlager/Overview.md",
+        "---\ntype: capture\ndate: 2026-09-04\naliases: [Stefan Lautenschlager, Chefe]\n---\n# Stefan\n",
+    )
+    _w(root, "Notes/Chefe.md", "---\ntype: note\ndate: 2026-09-04\n---\n# Chefe\n\nOutra nota.\n")
+    _w(
+        root,
+        "Notes/menciona.md",
+        "---\ntype: note\ndate: 2026-09-04\n---\nFalei com [[Stefan Lautenschlager]] sobre o [[Chefe]].\n",
+    )
+    db.build(root, index_dir)
+    con = db.connect_ro(index_dir)
+    rows = con.execute(
+        "SELECT l.to_title, n.rel_path AS target FROM links l LEFT JOIN notes n ON n.id = l.to_note "
+        "JOIN notes f ON f.id = l.from_note WHERE f.rel_path = ? ORDER BY l.id",
+        ("Notes/menciona.md",),
+    ).fetchall()
+    con.close()
+    resolved = {r["to_title"]: r["target"] for r in rows}
+    assert resolved["Stefan Lautenschlager"] == "Stakeholders/Stefan-Lautenschlager/Overview.md"
+    assert resolved["Chefe"] == "Notes/Chefe.md"  # a real file outranks someone else's alias
+
+
 # ── check (the independent reader) ───────────────────────────────────────────
 
 

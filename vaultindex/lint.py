@@ -76,7 +76,7 @@ def lint(*, root: Path | None = None, index_dir: Path | None = None, today: date
             "root": str(root),
             "today": today.isoformat(),
             "notes": len(notes),
-            "broken_links": {"targets": len(broken_sorted), "references": sum(len(v) for v in broken_sorted), "items": [{"target": t, "count": len(ps), "sources": sorted(set(ps))[:5]} for t, ps in broken_sorted]},
+            "broken_links": {"targets": len(broken_sorted), "references": sum(len(ps) for _, ps in broken_sorted), "items": [{"target": t, "count": len(ps), "sources": sorted(set(ps))[:5]} for t, ps in broken_sorted]},
             "no_frontmatter": {"count": len(no_fm), "items": no_fm},
             "no_type": {"count": len(no_type), "by_folder": dict(no_type_by_folder.most_common()), "items": no_type},
             "duplicate_stems": {"count": len(dup_stems), "items": [{"stem": s, "paths": ps} for s, ps in dup_stems]},

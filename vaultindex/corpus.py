@@ -87,6 +87,7 @@ class Note:
     date: str | None
     date_source: str  # frontmatter | filename | mtime
     tags: list[str]
+    aliases: list[str]
     folder: str
     sensitive: bool
     pinned: bool
@@ -337,6 +338,7 @@ def parse_note(path: Path, root: Path, *, raw: bytes | None = None, chunk_max: i
         date=date,
         date_source=date_source,
         tags=_as_list(fm.get("tags")),
+        aliases=_as_list(fm.get("aliases") or fm.get("alias")),
         folder=folder,
         sensitive=bool(sensitive),
         pinned=fm.get("pinned") is True,

@@ -21,7 +21,7 @@ from pathlib import Path
 
 from vaultindex.corpus import Note, file_sha256, iter_note_paths, parse_note, sha256_bytes
 
-SCHEMA_VERSION = 2  # v2 (2026-09-03): embeddings keyed by (chunk_id, model) so two models can be benched side by side
+SCHEMA_VERSION = 3  # v3 (2026-09-04): note_aliases, so [[Nome Completo]] resolve para a nota da pessoa como no Obsidian
 DB_NAME = "index.sqlite"
 LOCK_NAME = "index.lock"
 
@@ -174,6 +174,11 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 CREATE INDEX IF NOT EXISTS notes_stem ON notes (stem);
 CREATE INDEX IF NOT EXISTS notes_type ON notes (type);
+CREATE TABLE IF NOT EXISTS note_aliases (
+    note_id INTEGER NOT NULL REFERENCES notes (id) ON DELETE CASCADE,
+    alias TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS note_aliases_alias ON note_aliases (alias);
 CREATE TABLE IF NOT EXISTS chunks (
     id INTEGER PRIMARY KEY,
     note_id INTEGER NOT NULL REFERENCES notes (id) ON DELETE CASCADE,
@@ -325,6 +330,10 @@ class IndexWriter:
             ),
         )
         note_id = cur.lastrowid
+        self.con.executemany(
+            "INSERT INTO note_aliases (note_id, alias) VALUES (?, ?)",
+            [(note_id, a) for a in dict.fromkeys(x.strip().lower() for x in note.aliases if x.strip())],
+        )
         for c in note.chunks:
             heading = c.heading or ""
             cur = self.con.execute(
@@ -350,6 +359,12 @@ class IndexWriter:
         for r in self.con.execute("SELECT id, stem, rel_path FROM notes"):
             by_stem.setdefault(r["stem"].lower(), []).append((r["id"], r["rel_path"]))
             by_path[r["rel_path"].lower()] = r["id"]
+        # Aliases are the vault's way of saying [[Stefan Lautenschlager]] when the file is
+        # Stakeholders/Stefan-Lautenschlager/Overview.md. Obsidian gives the real filename
+        # precedence over any alias, so this map is only consulted after the two exact matches.
+        by_alias: dict[str, list[tuple[int, str]]] = {}
+        for r in self.con.execute("SELECT a.alias, n.id, n.rel_path FROM note_aliases a JOIN notes n ON n.id = a.note_id"):
+            by_alias.setdefault(r["alias"], []).append((r["id"], r["rel_path"]))
         updates: list[tuple[int | None, int]] = []
         for r in self.con.execute("SELECT id, to_title FROM links"):
             title = r["to_title"].lower()
@@ -359,6 +374,8 @@ class IndexWriter:
                 target = min(hits, key=lambda h: (len(h[1]), h[1]))[0]  # Obsidian: shortest path wins
             elif title + ".md" in by_path:
                 target = by_path[title + ".md"]
+            elif by_alias.get(title):
+                target = min(by_alias[title], key=lambda h: (len(h[1]), h[1]))[0]
             elif "/" in title:
                 suffix = "/" + title + ".md"
                 cands = sorted(path for path in by_path if path.endswith(suffix))
