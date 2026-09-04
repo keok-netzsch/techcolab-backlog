@@ -282,20 +282,24 @@ def _project_current_month(daily: pd.DataFrame, month_df: pd.DataFrame) -> pd.Da
 
 
 def _monthly_totals(daily: pd.DataFrame) -> pd.DataFrame:
-    """Approximate per-calendar-month spend as the increase in the cumulative counter.
+    """Per-calendar-month spend, summed from each day's already-reset-safe delta.
 
-    This is a proxy: the gateway never reports the real budget_reset_at, so a reset
-    that lands mid-month will show up as a dip inside that month rather than a clean
-    cutoff. Floored at 0 so a reset never reads as negative spend.
+    Diffing the last recorded `spend` of one month against the last of the previous
+    month (the old approach) silently erases everything before a reset that lands
+    mid-month: a key that ran 53 -> 151 -> reset -> 0 -> 23 within August reported
+    August as ~$0, because 23 (August's last value) minus 53 (July's last value) is
+    negative and gets floored. Summing `day_spend` avoids that: each day's delta is
+    already clamped at 0 by `_daily_spend`, so a reset zeroes out only the one day it
+    happens on, not the month's real spend before it. Confirmed against real August
+    2026 data (NBS reset the key mid-month after it went over budget, not on the 1st
+    as usually communicated) — 2026-09-04.
     """
     if daily.empty:
         return pd.DataFrame(columns=["month", "total"])
     df = daily.copy()
     df["month"] = df["date"].apply(lambda d: d.replace(day=1))
-    monthly = df.groupby("month", as_index=False)["spend"].last().sort_values("month").reset_index(drop=True)
-    monthly["prev_spend"] = monthly["spend"].shift(1).fillna(0.0)
-    monthly["total"] = (monthly["spend"] - monthly["prev_spend"]).clip(lower=0)
-    return monthly[["month", "total"]]
+    monthly = df.groupby("month", as_index=False)["day_spend"].sum().sort_values("month").reset_index(drop=True)
+    return monthly.rename(columns={"day_spend": "total"})[["month", "total"]]
 
 
 def _suggest_monthly_limit(daily: pd.DataFrame) -> dict[str, float] | None:
