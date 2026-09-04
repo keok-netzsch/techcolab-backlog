@@ -45,6 +45,13 @@
       "messageScript": "scripts/notify-body/tma-health-body.ps1",
       "_task": "TeamMemoryAgent-Health (weekdays 17:30)",
       "_nota": "Silencioso quando nao ha rejeitado nem dia util sem registro. Nasceu do padrao 12: a guarda de documento vazio (04/09) so escrevia no log, e o log do TMA nao tinha leitor."
+    },
+    "capture-half-call": {
+      "mode": "messagebox",
+      "title": "Call Recorder - gravacao pela metade",
+      "messageScript": "scripts/notify-body/capture-half-call-body.ps1",
+      "_task": "nenhuma - disparado pelo autocapture.py ao fechar a gravacao, nao por horario",
+      "_nota": "Padrao 12, terceira vez na mesma pasta. O '*** ALERTA: canal 1 sem fala ***' do capture_multi so ia para o record.log (sem leitor desde 27/08) e o gate do relatorio das 07:00 so avisa na manha seguinte. Em 03/09 duas calls sairam com o canal do interlocutor em silencio digital e o Kelvin soube em 04/09. Silencioso quando nao ha gravacao meia-conversa nova nas ultimas 24h; cada gravacao e anunciada uma vez so (marca <base>.halfcall-notified)."
     }
   },
   "_pendentes": {

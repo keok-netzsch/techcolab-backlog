@@ -262,6 +262,46 @@ def _persist_call(started, title, mic, sysa, seconds) -> None:
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
     log(f"salvo: {wav.name}  ({seconds/60:.1f} min) - aguardando classificacao")
+    _avisar_meia_conversa()
+
+
+def _avisar_meia_conversa() -> None:
+    """Caixa na tela quando a gravacao saiu com um lado so. Padrao 12.
+
+    O sidecar acabou de ser escrito, entao a regra le do disco pelo mesmo caminho
+    que o relatorio diario usa (`transcript_quality.canal_mudo`) — uma regra, nao
+    duas. Aqui so decidimos QUANDO avisar; o QUE conta como meia conversa mora la.
+
+    Nunca derruba o watcher: se o notify falhar, a gravacao ja esta salva e o
+    alerta continua no log e no relatorio das 07:00. Perder o aviso e ruim;
+    perder o autocapture por causa do aviso seria pior.
+    """
+    import subprocess
+
+    try:
+        import halfcall_notify
+        achados = halfcall_notify.pendentes()
+        if not achados:
+            return
+        notify = HERE.parent / "scripts" / "notify.ps1"
+        if not notify.exists():
+            log(f"[WARN] meia-conversa detectada mas notify.ps1 nao existe em {notify}")
+            return
+        # Marca ANTES de disparar, e de proposito. A caixa e `messagebox`, que
+        # bloqueia ate ele clicar OK; esperar o subprocesso para so entao marcar
+        # travaria o watcher no meio do dia. Marcar antes troca "perder um aviso
+        # se a caixa falhar" por "repetir o aviso a cada call das proximas 24h".
+        # A primeira falha e coberta pelo record.log e pelo relatorio das 07:00;
+        # a segunda mata o lembrete, que e como este defeito sobreviveu 7 dias.
+        halfcall_notify.marcar([s for s, _ in achados])
+        subprocess.Popen(
+            ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+             "-File", str(notify), "-Profile", "capture-half-call"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        log("[multi] meia-conversa: aviso disparado (perfil capture-half-call)")
+    except Exception as e:
+        log(f"[WARN] aviso de meia-conversa falhou: {e}")
 
 
 def _acquire_single_instance():

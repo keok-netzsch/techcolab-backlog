@@ -133,12 +133,20 @@ of them 115 minutes — and four had already become notes in the vault before
 anyone noticed. The capture code had been logging the failure correctly the whole
 time; nothing read the log.
 
-Two places tell you now, and neither needs you to remember anything:
+Three places tell you now, and none of them needs you to remember anything:
 
+- **A box on screen, minutes after the call ends.** The recorder checks both
+  channels when it saves the `.wav` and opens a window if one came back empty. It
+  names the recording and says the missing side cannot be recovered. Each
+  recording is announced once, so it will not nag you on every call that follows.
 - **The 07:00 report** lists recent recordings with `METADE DA CONVERSA` and says
   which channel was empty.
 - **`python transcript_quality.py --todos`**, which the morning triage already
   runs, prints the same line under any affected transcript.
+
+The box is deliberately late: it waits until the call is over. The failure is
+already visible when the call starts, but a window that steals focus mid-meeting
+is a window you would turn off.
 
 What to do when you see it: the missing side is not recoverable from that file.
 Treat the note as your own half of the meeting — fine as a personal reminder,

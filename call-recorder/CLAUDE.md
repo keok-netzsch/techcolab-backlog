@@ -576,9 +576,37 @@ por outro motivo. O que impede e o sinal chegar ao Kelvin:
 
 | Onde | O que faz |
 |---|---|
+| `halfcall_notify` + perfil `capture-half-call` | **caixa na tela minutos depois da call**, disparada pelo `autocapture` ao fechar a gravacao |
 | `daily_report._check_capture_quality` | 07:00, janela de 72h, lista `METADE DA CONVERSA` |
 | `transcript_quality.canal_mudo` | aparece no `--todos` que a triagem das 09:00 ja roda |
-| `tests/test_captura_meia_conversa.py` | 11 testes; trava o sinal, nao a causa daquela vez |
+| `tests/test_captura_meia_conversa.py` | trava a DETECCAO |
+| `tests/test_halfcall_notify.py` | trava a ENTREGA |
+
+#### A entrega chegou tarde demais, e isso tambem era o defeito (2026-09-04)
+
+As duas primeiras linhas da tabela acima nasceram em 03/09 e nenhuma alcancou o
+Kelvin no dia da call. O log nao tem leitor; o relatorio das 07:00 so fala na
+manha seguinte, quando a nota ja existe. Em 04/09 ele descobriu as duas
+gravacoes da vespera **perguntando**, e a primeira duvida dele foi se o audio
+existia no `.wav` e so nao tinha sido transcrito. Nao existia: pico 0, silencio
+digital.
+
+Por isso o `autocapture` chama `notify.ps1 -Profile capture-half-call` logo
+depois de salvar o `.wav`.
+
+Tres decisoes que parecem detalhe e nao sao:
+
+- **Dispara no FIM, nao na abertura.** A falha de loopback e conhecida no
+  `Error 0x800401f0`, ainda no comeco da call, mas `messagebox` e TopMost e
+  bloqueante — abrir durante uma call rouba o foco, ja aconteceu com camera
+  ligada, e alerta que atrapalha e alerta que ele desliga.
+- **Marca `<base>.halfcall-notified` antes de disparar.** Sem marca a mesma
+  gravacao reaparece ao fim de toda call das 24h seguintes. Marcar depois exigiria
+  esperar a caixa, que so fecha quando ele clica OK, e travaria o watcher.
+- **`halfcall_notify.main()` nao marca nada.** A primeira versao marcava, e um
+  `notify.ps1 -WhatIf` (que existe para ensaiar sem abrir janela) consumiu o
+  anuncio da call do Genesis. Ler nunca gasta o anuncio; quem marca e quem
+  dispara.
 
 `canal_mudo` e o par que faltava de `contaminacao_de_canal`. As duas falhas sao
 opostas — soma > 120% e atribuicao corrompida; um canal em 0.0% e metade da

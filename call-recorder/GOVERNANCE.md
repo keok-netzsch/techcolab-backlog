@@ -194,6 +194,19 @@ gate now runs in the 07:00 report and in the transcript quality pass.
 The four notes already in the vault predate the gate. They carry no marker, and
 this document is the record that they exist.
 
+**Amended 2026-09-04.** The gate above was still too late to protect anyone. Two
+more recordings — 08:53 with Hernán Morales, 09:34 with an external contact —
+came out half-captured on 03/09, and Kelvin found out on 04/09 by asking. Both
+had already been routed into the vault by then, one of them into a stakeholder
+folder, carrying a report about a third person's conduct at a party with only
+Kelvin's side of the exchange on record. A gate that speaks the next morning
+protects the file, not the decision someone might make from it.
+
+The recorder now opens a window when it saves a recording with a dead channel, so
+the warning arrives while the meeting is still fresh and before the note exists.
+That closes the delivery gap. It does not change the rule above: a note flagged as
+half a conversation is Kelvin's account, not a record of what anyone else said.
+
 ## A note that disappears is a governance failure too (2026-09-01)
 
 Same day, second defect, same shape as the one above: the system said it had done
