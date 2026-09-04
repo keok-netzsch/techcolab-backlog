@@ -142,6 +142,21 @@ def test_links_resolve_through_aliases_and_filename_still_wins(tmp_path, index_d
     assert resolved["Chefe"] == "Notes/Chefe.md"  # a real file outranks someone else's alias
 
 
+def test_lint_ignores_broken_links_from_generated_and_archived_notes(tmp_path, index_dir):
+    from vaultindex.lint import lint
+
+    root = tmp_path / "lintvault"
+    _w(root, "Notes/real.md", "---\ntype: note\ndate: 2026-09-04\n---\nCita [[Nao Existe]].\n")
+    _w(root, "_reports/Gerado.md", "---\ntype: note\ndate: 2026-09-04\n---\nCita [[Nao Existe]] e [[Outro Sumido]].\n")
+    _w(root, "Archive/_archived_velho.md", "---\ntype: note\ndate: 2026-09-04\n---\nCita [[Nao Existe]].\n")
+    db.build(root, index_dir)
+    rep = lint(root=root, index_dir=index_dir)
+    # só a nota viva conta; o relatório gerado e o snapshot citam nome de propósito
+    assert rep["broken_links"]["targets"] == 1
+    assert rep["broken_links"]["references"] == 1
+    assert rep["broken_links"]["ignored_sources"] == {"_reports": 2, "Archive": 1}
+
+
 # ── check (the independent reader) ───────────────────────────────────────────
 
 

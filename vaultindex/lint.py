@@ -17,6 +17,8 @@ from pathlib import Path
 
 from vaultindex.db import connect_ro, default_root
 
+# Origens cujo link quebrado não é defeito do grafo: saída gerada e snapshot arquivado.
+NON_CANONICAL_SOURCES = ("_reports/", "Archive/")
 STALE_MONTHS = 6
 _RECENCY_RE = re.compile(r"\bas of (\d{4})-(\d{2})\b", re.I)
 REPORT_REL = "_reports/Vault-Lint.md"
@@ -34,9 +36,18 @@ def lint(*, root: Path | None = None, index_dir: Path | None = None, today: date
     try:
         notes = {r["id"]: r for r in con.execute("SELECT id, rel_path, stem, title, type, has_frontmatter, sensitive, folder FROM notes")}
 
+        # Classe da nota de ORIGEM decide se o link quebrado conta. Saída gerada e nota
+        # arquivada citam nomes de propósito: o próprio Vault-Lint.md respondia por 40 das
+        # referências que ele mesmo acusava, e um snapshot no Archive/ carrega os links do
+        # dia em que foi tirado. Contar isso mede o relatório, não a saúde do vault.
         broken: dict[str, list[str]] = defaultdict(list)
+        ignored_sources: Counter = Counter()
         for r in con.execute("SELECT l.to_title, n.rel_path FROM links l JOIN notes n ON n.id = l.from_note WHERE l.to_note IS NULL AND l.kind = 'wikilink'"):
-            broken[r["to_title"]].append(r["rel_path"])
+            rel = r["rel_path"]
+            if rel.startswith(NON_CANONICAL_SOURCES):
+                ignored_sources[rel.split("/")[0]] += 1
+                continue
+            broken[r["to_title"]].append(rel)
         broken_sorted = sorted(broken.items(), key=lambda kv: (-len(kv[1]), kv[0]))
 
         no_fm = sorted(n["rel_path"] for n in notes.values() if not n["has_frontmatter"])
@@ -76,7 +87,7 @@ def lint(*, root: Path | None = None, index_dir: Path | None = None, today: date
             "root": str(root),
             "today": today.isoformat(),
             "notes": len(notes),
-            "broken_links": {"targets": len(broken_sorted), "references": sum(len(ps) for _, ps in broken_sorted), "items": [{"target": t, "count": len(ps), "sources": sorted(set(ps))[:5]} for t, ps in broken_sorted]},
+            "broken_links": {"targets": len(broken_sorted), "references": sum(len(ps) for _, ps in broken_sorted), "ignored_sources": dict(ignored_sources.most_common()), "items": [{"target": t, "count": len(ps), "sources": sorted(set(ps))[:5]} for t, ps in broken_sorted]},
             "no_frontmatter": {"count": len(no_fm), "items": no_fm},
             "no_type": {"count": len(no_type), "by_folder": dict(no_type_by_folder.most_common()), "items": no_type},
             "duplicate_stems": {"count": len(dup_stems), "items": [{"stem": s, "paths": ps} for s, ps in dup_stems]},
@@ -106,6 +117,14 @@ def render(rep: dict) -> str:
         f"## Wikilinks quebrados: {rep['broken_links']['targets']} alvos, {rep['broken_links']['references']} referências",
         "",
     ]
+    ignored = rep["broken_links"].get("ignored_sources") or {}
+    if ignored:
+        L += [
+            "> Fora da conta: "
+            + ", ".join(f"{n} em `{folder}/`" for folder, n in ignored.items())
+            + ". Saída gerada e snapshot arquivado citam nome de propósito; contar isso mede o relatório, não o vault.",
+            "",
+        ]
     for it in rep["broken_links"]["items"][:SAMPLE]:
         L.append(f"- `[[{it['target']}]]` × {it['count']} · em: " + ", ".join(f"`{s}`" for s in it["sources"]))
     if rep["broken_links"]["targets"] > SAMPLE:
