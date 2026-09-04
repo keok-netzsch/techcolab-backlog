@@ -13,8 +13,15 @@ the other person talking — was simply missing.
 
 ## Privacy posture (facts on record)
 
-- **Everything is local.** Recording (WASAPI, 2 channels), transcription (Whisper on CPU)
-  and English evaluation (Ollama) run on this machine. No API keys, no cloud audio.
+- **Audio never leaves the machine.** Recording (WASAPI, 2 channels) and transcription
+  (Whisper on CPU) run locally. There is no cloud audio and no plan for any.
+- **Some text does leave, by decision.** Since 2026-09-02 the LLM provider is chosen by
+  *purpose* (`coach_llm.REMOTE_ALLOWED`). `coach`, `coach-probe`, `oneonone`, `manager` and
+  `agenda` go to the NETZSCH gateway (`litellm.chatbot.netzsch.com`, API key in
+  `NETZSCH_LLM_API_KEY`). `note`, `capture` and `transcript` stay on Ollama — the Inbox
+  carries personal content and the gateway is logged by the employer (ADR
+  `2026-08-31-sistema-de-estudo-mdm.md`, decision 4). Kelvin's call, motivated by Ollama
+  holding 4.2 GB on a 16 GB machine.
 - **Channel separation is the attribution.** ch0 = Kelvin's mic, ch1 = the other party.
   No voice identification is performed; attribution comes from the physical channel.
 - **Routing is content-based and human-reviewable**: autocaptured recordings are parked

@@ -1,7 +1,7 @@
 # CLAUDE.md — call-recorder
 
 ## Project overview
-PowerShell + Python tool that records speech, transcribes with Whisper (local, CPU, medium model), and evaluates English with Ollama (`qwen2.5-coder:latest`). No API keys — Ollama only.
+PowerShell + Python tool that records speech and transcribes with Whisper (local, CPU, medium model). Audio and transcription are always local. The LLM provider is chosen **by purpose** since 2026-09-02 (`coach_llm.REMOTE_ALLOWED`): `coach`, `coach-probe`, `oneonone`, `manager` and `agenda` run on the NETZSCH gateway; `note`, `capture` and `transcript` stay on Ollama (`qwen2.5-coder:latest`).
 
 **Part of:** https://github.com/keok-netzsch/techcolab-backlog (subfolder `call-recorder/`)
 **Vault output root:** `%USERPROFILE%\OneDrive - NETZSCH\Documents\TechColab_D&A_KO`
