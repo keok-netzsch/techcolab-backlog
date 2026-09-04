@@ -147,7 +147,7 @@ After updating the app pages, also check if `README.md` needs updating.
   execution time limit at 2h and do not revert the VBS to a non-blocking `WShell.Run`.
   There must be exactly **one** task pointing at `run_agent.bat`: two of them race on
   `logsgent-last.log` and one ends up permanently red, masking real failures.
-- **Tests:** 305 tests in `tests/`, all must pass before committing
+- **Tests:** 633 tests in `tests/` (2026-09-04), all must pass before committing
 
 ## The decision loop — Weekly Brief (Toolkit 2.0, since 2026-08-26)
 

@@ -16,7 +16,10 @@
 #
 # Baseline model: every finding gets a stable key (file + pattern group + line
 # content hash). Findings already in the baseline file are "known" (reviewed as
-# benign, e.g. DAMA governance docs legitimately containing "confidential").
+# benign). Since 2026-09-04 the confidentiality check is split in two: 'confid' for
+# phrases that always mean secrecy, 'confid-mark' for the classification word used as
+# an actual marking, so a governance document that only names the levels no longer
+# needs a baseline entry.
 # Only NEW findings are surfaced prominently. The baseline is NEVER updated
 # automatically - run manually with -UpdateBaseline after reviewing a report:
 #   powershell -File vault-central-sensitive-scan.ps1 -UpdateBaseline
@@ -46,7 +49,19 @@ $patternGroups = @(
     @{ Name = "money";   SkipLongLines = $true;  Regex = 'R\$ ?\d|\u20ac ?\d|\bEUR ?\d{3}' },
     @{ Name = "hr";      SkipLongLines = $true;  Regex = 'avalia(c|\u00e7)(a|\u00e3)o de desempenho|performance review|performance evaluation|devolutiva|\bPDI\b|\b9[ -]?box\b|promo(c|\u00e7)(a|\u00e3)o\b|\bpromotion\b|headcount|demiss|dismissal|\btermination\b' },
     @{ Name = "secret";  SkipLongLines = $false; Regex = 'api[_ -]?key\s*[:=]|password\s*[:=]|senha\s*[:=]|\bsk-[A-Za-z0-9]{10,}|ghp_[A-Za-z0-9]{10,}|xoxb-[A-Za-z0-9-]{10,}|Bearer [A-Za-z0-9._\-]{15,}|AKIA[0-9A-Z]{16}' },
-    @{ Name = "confid";  SkipLongLines = $true;  Regex = 'confidencial|confidential|n(a|\u00e3)o verbalizad|ainda n(a|\u00e3)o (foi )?anunciad|n(a|\u00e3)o compartilhar|do not share|internal only' }
+    # Split on 2026-09-04 (P-072). The old single 'confid' group matched the bare word
+    # "confidential" anywhere on a line, so it could not tell a document that IS marked
+    # secret from one that WRITES ABOUT the classification scheme. Every DG document
+    # naming Public / Internal / Confidential / Restricted was quarantined, and the
+    # workaround was re-running -UpdateBaseline for each new one.
+    #   confid      - phrases that are an instruction whatever the surrounding text.
+    #   confid-mark - the classification word ONLY in a marking construction: a label
+    #                 ("Classification: Confidential"), an assertion ("X is confidential"),
+    #                 an imperative ("treat as confidential"), or a line that is nothing
+    #                 but the word. Naming the level in a list, a table row or a glossary
+    #                 definition no longer matches.
+    @{ Name = "confid";      SkipLongLines = $true;  Regex = 'n(a|\u00e3)o verbalizad|ainda n(a|\u00e3)o (foi )?anunciad|n(a|\u00e3)o compartilhar|do not share|internal only' },
+    @{ Name = "confid-mark"; SkipLongLines = $true;  Regex = '^\W{0,6}(confidential|confidencial)\W{0,6}$|(classification|sensitivity|classifica(c|\u00e7)(a|\u00e3)o|sigilo|n(i|\u00ed)vel)\s*[:=]\s*\W{0,4}(confidential|confidencial)|(strictly|highly|estritamente|altamente)\s+(confidential|confidencial)|\b(is|are|was|were|\u00e9|s\u00e3o|era|eram)\s+(strictly\s+|highly\s+|estritamente\s+|altamente\s+)?(confidential|confidencial)\b|(treat|keep|mark|marked|tratar|manter)\s+\S*\s*(as|como)\s+(confidential|confidencial)|(confidential|confidencial)\s+(and|e)\s+proprietary' }
 )
 $longLineThreshold = 800
 $excerptMax = 200
@@ -153,7 +168,7 @@ if ($UpdateBaseline) {
 $r = New-Object System.Collections.Generic.List[string]
 $r.Add("# Vault Central Sensitive Scan - $today")
 $r.Add("")
-$r.Add("Scanned $($files.Count) text files in ``10_2ndBrain`` against $($patternGroups.Count) pattern groups (comp / money / hr / secret / confid).")
+$r.Add("Scanned $($files.Count) text files in ``10_2ndBrain`` against $($patternGroups.Count) pattern groups ($($patternGroups.Name -join ' / ')).")
 $r.Add("Baseline: $($baseline.Count) reviewed-as-benign findings.")
 $r.Add("")
 
