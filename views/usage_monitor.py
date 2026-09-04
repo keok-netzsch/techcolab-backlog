@@ -41,10 +41,13 @@ GATEWAY_RPM_LIMIT = 100
 GATEWAY_TPM_LIMIT = 500_000
 
 # How far back the local snapshot history is kept and read for the charts.
-# Calendar-month cycles align with the actual reset: confirmed with NBS (Patrick
-# Palarz, 2026-08-03) that the budget resets on the 1st of each month. The gateway
-# itself never returns budget_reset_at, so this alignment is not API-verified, but
-# it is a confirmed fact from the platform team, not a guess.
+# NBS (Patrick Palarz, 2026-08-03) said the budget resets on the 1st of each
+# month, but real data doesn't back that up: the only observed reset so far
+# (August 2026) landed around 20-26/08, after the key blew past budget - not on
+# the 1st. The gateway itself never returns budget_reset_at either way. Treated
+# as unconfirmed pending a follow-up with NBS (2026-09-04); every period
+# calculation below detects a reset from the data itself instead of assuming a
+# calendar date - see `_effective_period_start`.
 HISTORY_RETENTION_DAYS = 90
 PROJECTION_WINDOW_DAYS = 3
 
@@ -155,16 +158,47 @@ def _save_reset_note(note: str) -> None:
     _RESET_NOTE_FILE.write_text(note, encoding="utf-8")
 
 
+def _last_reset_date(daily: pd.DataFrame, as_of: date) -> date | None:
+    """Most recent date at or before `as_of` where the raw lifetime spend counter
+    dropped - a reset, wherever it lands. `None` if none happened by then.
+
+    `as_of` matters: without it, a row from *before* a later reset would borrow
+    that later reset's baseline and compute nonsense for a period it never saw.
+    """
+    before = daily[daily["date"] <= as_of]
+    if len(before) < 2:
+        return None
+    dropped = before["spend"].diff() < 0
+    if not dropped.any():
+        return None
+    return before.loc[dropped, "date"].iloc[-1]
+
+
+def _effective_period_start(daily: pd.DataFrame, calendar_start: date, as_of: date) -> date:
+    """The later of `calendar_start` and the most recent reset between it and
+    `as_of`.
+
+    NBS resets the key out-of-band and not always on the 1st as usually
+    communicated: real August 2026 data shows the only observed reset landed
+    around 20-26/08, after the key blew past budget - not on the 1st. Using
+    only the calendar boundary made every reading after a mid-month reset
+    compute a negative, clamped-to-0 period spend for the rest of that period
+    (confirmed 2026-09-04).
+    """
+    reset_date = _last_reset_date(daily, as_of)
+    if reset_date is not None and reset_date > calendar_start:
+        return reset_date
+    return calendar_start
+
+
 def _baseline_before(daily: pd.DataFrame, period_start: date) -> float:
-    """Last recorded spend before `period_start` - the calendar-month starting
-    balance for whichever month `period_start` falls in.
+    """Last recorded spend before `period_start` - the starting balance for
+    whichever period `period_start` marks the beginning of.
 
     The gateway's "spend" is a lifetime counter that never resets on its own
-    (budget_duration/budget_reset_at are always null - confirmed 2026-08-03).
-    The monthly reset (1st of each month, confirmed with NBS/Patrick Palarz) is
-    a process outside the gateway, so "spend this month" is derived locally:
-    spend minus whatever had already accumulated by the end of the prior month.
-    Recomputes itself every month from history - nothing to maintain.
+    (budget_duration/budget_reset_at are always null - confirmed 2026-08-03), so
+    "spend this period" is derived locally: spend minus whatever had already
+    accumulated by the end of the prior period.
     """
     if daily.empty:
         return 0.0
@@ -174,16 +208,33 @@ def _baseline_before(daily: pd.DataFrame, period_start: date) -> float:
     return float(before.iloc[-1]["spend"])
 
 
-def _period_baseline(daily: pd.DataFrame) -> float:
-    """Baseline for the current calendar month (see `_baseline_before`)."""
-    period_start = datetime.now().astimezone().date().replace(day=1)
+def _baseline_for_period(daily: pd.DataFrame, calendar_start: date, as_of: date) -> float:
+    """Baseline for the period starting `calendar_start`, as observed by `as_of` -
+    adjusted for a more recent reset inside that window (see
+    `_effective_period_start`)."""
+    period_start = _effective_period_start(daily, calendar_start, as_of)
+    if period_start > calendar_start:
+        # period_start IS the reset date - baseline is that day's own (already
+        # post-reset) spend, not "whatever came before it" (the pre-reset high).
+        row = daily[daily["date"] == period_start]
+        return float(row.iloc[0]["spend"]) if not row.empty else 0.0
     return _baseline_before(daily, period_start)
 
 
-def _this_period_only(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Snapshots from the 1st of the current calendar month onward, so burn-rate
-    pace reflects this month's activity rather than being dragged by last month."""
-    period_start = datetime.now().astimezone().date().replace(day=1)
+def _period_baseline(daily: pd.DataFrame) -> float:
+    """Baseline for the current calendar month, as of today (see
+    `_baseline_for_period`)."""
+    today = datetime.now().astimezone().date()
+    return _baseline_for_period(daily, today.replace(day=1), today)
+
+
+def _this_period_only(history: list[dict[str, Any]], daily: pd.DataFrame) -> list[dict[str, Any]]:
+    """Snapshots from the effective period start onward (calendar day 1, or a
+    more recent reset - see `_effective_period_start`), so burn-rate pace
+    reflects this period's activity rather than being dragged by a stale
+    pre-reset high or last month's pace."""
+    today = datetime.now().astimezone().date()
+    period_start = _effective_period_start(daily, today.replace(day=1), today)
     kept = []
     for entry in history:
         try:
@@ -421,7 +472,7 @@ def _render_monthly_history_chart(monthly: pd.DataFrame, budget: float) -> None:
         f'<p style="font-size:.72rem;color:#6B7280;margin:.2rem 0 0">'
         f'<span style="color:#02B793">■</span> Spend per calendar month  ·  '
         f'<span style="color:#9CA3AF">- - -</span> Budget ({_money(budget)})  ·  '
-        'resets 1st of month, confirmed with NBS</p>',
+        'reset date unconfirmed - detected from a drop in spend, not assumed on the 1st</p>',
         unsafe_allow_html=True,
     )
 
@@ -565,7 +616,7 @@ def render() -> None:
     reset_at = snapshot.get("budget_reset_at")
     reset_is_local_note = reset_at is None
 
-    per_day, days_left = _burn_rate(_this_period_only(history), baseline, float(max_budget))
+    per_day, days_left = _burn_rate(_this_period_only(history, daily), baseline, float(max_budget))
     opus_price = _load_opus_price_estimate()
     computed_at = _value(opus_price.get("computed_at"))[:10]
     current_budget = _as_float(max_budget) or MONTHLY_BUDGET
@@ -706,15 +757,18 @@ def render() -> None:
             saved_note = _load_reset_note()
             st.markdown(
                 stat_grid(
-                    [{"label": "Budget reset", "value": saved_note or "1st of every calendar month", "vstyle": "font-size:1.4rem"}],
+                    [{"label": "Budget reset", "value": saved_note or "Not confirmed — detected from history", "vstyle": "font-size:1.4rem"}],
                     columns=1,
                 ),
                 unsafe_allow_html=True,
             )
             st.caption(
-                "Confirmed with NBS (Patrick Palarz, 2026-08-03): resets on the 1st of each calendar "
-                "month. Not returned by the API (budget_reset_at is always null) — this is a "
-                "manually confirmed fact, not a guess."
+                "NBS (Patrick Palarz, 2026-08-03) said the 1st of each calendar month, but the only "
+                "reset actually observed (August 2026) landed around the 20th-26th, after the key "
+                "went over budget — not on the 1st. Not returned by the API either way "
+                "(budget_reset_at is always null). Every calculation on this page detects a reset "
+                "from a drop in spend rather than assuming a date, so this note is informational, "
+                "not load-bearing."
             )
             with st.expander("Different for your key? Override here", expanded=False):
                 note_input = st.text_input(
@@ -783,11 +837,12 @@ def render() -> None:
                 period_spends.append(None)
                 continue
             try:
-                entry_period_start = datetime.fromisoformat(entry["checked_at"]).date().replace(day=1)
+                entry_date = datetime.fromisoformat(entry["checked_at"]).date()
             except (KeyError, TypeError, ValueError):
                 period_spends.append(raw)
                 continue
-            period_spends.append(max(0.0, raw - _baseline_before(daily, entry_period_start)))
+            entry_baseline = _baseline_for_period(daily, entry_date.replace(day=1), entry_date)
+            period_spends.append(max(0.0, raw - entry_baseline))
 
         _table_col, _ = st.columns([2, 1])
         with _table_col:
