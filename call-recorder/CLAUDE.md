@@ -609,10 +609,63 @@ Tres decisoes que parecem detalhe e nao sao:
   dispara.
 
 `canal_mudo` e o par que faltava de `contaminacao_de_canal`. As duas falhas sao
-opostas — soma > 120% e atribuicao corrompida; um canal em 0.0% e metade da
-conversa perdida — e o comentario de `transcript_quality.py` ja registrava em
-02/09 que so uma tinha gate, apontando a outra para o `verify_capture.py`, que e
-manual e nada chama. Escrever a observacao nao fecha a lacuna.
+opostas — diafonia corrompe atribuicao; um canal em 0.0% e metade da conversa
+perdida — e o comentario de `transcript_quality.py` ja registrava em 02/09 que so
+uma tinha gate, apontando a outra para o `verify_capture.py`, que e manual e nada
+chama. Escrever a observacao nao fecha a lacuna.
+
+## O gate de diafonia media a coisa errada (2026-09-04)
+
+`contaminacao_de_canal` decidia por `Kelvin% + Interlocutor% > 120`. Isso nao mede
+diafonia. Mede **dois canais ocupados**, e um microfone aberto num ambiente com
+ruido estoura o limiar sem uma palavra cruzada.
+
+Como apareceu: em 04/09 o gate acusou 3 das 8 gravacoes da manha como `grave`,
+entre elas uma Avaliacao GPTW de 42 min. O Kelvin recusou o diagnostico — *"EU nao
+estava com caixa de som! No maximo com o mic aberto enquanto alguem falava"* — e
+tinha razao.
+
+**A medida.** Envelope RMS dos dois canais em janelas de 50 ms, correlacao de
+Pearson entre eles. Conversa alternada da correlacao NEGATIVA; vazamento faz o
+canal do Kelvin subir junto com o do outro e a correlacao sobe.
+
+| Grupo | LIFT | correlacao |
+|---|---|---|
+| 9 acusadas pelo criterio velho | 0.46 – 0.92 | -0.26 – -0.15 |
+| limpas pelo criterio velho | 0.60 – 1.06 | -0.07 – -0.01 |
+
+As faixas se sobrepoem: **o criterio nunca separou nada.** Medidas as 35 gravacoes
+do acervo, a correlacao vai de -0.28 a +0.05 e nenhuma tem diafonia — inclusive as
+6 de 17 registradas como contaminadas desde 28/08.
+
+**Calibracao dos limiares** (`AVISO 0.10`, `GRAVE 0.30`), injetando `ch0 += g*ch1`
+em audio real:
+
+| ganho | corr (mic quieto) | corr (mic quente) |
+|---|---|---|
+| 0.00 | -0.05 | -0.17 |
+| 0.20 | +0.06 | +0.35 |
+| 0.50 | +0.34 | +0.84 |
+
+**Por que nao LIFT.** `P(ch0|ch1 ativo) / P(ch0|ch1 calado)` tambem sobe com o
+vazamento, mas satura quando o mic ja esta quente: na gravacao de mic quente parou
+em 1.20 com ganho 0.8, enquanto a correlacao foi a 0.94. Detector cego justamente
+na gravacao problematica nao decide. O LIFT continua no relatorio, ajudando a ler.
+
+**Onde e medido.** No `autocapture`, com os dois canais em memoria, gravado no
+sidecar (`crosstalk`). O gate le o numero e nunca reabre o `.wav` — o `--todos`
+varre a pasta inteira e reabrir 35 arquivos de ~150 MB trocaria segundos por
+minutos. Sidecar sem o campo devolve "nao medida", nunca veredito. Backfill:
+`python crosstalk.py --backfill`.
+
+**O sintoma do Stefan continua sem causa.** O relato de 02/09 ("linhas do Stefan
+aparecem como suas") era real; a causa atribuida a ele — caixa de som — nao
+sobrevive a medicao. Quem investigar comece de outro lugar.
+
+Travado em `tests/test_crosstalk.py`. O gerador sintetico de la levou duas
+correcoes que valem como metodo: sem pausas ele dava correlacao -0.81 (nenhuma
+gravacao real passa de -0.28), e com 40 turnos a variancia entre seeds ia de -0.22
+a +0.18, porque a correlacao efetiva e por TURNO e nao por janela de 50 ms.
 
 **Ao ligar um caminho novo por flag ou default, conferir o que o caminho velho
 aprendeu e o novo nao herdou.** Foi o `vad_filter` em 01/09 e o `CoInitializeEx`

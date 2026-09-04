@@ -79,16 +79,22 @@ def test_call_normal_nao_acusa(tmp_path):
     assert tq.canal_mudo("2026-09-02_16-04_auto", rdir=tmp_path)[0] is False
 
 
-def test_call_contaminada_nao_e_meia_conversa(tmp_path):
-    """Soma 133% e o defeito OPOSTO, e ja tem gate proprio.
+def test_dois_canais_ocupados_nao_e_meia_conversa(tmp_path):
+    """Os dois canais ativos sao o defeito OPOSTO ao canal mudo.
 
-    Um sinal que acusasse os dois casos com a mesma frase mandaria o Kelvin
-    procurar o problema errado: contaminacao pede fone, canal mudo pede
-    investigar a captura.
+    Ate 2026-09-04 este teste terminava afirmando que a mesma gravacao era
+    `contaminacao == "grave"`, porque o gate de entao decidia por
+    `Kelvin% + Interlocutor% > 130`. O audio desmentiu: a correlacao entre os
+    canais desta gravacao e **-0.26**, das mais negativas do acervo — conversa
+    alternada exemplar, sem uma palavra cruzada. O criterio velho media "os dois
+    canais estao ocupados" e chamava isso de diafonia. Ver `crosstalk.py` e
+    `tests/test_crosstalk.py`.
+
+    O que este teste ainda protege e o que ele sempre quis proteger: `canal_mudo`
+    nao pode acusar uma gravacao so porque os dois lados falaram bastante.
     """
     _sidecar(tmp_path, "2026-08-28_11-46_auto", 66.9, 66.5)
     assert tq.canal_mudo("2026-08-28_11-46_auto", rdir=tmp_path)[0] is False
-    assert tq.contaminacao_de_canal("2026-08-28_11-46_auto", rdir=tmp_path)[0] == "grave"
 
 
 def test_gravacao_vazia_nos_dois_canais_nao_acusa(tmp_path):

@@ -239,6 +239,21 @@ def non_latin_lines(rows: list) -> list:
 #
 # Consequencia ja medida: o English Coach de 02/09 filtrou "so as linhas do
 # Kelvin" e avaliou, em parte, o ingles do Stefan.
+#
+# ATENCAO AO LER O PARAGRAFO ACIMA (revisado 2026-09-04): o SINTOMA que o Kelvin
+# relatou e real e continua sem causa conhecida. A CAUSA atribuida aqui — caixa de
+# som, microfone pegando o outro lado — foi desmentida pelo audio. As tres
+# gravacoes citadas medem correlacao entre canais de -0.19, -0.26 e -0.17; as 35
+# do acervo inteiro vao de -0.28 a +0.05, e nenhuma tem diafonia. "Soma acima de
+# 120%" nao era evidencia de vazamento, e as 6 de 17 nunca foram contaminadas.
+# Quem for investigar o relato do Stefan comece de outro lugar.
+#
+# APOSENTADO 2026-09-04. `Kelvin% + Interlocutor% > 120` nao mede diafonia, mede
+# "os dois canais estao ocupados" — e um mic aberto num ambiente com ruido estoura
+# sozinho. Remedidas contra o audio, as 9 gravacoes que este criterio acusou tem
+# correlacao entre canais de -0.26 a -0.15, e as limpas de -0.07 a -0.01: os dois
+# grupos se sobrepoem e o criterio nunca separou nada. As constantes ficam so para
+# leitura dos sidecars antigos. Criterio atual: `crosstalk.py`.
 SOMA_SUSPEITA = 120.0     # % somados dos dois canais
 SOMA_GRAVE = 130.0
 
@@ -286,12 +301,31 @@ def canal_mudo(base: str, rdir=None):
 
 
 def contaminacao_de_canal(base: str, rdir=None):
-    """(nivel, soma, detalhe) lendo o sidecar de captura. nivel: '', 'aviso', 'grave'.
+    """(nivel, corr, detalhe) lendo o sidecar de captura. nivel: '', 'aviso', 'grave'.
 
     Le o `.pending.json` (ou o `.classified`, depois que o classify renomeia).
     Gravacao sem sidecar devolve nivel vazio - ausencia de dado nao e acusacao.
+
+    **O criterio mudou em 2026-09-04.** Ate aqui era `Kelvin% + Interlocutor% >
+    120`, que nao mede diafonia: mede dois canais ocupados. Um microfone aberto
+    num ambiente com ruido estoura o limiar sem uma palavra cruzada, e foi o que
+    aconteceu — as 9 gravacoes acusadas por aquele criterio nao tem vazamento
+    nenhum quando medidas contra o audio. Hoje decide `crosstalk.corr`, a
+    correlacao entre os envelopes dos dois canais; o racional e a calibracao
+    estao em `crosstalk.py`.
+
+    O segundo elemento da tupla passou a ser a correlacao, nao a soma. Quem so
+    olha `[0]` (o nivel) nao muda; o `coach.py` e o `_relatorio` daqui usam so
+    nivel e detalhe.
+
+    Gravacao anterior a 04/09 nao tem o campo. Devolve nivel vazio e diz "nao
+    medido" no detalhe, em vez de herdar o veredito errado do criterio velho.
+    Para preencher o que ainda tem `.wav`: `python crosstalk.py --backfill`.
     """
     import json
+
+    import crosstalk
+
     raiz = Path(rdir) if rdir else (Path(__file__).parent / "recordings")
     stem = base.split(".")[0]
     for sufixo in (".pending.json", ".pending.json.classified"):
@@ -299,21 +333,20 @@ def contaminacao_de_canal(base: str, rdir=None):
         if not p.exists():
             continue
         try:
-            cp = (json.loads(p.read_text(encoding="utf-8")) or {}).get("channel_profile") or {}
+            j = json.loads(p.read_text(encoding="utf-8")) or {}
         except Exception:
-            return "", 0.0, ""
-        k = (cp.get("Kelvin") or {}).get("active_pct")
-        i = (cp.get("Interlocutor") or {}).get("active_pct")
-        if k is None or i is None:
-            return "", 0.0, ""
-        soma = float(k) + float(i)
-        detalhe = f"Kelvin {k:.1f}% + interlocutor {i:.1f}% = {soma:.1f}%"
-        if soma >= SOMA_GRAVE:
-            return "grave", soma, detalhe
-        if soma >= SOMA_SUSPEITA:
-            return "aviso", soma, detalhe
-        return "", soma, detalhe
-    return "", 0.0, ""
+            return "", None, ""
+        if "crosstalk" not in j:
+            return "", None, "diafonia nao medida (gravacao anterior a 2026-09-04)"
+        m = j.get("crosstalk") or {}
+        corr = m.get("corr")
+        if corr is None:
+            # Um canal sem variacao nao tem correlacao definida. E o caso da
+            # gravacao meia-conversa, que `canal_mudo` ja reporta — repetir aqui
+            # como "diafonia" mandaria procurar o problema errado.
+            return "", None, "diafonia nao mensuravel (um canal sem variacao)"
+        return crosstalk.veredito(corr), corr, crosstalk.descrever(m)
+    return "", None, ""
 
 
 def scan(text: str) -> dict:
@@ -387,7 +420,7 @@ def clean(text: str):
 
 def _relatorio(path: Path, verbose: bool = True) -> dict:
     rep = scan(path.read_text(encoding="utf-8", errors="replace"))
-    nivel, _soma, detalhe = contaminacao_de_canal(path.stem)
+    nivel, _corr, detalhe = contaminacao_de_canal(path.stem)
     rep["contaminacao"] = nivel
     rep["contaminacao_detalhe"] = detalhe
     n = len(rep["suspect"])

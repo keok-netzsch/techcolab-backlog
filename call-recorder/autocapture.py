@@ -245,6 +245,21 @@ def _persist_call(started, title, mic, sysa, seconds) -> None:
         log(f"  canal {idx} ({label}): fala {pf['active_pct']}%, "
             f"dinamica {pf['dynamic_db']} dB{flag}")
 
+    # Diafonia medida AQUI, com os dois canais ainda em memoria. O gate le o
+    # numero do sidecar e nunca reabre o .wav: o `--todos` varre a pasta inteira,
+    # e reabrir 35 arquivos de ~150 MB trocaria um gate de segundos por um de
+    # minutos. Ver `crosstalk.py` para o criterio e a calibracao.
+    try:
+        import crosstalk
+        xt = crosstalk.medir_arrays(mic[:, 0], sysa[:, 0], record.SAMPLE_RATE)
+        if xt.get("corr") is not None:
+            nivel = crosstalk.veredito(xt["corr"])
+            log(f"  diafonia: {nivel or 'ok'} - {crosstalk.descrever(xt)}")
+    except Exception as e:
+        # Medida perdida nao pode custar a gravacao.
+        xt = {}
+        log(f"[WARN] medida de diafonia falhou: {e}")
+
     RECORDINGS.mkdir(exist_ok=True)
     base = f"{started:%Y-%m-%d_%H-%M}_auto"
     wav = RECORDINGS / f"{base}.wav"
@@ -259,6 +274,7 @@ def _persist_call(started, title, mic, sysa, seconds) -> None:
         "window_title": title,
         "channels": list(record.SPEAKER_LABELS),
         "channel_profile": {lab: pf for lab, pf in zip(record.SPEAKER_LABELS, prof, strict=True)},
+        "crosstalk": xt,
     }, ensure_ascii=False, indent=2), encoding="utf-8")
 
     log(f"salvo: {wav.name}  ({seconds/60:.1f} min) - aguardando classificacao")

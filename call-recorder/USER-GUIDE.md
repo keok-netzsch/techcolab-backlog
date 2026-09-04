@@ -124,6 +124,32 @@ half comes out as fluent Portuguese, and no text check can tell that apart from 
 real Portuguese transcript. If a recording holds two calls in two languages, treat
 the second one as a paraphrase until it is re-transcribed with its own language.
 
+## "Channel contaminated" was crying wolf, and stopped (since 2026-09-04)
+
+Until 04/09 the gate warned that **speaker attribution is not reliable** whenever
+the two channels were both busy — the rule was literally "your % plus their % adds
+up to more than 120". Nine recordings were flagged that way, including a 42-minute
+GPTW review, and six older ones had been on record as contaminated since 28/08.
+
+None of them were. Measured against the audio, every one shows the two channels
+moving in opposite directions, which is what a normal conversation looks like. An
+open mic in a room with background noise was enough to trip the old rule.
+
+What replaced it actually asks the question: does your channel get louder *when the
+other person speaks*? If their voice is bleeding into your mic, the two channels
+rise together. If you simply have an open mic, they do not.
+
+Across all 35 recordings still on disk, not one shows bleed.
+
+Two things worth keeping straight when a recording does get flagged:
+
+- The warning is about **who said what**, not about sound quality. A flagged
+  recording may sound perfectly fine and still have your channel carrying the other
+  person's words.
+- A **hot mic is a different problem** and no longer raises this flag. Its real risk
+  is Whisper inventing text over stretches of noise, which the transcript check
+  already catches.
+
 ## Half a conversation now announces itself (since 2026-09-03)
 
 A call can be recorded with one channel dead: your side arrives, the other

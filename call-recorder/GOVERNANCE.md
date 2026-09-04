@@ -144,6 +144,32 @@ Two consequences that are governance, not engineering:
 Nothing here changes what is recorded, kept, or shared. It changes how much a
 transcript is worth as a claim.
 
+### A quality flag is a claim too (2026-09-04)
+
+The gate that guards attribution was itself wrong, in the opposite direction. From
+02/09 it declared "speaker attribution is not reliable" whenever both channels were
+busy, on the theory that Kelvin's mic was picking up the other party. Measured
+against the audio on 04/09, none of the 35 recordings on disk shows any bleed
+between channels — including the six recorded as contaminated since 28/08, and
+three flagged the same morning.
+
+Two consequences that belong on this record and not only in the code:
+
+- **Six recordings carry a false mark.** They are described in the technical notes
+  as having corrupted attribution. They do not. Anyone who set aside a note from
+  those calls, or discounted what it says someone told Kelvin, was acting on a
+  measurement that did not measure what it claimed.
+- **A false alarm spends the same credit as a missed one.** The warning told him to
+  distrust good recordings of real conversations, one of them a 42-minute
+  performance-adjacent review. A gate that cries wolf gets switched off, and then
+  the real case passes unnoticed — the same ending as detection nobody reads, from
+  the other direction.
+
+One thing this does **not** settle: Kelvin reported on 02/09 that lines spoken by
+Stefan appeared attributed to him. The symptom stands; the explanation given for it
+does not. Until someone finds the real cause, a transcript of a call with Stefan
+deserves the same reading as any other — checked before it is quoted.
+
 ## Ordering is not classification (2026-09-02)
 
 Calls with Stefan Lautenschlager and Alberto Reuters are now transcribed before the
