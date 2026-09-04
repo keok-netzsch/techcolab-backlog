@@ -42,10 +42,12 @@ def lint(*, root: Path | None = None, index_dir: Path | None = None, today: date
         # dia em que foi tirado. Contar isso mede o relatório, não a saúde do vault.
         broken: dict[str, list[str]] = defaultdict(list)
         ignored_sources: Counter = Counter()
+        ignored_items: list[dict] = []
         for r in con.execute("SELECT l.to_title, n.rel_path FROM links l JOIN notes n ON n.id = l.from_note WHERE l.to_note IS NULL AND l.kind = 'wikilink'"):
             rel = r["rel_path"]
             if rel.startswith(NON_CANONICAL_SOURCES):
                 ignored_sources[rel.split("/")[0]] += 1
+                ignored_items.append({"target": r["to_title"], "source": rel})
                 continue
             broken[r["to_title"]].append(rel)
         broken_sorted = sorted(broken.items(), key=lambda kv: (-len(kv[1]), kv[0]))
@@ -87,7 +89,7 @@ def lint(*, root: Path | None = None, index_dir: Path | None = None, today: date
             "root": str(root),
             "today": today.isoformat(),
             "notes": len(notes),
-            "broken_links": {"targets": len(broken_sorted), "references": sum(len(ps) for _, ps in broken_sorted), "ignored_sources": dict(ignored_sources.most_common()), "items": [{"target": t, "count": len(ps), "sources": sorted(set(ps))[:5]} for t, ps in broken_sorted]},
+            "broken_links": {"targets": len(broken_sorted), "references": sum(len(ps) for _, ps in broken_sorted), "ignored_sources": dict(ignored_sources.most_common()), "ignored_items": sorted(ignored_items, key=lambda i: (i["source"], i["target"])), "items": [{"target": t, "count": len(ps), "sources": sorted(set(ps))[:5]} for t, ps in broken_sorted]},
             "no_frontmatter": {"count": len(no_fm), "items": no_fm},
             "no_type": {"count": len(no_type), "by_folder": dict(no_type_by_folder.most_common()), "items": no_type},
             "duplicate_stems": {"count": len(dup_stems), "items": [{"stem": s, "paths": ps} for s, ps in dup_stems]},
@@ -122,9 +124,16 @@ def render(rep: dict) -> str:
         L += [
             "> Fora da conta: "
             + ", ".join(f"{n} em `{folder}/`" for folder, n in ignored.items())
-            + ". Saída gerada e snapshot arquivado citam nome de propósito; contar isso mede o relatório, não o vault.",
+            + ". Saída gerada e snapshot arquivado citam nome de propósito; contar isso mede o relatório, não o vault."
+            + " Amostra abaixo, para que ficar de fora da conta não vire ficar invisível.",
             "",
         ]
+        for it in (rep["broken_links"].get("ignored_items") or [])[:SAMPLE]:
+            L.append(f"> - `[[{it['target']}]]` em `{it['source']}`")
+        sobra = len(rep["broken_links"].get("ignored_items") or []) - SAMPLE
+        if sobra > 0:
+            L.append(f"> - … e mais {sobra} (`--json` lista todos)")
+        L.append("")
     for it in rep["broken_links"]["items"][:SAMPLE]:
         L.append(f"- `[[{it['target']}]]` × {it['count']} · em: " + ", ".join(f"`{s}`" for s in it["sources"]))
     if rep["broken_links"]["targets"] > SAMPLE:
