@@ -142,6 +142,30 @@ def test_links_resolve_through_aliases_and_filename_still_wins(tmp_path, index_d
     assert resolved["Chefe"] == "Notes/Chefe.md"  # a real file outranks someone else's alias
 
 
+def test_link_to_existing_attachment_is_not_broken(tmp_path, index_dir):
+    from vaultindex.lint import lint
+
+    root = tmp_path / "assetvault"
+    _w(
+        root,
+        "Notes/com-anexo.md",
+        "---\ntype: note\ndate: 2026-09-08\n---\n"
+        "Print em [[semana-2026-07-24.png]] e o charter em [[_attachments/Charter.docx]].\n"
+        "Este aqui some mesmo: [[Nao Existe]].\n",
+    )
+    (root / "_attachments").mkdir(parents=True, exist_ok=True)
+    (root / "_attachments" / "Charter.docx").write_bytes(b"x")
+    (root / "Notes" / "semana-2026-07-24.png").write_bytes(b"x")
+    db.build(root, index_dir)
+    rep = lint(root=root, index_dir=index_dir)
+    assert rep["broken_links"]["targets"] == 1  # so o alvo que nao existe em lugar nenhum
+    assert [i["target"] for i in rep["broken_links"]["items"]] == ["Nao Existe"]
+    assert {i["target"] for i in rep["broken_links"]["asset_links"]} == {
+        "semana-2026-07-24.png",
+        "_attachments/Charter.docx",
+    }
+
+
 def test_lint_ignores_broken_links_from_generated_and_archived_notes(tmp_path, index_dir):
     from vaultindex.lint import lint
 

@@ -37,6 +37,10 @@ EXCLUDE_DIRS = frozenset(
 )
 EXCLUDE_DIR_PREFIXES = ("backup",)  # vault/backup-notas-2026-09-02 and the like
 
+# Anexo não é nota e não entra na busca, mas o Obsidian resolve `[[arquivo.png]]`:
+# um link para anexo que existe não é link quebrado. Guardar o nome basta para o lint.
+ASSET_EXCLUDE_DIRS = frozenset({".git", ".obsidian", ".trash", ".smart-env", "__pycache__", "node_modules"})
+
 # Sensitivity (ADR 2026-09-03 §2.1 item 6): out of every result unless the caller
 # opts in. Same contract as vault_get_context_for_idea(include_sensitive=...).
 SENSITIVE_FOLDERS = ("Team/", "Stakeholders/")
@@ -106,6 +110,22 @@ class Note:
 
 def _excluded_dir(name: str) -> bool:
     return name in EXCLUDE_DIRS or name.lower().startswith(EXCLUDE_DIR_PREFIXES)
+
+
+def iter_asset_paths(root: Path):
+    """Yield every non-`.md` file the vault carries, in a stable order.
+
+    Wider than `iter_note_paths` on purpose: `_attachments/` and `Templates/` hold no
+    knowledge but they do hold the files links point at.
+    """
+    root = Path(root)
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(
+            d for d in dirnames if d not in ASSET_EXCLUDE_DIRS and not d.lower().startswith(EXCLUDE_DIR_PREFIXES)
+        )
+        for name in sorted(filenames):
+            if not name.lower().endswith(".md"):
+                yield Path(dirpath) / name
 
 
 def iter_note_paths(root: Path):

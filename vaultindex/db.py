@@ -19,9 +19,16 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from vaultindex.corpus import Note, file_sha256, iter_note_paths, parse_note, sha256_bytes
+from vaultindex.corpus import (
+    Note,
+    file_sha256,
+    iter_asset_paths,
+    iter_note_paths,
+    parse_note,
+    sha256_bytes,
+)
 
-SCHEMA_VERSION = 3  # v3 (2026-09-04): note_aliases, so [[Nome Completo]] resolve para a nota da pessoa como no Obsidian
+SCHEMA_VERSION = 4  # v4 (2026-09-08): assets, para o lint parar de chamar link de anexo existente de quebrado
 DB_NAME = "index.sqlite"
 LOCK_NAME = "index.lock"
 
@@ -174,6 +181,13 @@ CREATE TABLE IF NOT EXISTS notes (
 );
 CREATE INDEX IF NOT EXISTS notes_stem ON notes (stem);
 CREATE INDEX IF NOT EXISTS notes_type ON notes (type);
+CREATE TABLE IF NOT EXISTS assets (
+    rel_path TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    stem TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS assets_name ON assets (name);
+CREATE INDEX IF NOT EXISTS assets_stem ON assets (stem);
 CREATE TABLE IF NOT EXISTS note_aliases (
     note_id INTEGER NOT NULL REFERENCES notes (id) ON DELETE CASCADE,
     alias TEXT NOT NULL
@@ -350,6 +364,17 @@ class IndexWriter:
         )
         return note_id
 
+    def _index_assets(self, root: Path) -> None:
+        """Refaz a lista de anexos do zero: é barata e não vale um caminho incremental."""
+        self.con.execute("DELETE FROM assets")
+        self.con.executemany(
+            "INSERT OR REPLACE INTO assets (rel_path, name, stem) VALUES (?, ?, ?)",
+            [
+                (p.relative_to(root).as_posix(), p.name.lower(), p.stem.lower())
+                for p in iter_asset_paths(root)
+            ],
+        )
+
     def _resolve_links(self) -> None:
         # Obsidian resolves [[Name]] by file name and [[folder/Name]] by path; mirror both.
         # Python dict lookups: a correlated UPDATE over 4,500 links x 1,149 notes was the slow
@@ -431,6 +456,7 @@ class IndexWriter:
                 self._delete_note(note_id)
                 report.removed += 1
         self._resolve_links()
+        self._index_assets(root)
 
         report.notes = self.con.execute("SELECT count(*) FROM notes").fetchone()[0]
         report.chunks = self.con.execute("SELECT count(*) FROM chunks").fetchone()[0]
