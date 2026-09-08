@@ -113,6 +113,35 @@ def get_key_info(api_key: str) -> dict[str, Any]:
     return response.json()
 
 
+def _stale_key_hint(api_key: str | None) -> str:
+    """Say so when this process holds a key older than the one Windows has stored.
+
+    A rotated key produces a plain 401, and the two values look identical from the
+    outside: on 2026-09-08 both were 25 characters starting with "sk-". Windows
+    copies environment variables into a process at creation and never refreshes
+    them, so an app started from a shell that predates the rotation keeps using the
+    dead key until it is restarted. Without this line the error says "Unauthorized"
+    and gives no reason to suspect the process rather than the key itself.
+
+    Windows only. Returns "" when the registry is unreadable or the values agree.
+    """
+    if not api_key:
+        return ""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as env:
+            stored, _ = winreg.QueryValueEx(env, "NETZSCH_LLM_API_KEY")
+    except (ImportError, OSError):
+        return ""
+    if not stored or stored == api_key:
+        return ""
+    return (
+        f"This app is running with a key ending ...{api_key[-4:]}, but your Windows user "
+        f"environment now has one ending ...{stored[-4:]}. The key was rotated after this "
+        "process started. Restart the app to pick up the current one."
+    )
+
+
 def _save_snapshot(values: dict[str, Any]) -> None:
     _HISTORY_FILE.parent.mkdir(exist_ok=True)
     entry = {"checked_at": datetime.now().astimezone().isoformat(), **values}
@@ -550,13 +579,15 @@ def render() -> None:
                 snapshot = normalize_key_info(get_key_info(api_key))
             st.session_state["ai_usage_snapshot"] = snapshot
         except requests.RequestException as error:
+            _hint = _stale_key_hint(api_key)
             st.markdown(
                 '<div style="margin:.4rem 0;padding:.5rem .75rem;border-radius:6px;'
                 'border-left:3px solid #EF4444;background:rgba(239,68,68,.05)">'
                 '<span style="font-size:.7rem;color:#EF4444;font-weight:700;'
                 'text-transform:uppercase;letter-spacing:.04em">Refresh failed</span><br>'
                 f'{html.escape(str(error))}'
-                '</div>',
+                + (f'<br><span style="color:#F59E0B">{html.escape(_hint)}</span>' if _hint else '')
+                + '</div>',
                 unsafe_allow_html=True,
             )
         else:

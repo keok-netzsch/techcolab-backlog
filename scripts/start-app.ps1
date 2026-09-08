@@ -124,13 +124,30 @@ if (-not $env:TECHCOLAB_VAULT) {
     $env:TECHCOLAB_VAULT = Join-Path $HOME 'OneDrive - NETZSCH\Documents\TechColab_D&A_KO\App\Personal toolkit'
     Write-Step "TECHCOLAB_VAULT not inherited - using default"
 }
-if (-not $env:NETZSCH_LLM_API_KEY) {
-    # An Explorer session started before the user env var existed does not have it.
-    try {
-        $fromReg = (Get-ItemProperty -Path 'HKCU:\Environment' -Name NETZSCH_LLM_API_KEY -ErrorAction Stop).NETZSCH_LLM_API_KEY
-        if ($fromReg) { $env:NETZSCH_LLM_API_KEY = $fromReg; Write-Step 'NETZSCH_LLM_API_KEY read from registry' }
-    } catch { }
-}
+# The registry (HKCU\Environment) is the persistent value and therefore the truth.
+# An inherited process value can be any age: Windows copies environment variables
+# into a process at creation and never refreshes them, so a shell opened before a
+# key rotation keeps handing the dead key to everything it launches.
+#
+# The earlier version of this block only read the registry when the variable was
+# ABSENT, which covered "never set" and missed "set, but stale". On 2026-09-08 the
+# app answered 401 on Refresh balance with a key rotated days earlier: the user
+# variable held sk-eUXl…wsgw and the app process carried sk-GWty…K_lw, both 25
+# characters, so nothing looked wrong from the outside.
+try {
+    $fromReg = (Get-ItemProperty -Path 'HKCU:\Environment' -Name NETZSCH_LLM_API_KEY -ErrorAction Stop).NETZSCH_LLM_API_KEY
+    if ($fromReg) {
+        if (-not $env:NETZSCH_LLM_API_KEY) {
+            Write-Step 'NETZSCH_LLM_API_KEY not inherited - taking the user environment value'
+        } elseif ($env:NETZSCH_LLM_API_KEY -ne $fromReg) {
+            # Never log the key. The last 4 characters are enough to tell two apart.
+            $old = $env:NETZSCH_LLM_API_KEY
+            Write-Step ("NETZSCH_LLM_API_KEY inherited (...{0}) differs from the user environment (...{1}) - using the user environment" -f `
+                        $old.Substring([Math]::Max(0, $old.Length - 4)), $fromReg.Substring([Math]::Max(0, $fromReg.Length - 4)))
+        }
+        $env:NETZSCH_LLM_API_KEY = $fromReg
+    }
+} catch { }
 
 # ── 4. Start it. ──────────────────────────────────────────────────────────────
 $python = Join-Path $Root '.venv\Scripts\python.exe'

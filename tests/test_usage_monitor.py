@@ -76,3 +76,57 @@ def test_baseline_for_period_ignores_a_reset_that_hasnt_happened_yet():
     baseline = _baseline_for_period(daily, date(2026, 8, 1), date(2026, 8, 13))
 
     assert baseline == pytest.approx(53.05, abs=0.01)
+
+
+# ── Stale gateway key ────────────────────────────────────────────────────────
+# Windows copies environment variables into a process at creation and never
+# refreshes them. On 2026-09-08 "Refresh balance" answered 401 because the app
+# process still carried a key rotated days earlier; both keys were 25 characters
+# starting with "sk-", so nothing looked wrong. The hint is what turns that plain
+# "Unauthorized" into something actionable.
+
+def _patch_registry(monkeypatch, stored):
+    r"""Stand in for HKCU\Environment without touching the real registry."""
+    import types
+    fake = types.SimpleNamespace()
+
+    class _Key:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    fake.HKEY_CURRENT_USER = 0
+    fake.OpenKey = lambda root, sub: _Key()
+    if stored is None:
+        fake.QueryValueEx = lambda key, name: (_ for _ in ()).throw(OSError("missing"))
+    else:
+        fake.QueryValueEx = lambda key, name: (stored, 1)
+    monkeypatch.setitem(__import__("sys").modules, "winreg", fake)
+
+
+def test_hint_fires_when_process_key_differs_from_stored(monkeypatch):
+    from views.usage_monitor import _stale_key_hint
+    _patch_registry(monkeypatch, "sk-eUXlNEWkeyvaluehere_wsgw")
+    hint = _stale_key_hint("sk-GWtyOLDkeyvaluehere_K_lw")
+    assert "K_lw" in hint and "wsgw" in hint
+    assert "Restart the app" in hint
+
+
+def test_hint_never_exposes_more_than_the_last_four_characters(monkeypatch):
+    from views.usage_monitor import _stale_key_hint
+    _patch_registry(monkeypatch, "sk-eUXlNEWkeyvaluehere_wsgw")
+    hint = _stale_key_hint("sk-GWtyOLDkeyvaluehere_K_lw")
+    assert "sk-GWty" not in hint and "sk-eUXl" not in hint
+    assert "OLDkeyvaluehere" not in hint and "NEWkeyvaluehere" not in hint
+
+
+def test_no_hint_when_keys_agree(monkeypatch):
+    from views.usage_monitor import _stale_key_hint
+    _patch_registry(monkeypatch, "sk-same")
+    assert _stale_key_hint("sk-same") == ""
+
+
+def test_no_hint_without_a_key_or_registry(monkeypatch):
+    from views.usage_monitor import _stale_key_hint
+    _patch_registry(monkeypatch, None)
+    assert _stale_key_hint(None) == ""
+    assert _stale_key_hint("sk-anything") == ""
