@@ -415,6 +415,20 @@ hr { border-color: #E5E7EB !important; }
 """
 
 st.markdown(_BRAND_CSS, unsafe_allow_html=True)
+
+# Reading width. brand.css carries the rule and a fallback; this only overrides
+# the variable, so there is one definition of the layout and one knob for it.
+# "full" restores the old edge-to-edge behaviour of layout="wide".
+from components.prefs import get_pref as _get_pref  # noqa: E402
+
+_content_width = _get_pref("content_width", "1500")
+st.markdown(
+    "<style>:root{--tc-content-max:"
+    + ("none" if str(_content_width) == "full" else f"{_content_width}px")
+    + "}</style>",
+    unsafe_allow_html=True,
+)
+
 if _dark_mode:
     st.markdown(_DARK_CSS, unsafe_allow_html=True)
 else:

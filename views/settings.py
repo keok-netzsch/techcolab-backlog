@@ -7,6 +7,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from components.prefs import get_pref, set_pref
 from config import (
     APP_PASSPHRASE_HASH,
     CLAUDE_PRO_START_DATE,
@@ -105,6 +106,38 @@ def render() -> None:
                 encoding="utf-8",
             )
             st.success("Passphrase saved. Restart the app to apply.")
+
+    # ── Reading width ─────────────────────────────────────────────────────────
+    # layout="wide" spans the whole monitor, which on a 27" means the eye sweeps
+    # ~2400px to read one line. The cap only applies when the screen is wider
+    # than the value, so a laptop is unaffected by the larger options.
+    st.divider()
+    st.subheader("📐 Reading width")
+    st.caption(
+        "Caps how wide the page content gets on a large monitor. A narrower "
+        "setting has no effect on a screen that is already smaller than it. "
+        "Applies on the next page load."
+    )
+
+    _WIDTH_CHOICES = {
+        "1200": "Narrow (1200px), closest to a document",
+        "1500": "Comfortable (1500px), the default",
+        "1800": "Wide (1800px)",
+        "full": "Full width, edge to edge",
+    }
+    _cur_width = str(get_pref("content_width", "1500"))
+    if _cur_width not in _WIDTH_CHOICES:
+        _cur_width = "1500"
+    _picked = st.radio(
+        "Maximum content width",
+        options=list(_WIDTH_CHOICES),
+        format_func=lambda k: _WIDTH_CHOICES[k],
+        index=list(_WIDTH_CHOICES).index(_cur_width),
+        key="st_content_width",
+    )
+    if _picked != _cur_width:
+        set_pref("content_width", _picked)
+        st.rerun()
 
     # ── Claude Pro ────────────────────────────────────────────────────────────
     st.divider()

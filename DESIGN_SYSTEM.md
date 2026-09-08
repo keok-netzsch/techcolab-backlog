@@ -156,6 +156,26 @@ These rules were established through iteration on Dashboard and CC Activity page
 
 ---
 
+## Reading Width
+
+`layout="wide"` lets a page span the whole monitor. On a 27" that is around 2400px of
+content per line, so the eye has to sweep the full screen to read one row.
+
+`assets/brand.css` caps `[data-testid="stMainBlockContainer"]` at `var(--tc-content-max)`
+and centres it. The value comes from the `content_width` preference, set on the Settings
+page; 1500px is the default and `full` restores edge-to-edge.
+
+Two things follow for any new page:
+
+- Do not assume the full viewport width. Design against roughly 1500px minus 160px of
+  padding, and let anything wider scroll inside its own container.
+- Do not set `max-width` on a page container of your own. One definition of the layout,
+  one knob for it. A second cap somewhere else is the "par de superfícies" defect waiting
+  to happen: someone changes the preference and half the app ignores it.
+
+A narrower setting has no effect on a screen already smaller than the cap, so a laptop at
+1440px renders exactly as before. Verified at 1440 (untouched), 1920 and 2560.
+
 ## Page Structure Template
 
 ```

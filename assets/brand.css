@@ -126,3 +126,21 @@ details[data-testid="stExpander"][open] > div[data-testid="stExpanderDetails"],
     line-height: 1.45;
     opacity: 0.95;
 }
+
+/* ── Reading width ─────────────────────────────────────────
+   layout="wide" lets content span the whole monitor. On a 27" that is ~2390px
+   of text per line, so the eye has to sweep the full screen to read one row.
+   Capping the main block container gives a Word-like measure on a big screen
+   and does nothing on a smaller one, because max-width only bites when the
+   viewport is wider than the cap. No media query needed.
+
+   The value comes from the "content_width" preference (Settings); this is the
+   fallback when none is set. Safe selector: stMainBlockContainer is the page
+   content wrapper, not stVerticalBlockBorderWrapper, which bleeds across pages
+   (see "Known CSS Gotchas" in CLAUDE.md). */
+:root { --tc-content-max: 1500px; }
+[data-testid="stMainBlockContainer"] {
+    max-width: var(--tc-content-max) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
