@@ -254,6 +254,32 @@ without saying so is indistinguishable, from the outside, from the conversation 
 having happened. Fixed and locked by `tests/test_recorte_collision.py`; no change to
 what is recorded, kept, or shared.
 
+## O inventario de gramatica le os prompts do Kelvin (2026-09-09)
+
+`coach_grammar.py` passou a ler uma fonte que nenhum outro componente daqui lia:
+`~/.claude/projects/**/*.jsonl`, os transcritos das conversas dele com o Claude.
+E o unico corpus de ingles ESCRITO que e inequivocamente dele — o `~/.claude/CLAUDE.md`
+diz que a escrita de jun/2026 em diante esta contaminada por AI, e prompt digitado
+nao esta.
+
+Esses arquivos contem tudo que ele digitou, inclusive assunto pessoal: visto,
+divorcio, pensao, a ida para a Alemanha. Tres limites, e nenhum e cosmetico:
+
+- **Grava `quote`, nunca `context`.** O `detect()` devolve os dois: `quote` e o span
+  casado pela regra ("feedbacks", "discuss about", 1-2 palavras) e `context` sao 60
+  caracteres de cada lado. Trocar um pelo outro poria trecho de conversa pessoal
+  dentro de `grammar.json`, que vive no vault. Conferido na primeira geracao: os 3
+  exemplos gravados sao palavras soltas.
+- **Nenhum LLM ve esse corpus.** As 16 regras sao regex. O arquivo nunca sai da
+  maquina e nada aqui chama o gateway — que e logado pelo empregador.
+- **So prompt curto e em ingles entra** (<= 80 palavras). O corte existe por
+  qualidade de medida, nao por privacidade, mas tem o efeito de deixar de fora
+  documento colado, que e onde estaria o volume de conteudo sensivel.
+
+O registro `escrito-informal` e reportado SEPARADO de `fala` no painel. Somar os
+dois apagaria a unica diferenca que interessa ao Kelvin: typo digitando para o
+Claude nao custa nada; o mesmo typo no e-mail para o chefe foi flagrado duas vezes.
+
 ## Nothing open
 
 Every policy question this document has carried is decided: consent (2026-08-26),
