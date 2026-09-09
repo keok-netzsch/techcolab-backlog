@@ -1117,6 +1117,15 @@ def main():
     except Exception as _e:  # noqa: BLE001 - never lose a session over the ledger
         print(f"[targets] skipped: {_e}")
 
+    # Inventario de gramatica: so o registro de FALA, que acabou de ganhar uma
+    # sessao. O registro escrito varre 275 transcritos do Claude e continua sendo
+    # reconstruido a mao (`python coach_grammar.py`), fora do caminho da call.
+    try:
+        import coach_grammar
+        coach_grammar.refresh_speech()
+    except Exception as _e:  # noqa: BLE001 - idem: nunca perder a sessao por isto
+        print(f"[grammar] skipped: {_e}")
+
     session_file.write_text(_consolidar_no_dia(session_file, session_md, now, ordem),
                             encoding="utf-8")
     print(f"[coach] Relatorio do dia atualizado (call {ordem}): {session_file}")

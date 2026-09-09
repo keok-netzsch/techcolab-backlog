@@ -340,6 +340,27 @@ def build(so_fala: bool = False) -> dict:
     }
 
 
+def refresh_speech() -> dict:
+    """Reescreve SO o registro de fala, preservando o resto do arquivo.
+
+    Chamado a cada sessao do coach. `build(so_fala=True)` devolveria um dict com
+    um registro so, e salvar isso APAGARIA o registro escrito - que custa minutos
+    para reconstruir porque varre 275 transcritos. Merge, nunca substituicao.
+    """
+    atual = {}
+    if OUT_FILE.exists():
+        try:
+            atual = json.loads(OUT_FILE.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            atual = {}
+    novo = build(so_fala=True)
+    registros = (atual.get("registros") or {})
+    registros["fala"] = novo["registros"]["fala"]
+    novo["registros"] = registros
+    save(novo)
+    return novo
+
+
 def save(data: dict) -> Path:
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     OUT_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

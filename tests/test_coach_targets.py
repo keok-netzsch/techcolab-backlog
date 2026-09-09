@@ -176,3 +176,33 @@ def test_alvo_legitimo_multipalavra_passa(coach_dir):
     vocab = [{"used": "shelf solutions", "alternatives": ["off-the-shelf solutions"]}]
     ct.run(coach_dir, "x", _ev(vocab), "s1", "2026-09-02")
     assert [t["target"] for t in ct.load(coach_dir)["targets"]] == ["off-the-shelf solutions"]
+
+
+# ── coach_grammar: refresh incremental ───────────────────────────────────────
+# O gancho no coach.py roda a cada sessao. Se ele substituisse o arquivo em vez
+# de mesclar, cada call apagaria o registro escrito, que custa varrer 275
+# transcritos para reconstruir.
+
+def test_refresh_speech_preserva_o_registro_escrito(tmp_path, monkeypatch):
+    import json
+    import coach_grammar as cg
+
+    out = tmp_path / "grammar.json"
+    out.write_text(json.dumps({
+        "meta": {"gerado_em": "2026-09-09T00:00:00"},
+        "registros": {
+            "fala": {"registro": "fala", "palavras": 1, "hits": {}, "probes": {},
+                     "exemplos": {}, "unidades": 1},
+            "escrito-informal": {"registro": "escrito-informal", "palavras": 6637,
+                                 "hits": {"x": 1}, "probes": {}, "exemplos": {},
+                                 "unidades": 1044, "typos": {"pra": 1}},
+        }}, ensure_ascii=False), encoding="utf-8")
+
+    monkeypatch.setattr(cg, "OUT_FILE", out)
+    monkeypatch.setattr(cg, "SESSIONS_DIR", tmp_path / "sessions")  # vazio
+    cg.refresh_speech()
+
+    depois = json.loads(out.read_text(encoding="utf-8"))
+    escrito = depois["registros"]["escrito-informal"]
+    assert escrito["palavras"] == 6637 and escrito["typos"] == {"pra": 1}
+    assert depois["registros"]["fala"]["palavras"] == 0
