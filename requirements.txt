@@ -9,3 +9,6 @@ pbixray>=0.15.1  # used by scripts/audit_semantic_model.py (audit-modelo-semanti
 onnxruntime>=1.20
 tokenizers>=0.20
 numpy>=1.26
+# call-recorder/coach_grammar.py: deteccao de typo no registro escrito.
+# Puro Python, dicionario embutido, offline - sem servico externo.
+pyspellchecker>=0.8

@@ -26,6 +26,15 @@ def _ev(vocab=None, errors=None):
     return {"vocabulary_suggestions": vocab or [], "errors": errors or []}
 
 
+# Palavras REAIS de proposito: desde 09/09 o modulo recusa alvo que nao pareca
+# ingles, entao placeholder ("alt0") nao serve mais como fixture.
+REAL_WORDS = ['leverage', 'outline', 'scope', 'insight', 'baseline', 'handover', 'rollout', 'tradeoff', 'backlog', 'milestone', 'workload', 'forecast', 'guidance', 'alignment', 'ownership', 'clarity', 'rationale', 'cadence', 'constraint', 'dependency', 'estimate', 'priority']
+REAL_USED = ['issue', 'matter', 'topic', 'item', 'point', 'note', 'plan',
+             'draft', 'review', 'update', 'change', 'request', 'answer',
+             'result', 'target', 'effort', 'impact', 'risk', 'gap',
+             'step', 'task', 'goal']
+REAL_BAD = ['assist to', 'depend of', 'explain me', 'discuss about']
+REAL_GOOD = ['attend', 'depend on', 'explain to me', 'discuss']
 VOCAB = [{"used": "shelf solutions", "alternatives": ["off-the-shelf solutions"]}]
 ERRORS = [{"type": "collocation", "original": "relating to",
            "corrected": "referring to", "explanation": "false friend"}]
@@ -84,7 +93,7 @@ def test_avoid_target_resets_on_a_slip(coach_dir):
 
 
 def test_active_targets_are_capped(coach_dir):
-    vocab = [{"used": f"w{i}", "alternatives": [f"alt{i}"]} for i in range(20)]
+    vocab = [{"used": REAL_USED[i], "alternatives": [REAL_WORDS[i]]} for i in range(20)]
     ct.run(coach_dir, "x", _ev(vocab), "s1", "2026-09-01")
     active = [t for t in ct.load(coach_dir)["targets"] if t["status"] == "active"]
     assert len(active) == ct.MAX_ACTIVE
@@ -133,9 +142,9 @@ def test_one_alternative_per_habit(coach_dir):
 def test_batch_mixes_use_and_avoid(coach_dir):
     """Six vocabulary suggestions used to fill every slot and push out every
     habit worth dropping."""
-    vocab = [{"used": f"w{i}", "alternatives": [f"alt{i}"]} for i in range(6)]
-    errors = [{"type": "collocation", "original": f"bad{i}",
-               "corrected": f"good{i}", "explanation": "x"} for i in range(3)]
+    vocab = [{"used": REAL_USED[i], "alternatives": [REAL_WORDS[i]]} for i in range(6)]
+    errors = [{"type": "collocation", "original": REAL_BAD[i],
+               "corrected": REAL_GOOD[i], "explanation": "x"} for i in range(3)]
     ct.run(coach_dir, "x", _ev(vocab, errors), "s1", "2026-09-01")
     kinds = {t["kind"] for t in ct.load(coach_dir)["targets"]}
     assert kinds == {"use", "avoid"}
@@ -149,3 +158,21 @@ def test_same_habit_reported_twice_takes_one_slot(coach_dir):
                "corrected": "off-the-shelf solutions", "explanation": "truncated"}]
     ct.run(coach_dir, "x", _ev(vocab, errors), "s1", "2026-09-01")
     assert len(ct.load(coach_dir)["targets"]) == 1
+
+
+def test_ruido_de_transcricao_nao_vira_alvo(coach_dir):
+    """Em 02/09 um transcript degenerado gerou 'sino destra' e 'HP Kelvin
+    (pronounced: Hel-po Kelvin)'. Nao sao frases; ocuparam slot por semanas."""
+    vocab = [{"used": "side, you know, right", "alternatives": ["sino destra"]},
+             {"used": "operation model", "alternatives": ["operating model"]}]
+    ct.run(coach_dir, "x", _ev(vocab), "s1", "2026-09-02")
+    alvos = [t["target"] for t in ct.load(coach_dir)["targets"]]
+    assert alvos == ["operating model"]
+
+
+def test_alvo_legitimo_multipalavra_passa(coach_dir):
+    """A guarda nao pode barrar frase boa: 'off-the-shelf solutions' tem 4
+    palavras, todas inglesas."""
+    vocab = [{"used": "shelf solutions", "alternatives": ["off-the-shelf solutions"]}]
+    ct.run(coach_dir, "x", _ev(vocab), "s1", "2026-09-02")
+    assert [t["target"] for t in ct.load(coach_dir)["targets"]] == ["off-the-shelf solutions"]

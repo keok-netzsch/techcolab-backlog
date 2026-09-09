@@ -40,6 +40,9 @@ MAX_ACTIVE = 6
 ACHIEVE_HITS = 2      # distinct sessions using it before a "use" target retires
 ACHIEVE_CLEAN = 2     # consecutive clean sessions before an "avoid" target retires
 STUCK_AFTER = 6       # sessions with no progress -> flagged, never silently dropped
+# Alvo e frase curta, nao sentenca. 'HP Kelvin (pronounced: Hel-po Kelvin)'
+# tinha 6 termos e passaria por 'palavra conhecida' por causa de 'pronounced'.
+MAX_PALAVRAS_ALVO = 4
 
 
 def _targets_path(coach_dir: Path) -> Path:
@@ -121,6 +124,38 @@ def apply_results(data: dict, results: list[dict], session_id: str, today: str) 
     return {"achieved": achieved, "still_open": still_open}
 
 
+
+def _ingles_plausivel(frase: str) -> bool:
+    """Todo termo da frase existe em ingles? Sem isso, ruido de transcricao vira alvo.
+
+    Em 02/09 uma sessao com transcript degenerado produziu dois alvos:
+    "sino destra" (no lugar de "side, you know, right") e "HP Kelvin (pronounced:
+    Hel-po Kelvin)". Ninguem os praticou porque nao sao frases; ficaram meses
+    ocupando slot e aparecendo no painel como divida.
+
+    Checagem em INGLES apenas, de proposito: "sino" e palavra portuguesa legitima
+    e passaria num teste bilingue, que e exatamente o caso a barrar.
+
+    Sem a lib instalada devolve True - barrar alvo por falta de dependencia seria
+    trocar um erro visivel por um silencioso.
+    """
+    try:
+        from spellchecker import SpellChecker
+    except ImportError:
+        return True
+    global _EN_DICT
+    if _EN_DICT is None:
+        _EN_DICT = SpellChecker(language="en")
+    # Hifen separa: "off-the-shelf" nao esta em dicionario nenhum, mas "off",
+    # "the" e "shelf" estao. Sem isto a guarda barrava alvo legitimo.
+    palavras = [w.lower() for w in re.findall(r"[A-Za-z]+", frase)]
+    if not palavras or len(palavras) > MAX_PALAVRAS_ALVO:
+        return False
+    return not _EN_DICT.unknown(palavras)
+
+
+_EN_DICT = None
+
 def _next_id(data: dict) -> str:
     nums = [int(t["id"].split("-")[1]) for t in data["targets"]
             if t.get("id", "").startswith("t-") and t["id"].split("-")[1].isdigit()]
@@ -185,6 +220,9 @@ def propose(data: dict, ev: dict, session_id: str, today: str) -> list[dict]:
         key = c["target"].casefold()
         other = (c["instead_of"] or "").casefold()
         if not c["target"] or key in seen or (other and other in seen):
+            continue
+        if not _ingles_plausivel(c["target"]):
+            print(f"[targets] recusado, nao parece ingles: {c['target']!r}")
             continue
         seen.add(key)
         if other:

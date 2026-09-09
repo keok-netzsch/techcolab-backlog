@@ -78,6 +78,115 @@ def _is_english(text: str) -> bool:
     return len(_EN.findall(text)) > len(_PT.findall(text))
 
 
+# ── Typo ─────────────────────────────────────────────────────────────────────
+# So no registro ESCRITO. Transcript de call e saida do Whisper: o que estiver
+# "mal escrito" ali e erro da maquina, nao dele, e contar isso como typo dele
+# seria inventar defeito. A separacao e a mesma que vale para o resto do modulo.
+
+# Vocabulario do trabalho dele. Um corretor de ingles generico acusa tudo isto,
+# e uma lista de falso positivo longa faz a secao inteira ser ignorada.
+DOMINIO = {
+    "netzsch", "techcolab", "databricks", "servicenow", "streamlit", "obsidian",
+    "sharepoint", "powershell", "pytest", "jsonl", "json", "yaml", "markdown",
+    "whisper", "ollama", "litellm", "anthropic", "claude", "opus", "sonnet",
+    "haiku", "copilot", "fabric", "dax", "sap", "mdg", "mdm", "okr", "kpi",
+    "cdmp", "dama", "dmbok", "bia", "dmnd", "prjtask", "nbs", "ndb", "eia",
+    "gptw", "pdi", "roadmap", "backlog", "dashboard", "dashboards", "workspace",
+    "workspaces", "onboarding", "stakeholder", "stakeholders", "kickoff",
+    "timesheet", "gantt", "kanban", "changelog", "repo", "repos", "config",
+    "env", "api", "apis", "url", "urls", "html", "css", "http", "https",
+    "kelvin", "okuda", "stefan", "alberto", "hernan", "petra", "olaf", "ana",
+    "lucas", "pedro", "daniel", "miraj", "renan", "murilo", "toshio", "yang",
+    "thorsten", "johannes", "santiago", "eva", "patrick", "palarz", "matheus",
+    "ramon", "janaina", "joyce", "selb", "goethe", "telc", "deutsch",
+    # Acrescentados na 1a medicao real (09/09): eram 6 dos 10 "typos"
+    # acusados, todos termo tecnico ou fragmento de nome de arquivo.
+    "vercel", "docx", "xlsx", "pptx", "pbix", "relat", "hist", "est",
+    "materia", "vscode", "npm", "vite", "figma", "canva",
+}
+
+_TOKEN = re.compile(r"[A-Za-z][A-Za-z'-]{2,}")
+_spell_en = None
+_spell_pt = None
+
+
+SPELL_DISPONIVEL = None   # None = ainda nao tentou; False = sem a lib
+
+
+def _spellers():
+    """Carrega os dois dicionarios uma vez. PT entra porque os prompts dele sao
+    mistos: sem ele toda palavra em portugues viraria 'typo em ingles'.
+
+    Sem a lib o modulo NAO estoura: devolve (None, None), a contagem de typo fica
+    vazia e a cobertura do tracker passa a dizer que typo nao foi medido. Um
+    interpretador sem a dependencia produzindo "0 typos" em silencio seria a
+    mesma mentira que o resto deste arquivo existe para evitar - e ja aconteceu
+    aqui em 09/09, instalando na .venv e rodando com o Python do sistema.
+    """
+    global _spell_en, _spell_pt, SPELL_DISPONIVEL
+    if SPELL_DISPONIVEL is None:
+        try:
+            from spellchecker import SpellChecker
+        except ImportError:
+            SPELL_DISPONIVEL = False
+            print("[grammar] pyspellchecker ausente neste interpretador - "
+                  "typo NAO sera medido (pip install pyspellchecker)")
+            return None, None
+        _spell_en = SpellChecker(language="en")
+        try:
+            _spell_pt = SpellChecker(language="pt")
+        except Exception:  # noqa: BLE001 - dicionario PT opcional
+            _spell_pt = None
+        SPELL_DISPONIVEL = True
+    return _spell_en, _spell_pt
+
+
+def _looks_like_code(tok: str) -> bool:
+    """camelCase, ALLCAPS e palavra com digito nao sao prosa."""
+    return (any(c.isdigit() for c in tok)
+            or (tok.isupper() and len(tok) > 1)
+            or (tok != tok.lower() and tok != tok.capitalize()))
+
+
+def _conhecida(tok: str, en, pt) -> bool:
+    """Conhecida em ingles, em portugues, ou no vocabulario dele."""
+    if tok in DOMINIO:
+        return True
+    if not en.unknown([tok]):
+        return True
+    return pt is not None and not pt.unknown([tok])
+
+
+def find_typos(text: str, ja_pego: set[str] | None = None) -> list[str]:
+    """Palavras desconhecidas em ingles E em portugues, fora do vocabulario dele.
+
+    `ja_pego` sao os spans que uma regra de gramatica ja reportou. Sem isso
+    "feedbacks" aparece duas vezes na mesma tela, como erro de gramatica e como
+    typo, e o leitor conta o mesmo defeito duas vezes.
+    """
+    en, pt = _spellers()
+    if en is None:
+        return []
+    ja_pego = {w.lower() for w in (ja_pego or set())}
+    # Trecho entre crase, caminho e URL sao codigo colado, nao escrita.
+    text = re.sub(r"`[^`]*`|https?://\S+|[A-Za-z]:\\\S+|/\S+/\S*", " ", text)
+    out = []
+    for tok in _TOKEN.findall(text):
+        if _looks_like_code(tok):
+            continue
+        low = tok.lower().strip("'-")
+        if not low or low in ja_pego:
+            continue
+        # Composto com hifen: se as partes sao conhecidas, a juncao nao e typo
+        # ("deploy-vercel"). Um dicionario generico nunca tem o composto inteiro.
+        if "-" in low and all(_conhecida(p_, en, pt) for p_ in low.split("-") if p_):
+            continue
+        if _conhecida(low, en, pt):
+            continue
+        out.append(low)
+    return out
+
+
 # ── Fonte 1: fala ────────────────────────────────────────────────────────────
 
 def scan_speech() -> dict:
@@ -146,6 +255,7 @@ def _own_prompt(msg: dict) -> str:
 def scan_chat() -> dict:
     """Prompts dele nos transcritos do Claude. E ele digitando, sem polimento."""
     hits, probes, exemplos = collections.Counter(), collections.Counter(), {}
+    typos = collections.Counter()
     words = n_msgs = 0
     if not CLAUDE_PROJECTS.exists():
         return _empty("escrito-informal")
@@ -178,14 +288,17 @@ def scan_chat() -> dict:
                         {"data": (msg.get("timestamp") or "")[:10], "trecho": h["quote"]})
             for p in det.get("probes", []):
                 probes[p.get("label") or p.get("pid", "?")] += 1
+            for w_ in find_typos(text, ja_pego={h['quote'] for h in det.get('certain', [])}):
+                typos[w_] += 1
     return {"registro": "escrito-informal", "fonte": "~/.claude/projects/**/*.jsonl",
             "contaminado": False, "unidades": n_msgs, "palavras": words,
-            "hits": dict(hits), "probes": dict(probes), "exemplos": exemplos}
+            "hits": dict(hits), "probes": dict(probes), "exemplos": exemplos,
+            "typos": dict(typos)}
 
 
 def _empty(registro: str) -> dict:
     return {"registro": registro, "fonte": "", "contaminado": False, "unidades": 0,
-            "palavras": 0, "hits": {}, "probes": {}, "exemplos": {}}
+            "palavras": 0, "hits": {}, "probes": {}, "exemplos": {}, "typos": {}}
 
 
 # ── Montagem ─────────────────────────────────────────────────────────────────
@@ -213,7 +326,10 @@ def build(so_fala: bool = False) -> dict:
                 "mede": ("gramática de interferência do português: 16 regras "
                          "determinísticas + probes de falso cognato"),
                 "nao_mede": [
-                    "typo e erro de digitação — nenhum corretor ortográfico instalado",
+                    "typo na FALA — transcript é saída do Whisper, o erro ali é da máquina",
+                ] + ([] if SPELL_DISPONIVEL else [
+                    "typo no ESCRITO — pyspellchecker ausente neste interpretador",
+                ]) + [
                     "pontuação e uso de maiúscula",
                     "registro profissional (e-mail, Teams, documento): sem acesso, "
                     "e o período desde jun/2026 está contaminado por AI",
