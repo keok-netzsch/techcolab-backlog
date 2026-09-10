@@ -232,9 +232,10 @@ def test_score_zero_diz_que_ninguem_pediu():
 
 
 def test_watchlist_recusa_feed_duplicado():
-    feeds.add_feed("UC12345678901234567890AB", label="X")
+    # validate=False: aqui o alvo e a regra de duplicata, nao a rede.
+    feeds.add_feed("UC12345678901234567890AB", label="X", validate=False)
     with pytest.raises(ValueError):
-        feeds.add_feed("UC12345678901234567890AB")
+        feeds.add_feed("UC12345678901234567890AB", validate=False)
 
 
 def test_estado_invalido_na_fila_e_recusado():
@@ -542,3 +543,35 @@ def test_dossie_de_pessoa_desconhecida_diz_por_que(vault_tmp):
     assert d["found"] is False
     assert "Team/" in d["why"] or "Team" in d["why"]
     assert "nao ha pasta" in dossier.render(d)
+
+
+def test_feed_privado_diz_as_duas_hipoteses(monkeypatch):
+    """Playlist privada e id errado dao a MESMA resposta do YouTube. O erro tem que
+    citar as duas, senao manda o Kelvin procurar o link certo que ja estava certo."""
+    class Proc:
+        returncode, stdout, stderr = 1, "", "ERROR: YouTube said: The playlist does not exist."
+    monkeypatch.setattr(feeds, "parse_feed", lambda _t: [])
+    import requests
+    monkeypatch.setattr(requests, "get",
+                        lambda *a, **k: type("R", (), {"status_code": 404, "text": ""})())
+    from vaultsources import adapters
+    monkeypatch.setattr(adapters, "_ytdlp", lambda *a, **k: Proc())
+    with pytest.raises(feeds.FeedUnavailable) as exc:
+        feeds.poll({"ref": "PLxxxx", "kind": "playlist", "label": "x", "topics": []})
+    msg = str(exc.value)
+    assert "PRIVADA" in msg and "id esta errado" in msg
+
+
+def test_add_feed_valida_antes_de_gravar(monkeypatch):
+    def morto(*a, **k):
+        raise feeds.FeedUnavailable("feed morto")
+    monkeypatch.setattr(feeds, "poll", morto)
+    with pytest.raises(feeds.FeedUnavailable):
+        feeds.add_feed("PLmorto")
+    assert not feeds.load_watchlist()["feeds"]
+
+
+def test_add_feed_grava_quando_o_feed_responde(monkeypatch):
+    monkeypatch.setattr(feeds, "poll", lambda e, **k: [{"video_id": "abc"}])
+    feeds.add_feed("PLvivo", label="X", topics=["gov"])
+    assert [f["ref"] for f in feeds.load_watchlist()["feeds"]] == ["PLvivo"]

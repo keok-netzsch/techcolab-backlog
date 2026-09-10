@@ -73,11 +73,23 @@ def save_queue(data: dict) -> None:
 
 # ── assinatura ────────────────────────────────────────────────────────────────
 
-def add_feed(ref: str, *, label: str = "", topics: list[str] | None = None) -> dict:
+def add_feed(ref: str, *, label: str = "", topics: list[str] | None = None,
+             validate: bool = True) -> dict:
+    """Assina um feed. Valida ANTES de gravar, a nao ser que peca o contrario.
+
+    Assinar sem validar cria um feed morto que so aparece como erro no poll da
+    semana seguinte. O custo de errar aqui e uma requisicao; o de nao checar e uma
+    semana de silencio parecendo normalidade.
+    """
     kind = "playlist" if ref.startswith(("PL", "UU", "LL", "FL")) else "channel"
     data = load_watchlist()
     if any(f["ref"] == ref for f in data["feeds"]):
         raise ValueError("feed %s ja esta na watchlist" % ref)
+    if validate:
+        probe = {"ref": ref, "kind": kind, "label": label or ref, "topics": []}
+        itens = poll(probe)   # levanta FeedUnavailable com o diagnostico
+        if not itens:
+            raise FeedUnavailable("feed %s respondeu vazio" % ref)
     entry = {
         "ref": ref,
         "kind": kind,
@@ -144,18 +156,82 @@ def parse_feed(xml_text: str) -> list[dict]:
     return out
 
 
+class FeedUnavailable(RuntimeError):
+    """O feed nao respondeu, e a mensagem diz o motivo provavel."""
+
+
 def poll(entry: dict, *, timeout: int = 30) -> list[dict]:
+    """Itens do feed. Tenta RSS; se falhar, tenta o yt-dlp antes de desistir.
+
+    O RSS do YouTube so serve playlist publica ou nao listada. Playlist PRIVADA
+    responde 404 no feed e "The playlist does not exist" no yt-dlp — que e a mesma
+    resposta que um id errado, entao o erro precisa dizer as duas hipoteses em vez
+    de acusar so uma. Foi o caso de 2026-09-10: o Kelvin mandou o link tres vezes,
+    sempre com o mesmo id, e o id estava certo.
+    """
     governance.check_egress("feed-poll", "public")
     net.apply(strict=False)
     import requests
-    resp = requests.get(feed_url(entry), timeout=timeout,
-                        headers={"User-Agent": "Mozilla/5.0 vaultsources"})
-    resp.raise_for_status()
-    items = parse_feed(resp.text)
+    items: list[dict] = []
+    rss_status = None
+    try:
+        resp = requests.get(feed_url(entry), timeout=timeout,
+                            headers={"User-Agent": "Mozilla/5.0 vaultsources"})
+        rss_status = resp.status_code
+        if resp.status_code == 200:
+            items = parse_feed(resp.text)
+    except Exception as exc:
+        rss_status = "%s: %s" % (type(exc).__name__, str(exc)[:120])
+
+    if not items:
+        items = _poll_ytdlp(entry, rss_status)
+
     for it in items:
         it["feed"] = entry["ref"]
         it["feed_label"] = entry["label"]
     return items
+
+
+def _poll_ytdlp(entry: dict, rss_status) -> list[dict]:
+    from vaultsources import adapters
+    url = ("https://www.youtube.com/playlist?list=" + entry["ref"]
+           if entry["kind"] == "playlist"
+           else "https://www.youtube.com/channel/" + entry["ref"] + "/videos")
+    proc = adapters._ytdlp(["--dump-json", "--skip-download", "--flat-playlist",
+                            "--playlist-end", "25", url], timeout=180)
+    out = []
+    for line in (proc.stdout or "").splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        try:
+            d = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not d.get("id"):
+            continue
+        out.append({
+            "video_id": d["id"],
+            "title": (d.get("title") or "").strip(),
+            "url": "https://www.youtube.com/watch?v=" + d["id"],
+            "channel": (d.get("channel") or d.get("uploader") or "").strip(),
+            "published": "",
+            "description": (d.get("description") or "")[:400],
+        })
+    if out:
+        return out
+
+    err = (proc.stderr or "").strip()
+    if "does not exist" in err or "Private" in err or "private" in err:
+        raise FeedUnavailable(
+            "o YouTube responde 'nao existe' para %s. Duas causas dao esta mesma "
+            "resposta e nao da para distinguir de fora: (1) a playlist e PRIVADA, e "
+            "o feed so serve publica ou nao listada; (2) o id esta errado. Se o link "
+            "abre no seu navegador, e a primeira: mude para 'Nao listada' e o poll "
+            "passa a funcionar sem expor a playlist em busca nem no seu canal."
+            % entry["ref"])
+    raise FeedUnavailable(
+        "feed %s sem itens (RSS: %s; yt-dlp: %s)" % (entry["ref"], rss_status, err[:200]))
 
 
 # ── relevancia ────────────────────────────────────────────────────────────────
