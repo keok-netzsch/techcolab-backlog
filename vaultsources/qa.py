@@ -254,11 +254,16 @@ def check_folders() -> list[Finding]:
 # ── 3. deadloops: produtor declarado que nao produz ───────────────────────────
 
 LOOPS = [
-    {"name": "LinkedIn — relatorio semanal de performance",
+    # Cadencia decidida pelo Kelvin em 2026-09-10: "exporto o analytics do LinkedIn
+    # toda sexta" (ledger P-117). O alvo mudou junto: ate entao o check media
+    # `AI/sessions/linkedin-weekly-*.md`, um relatorio que nunca existiu, e por isso
+    # acusava um loop que nao tinha como fechar. Agora mede o artefato real, que e o
+    # metrics importado do .xlsx. 10 dias e uma sexta perdida mais folga.
+    {"name": "LinkedIn — import do analytics",
      "declared_in": "Areas/LinkedIn/performance-log.md",
-     "glob": "AI/sessions/linkedin-weekly-*.md", "max_age_days": 14,
-     "why": "o log pede metrica digitada a mao dentro do Obsidian, o que a regra "
-            "global proibe; desde 2026-06-01 gerou 0 relatorios"},
+     "glob": "Areas/LinkedIn/_metrics.json", "max_age_days": 10,
+     "why": "a cadencia acertada e sexta; sem o import a estrategia de conteudo "
+            "volta a nao ter medicao nenhuma, que foi o estado de 01/06 a 10/09"},
     {"name": "Reviews semanais (/obsidian-review)",
      "declared_in": "_CLAUDE.md", "glob": "Reviews/*.md", "max_age_days": 21,
      "why": "o manual cita a pasta Reviews/ como destino e ela nunca existiu"},
