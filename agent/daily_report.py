@@ -711,6 +711,86 @@ def _update_claude_pro_data(ideas: list) -> None:
         safe_print(f"[agent] claude-pro-data update failed: {exc}")
 
 
+# Tarefas do Agendador que RODAM CODIGO e cujo resultado tem que ser 0. Lista
+# explicita de proposito, no mesmo espirito do `coach_llm.REMOTE_ALLOWED`: tarefa
+# nova so entra aqui por decisao de alguem.
+#
+# O que fica FORA, e por que: os lembretes graficos (`CDMP Daily Study Reminder`,
+# `TechColab Todo Reminder`, `D&A Vault - Morning Reminder`, `study-notify-diario`
+# e companhia) devolvem codigo diferente de zero toda vez que a caixa e fechada no
+# X em vez do OK. Incluir isso faria o aviso disparar quase todo dia, e gate que
+# acusa tudo nao acusa nada — a mesma licao do limiar de diafonia em 04/09.
+TAREFAS_QUE_DEVEM_PASSAR = (
+    "TechColab Backlog Agent",
+    "TechColab English Coach",
+    "CallRecorder-Queue",
+    "TechColab Vault Index",
+    "TeamMemoryAgent-Capture",
+    "TeamMemoryAgent-Weekly",
+    "TeamMemoryAgent-Health",
+    "D&A Vault Central Consolidation",
+)
+
+# 0 = sucesso; 267009 = rodando agora; 267011 = nunca rodou ainda. O resto e falha,
+# inclusive 267014 (terminada por limite de tempo), que parece benigno e nao e.
+CODIGOS_OK = (0, 267009, 267011)
+
+_MOTIVO = {
+    1: "erro generico do processo",
+    2: "arquivo nao encontrado",
+    267014: "terminada por limite de tempo",
+    2147942401: "arquivo nao encontrado",
+    2147942402: "caminho nao encontrado",
+    3221225786: "encerrada (Ctrl+C / janela fechada)",
+}
+
+
+def _check_scheduled_tasks(nomes=TAREFAS_QUE_DEVEM_PASSAR) -> list:
+    """Tarefa agendada que falhou e nao avisou ninguem. Devolve [(nome, codigo, motivo)].
+
+    A `TechColab English Coach` falhou com `ReadTimeout` em toda execucao desde
+    2026-08-31 e ficou 10 dias com resultado 1 no Agendador **sem que nada olhasse
+    para isso**. So apareceu porque alguem foi procurar. Consertar o timeout impede
+    aquela falha; nao impede a proxima, por outro motivo, na mesma invisibilidade.
+
+    E a mesma licao do `*** ALERTA: canal 1 sem fala ***`, que estava certo e no
+    lugar certo desde 27/08 e nao tinha leitor. Deteccao sem consumidor nao e
+    deteccao.
+
+    Best-effort: sem PowerShell, ou com o cmdlet ausente, devolve lista vazia. Um
+    health check nunca pode derrubar o relatorio que o carrega.
+    """
+    import json as _json
+    import subprocess as _sub
+
+    ps = (
+        "Get-ScheduledTask | Get-ScheduledTaskInfo | "
+        "Select-Object TaskName,LastTaskResult,LastRunTime | ConvertTo-Json -Compress"
+    )
+    try:
+        out = _sub.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                       capture_output=True, text=True, timeout=60)
+        dados = _json.loads(out.stdout or "[]")
+    except Exception:
+        return []
+    if isinstance(dados, dict):
+        dados = [dados]
+
+    por_nome = {d.get("TaskName"): d for d in dados if isinstance(d, dict)}
+    ruins = []
+    for nome in nomes:
+        d = por_nome.get(nome)
+        if not d:
+            # Tarefa que deveria existir e nao existe tambem e uma falha silenciosa:
+            # depois de reinstalar a maquina, some sem avisar.
+            ruins.append((nome, None, "tarefa nao existe no Agendador"))
+            continue
+        codigo = d.get("LastTaskResult")
+        if codigo not in CODIGOS_OK:
+            ruins.append((nome, codigo, _MOTIVO.get(codigo, "codigo nao mapeado")))
+    return ruins
+
+
 def _check_capture_quality(rdir, age_h, max_age_h: float = 72.0) -> list:
     """Grava pela metade? Diz aqui. Devolve [(stem, detalhe)] do que acusou.
 
@@ -881,6 +961,18 @@ def main() -> int:
         _check_capture_quality(_rdir, _age_h)
     except Exception as _e:
         safe_print(f"[agent] Queue health check failed: {_e}")
+
+    # Tarefa agendada que falha em silencio. Ver o docstring de _check_scheduled_tasks.
+    try:
+        _ruins = _check_scheduled_tasks()
+        if _ruins:
+            safe_print(f"[agent] !! {len(_ruins)} tarefa(s) agendada(s) com falha na "
+                       f"ultima execucao - ninguem e avisado se isso nao aparecer aqui:")
+            for _nome, _cod, _motivo in _ruins:
+                _c = "ausente" if _cod is None else _cod
+                safe_print(f"[agent]    {_nome}: {_c} ({_motivo})")
+    except Exception as _e:
+        safe_print(f"[agent] Scheduled task check skipped: {_e}")
 
     # Audio retention: enforce RECORDINGS_RETENTION_DAYS every day.
     # record.prune_old_recordings() was only ever called from record.py, i.e. only

@@ -152,7 +152,10 @@ After updating the app pages, also check if `README.md` needs updating.
 ## The decision loop — Weekly Brief (Toolkit 2.0, since 2026-08-26)
 
 **The daily report proposes nothing and has no checkboxes.** It is a health check:
-tests, vault reachability, overdue/stale counts, open bugs. It states; it does not ask.
+tests, vault reachability, overdue/stale counts, open bugs, capture quality, and
+**tarefas agendadas com falha na ultima execucao** (`_check_scheduled_tasks`, desde
+2026-09-10 — a `TechColab English Coach` passou 10 dias falhando toda segunda sem que
+nada olhasse para o resultado dela no Agendador). It states; it does not ask.
 
 Decisions live in `agent/weekly_brief.py` → `{VAULT_ROOT}/weekly-briefs/brief-YYYY-Wnn.md`:
 
