@@ -775,3 +775,18 @@ def test_brief_marca_fonte_sem_analise(vault_tmp, monkeypatch):
          "analysis": "pending", "thesis": ""}])
     saida = brief.render(brief.build("tema"))
     assert "[sem analise]" in saida
+
+
+def test_brief_pega_a_fonte_pelo_LINK_do_conceito(vault_tmp):
+    """Busca depende do indice estar fresco e do idioma bater. Link nao depende de
+    nenhum dos dois: alguem aprovou aquela fonte para aquele conceito."""
+    from vaultsources import brief
+    doc = make_doc(title="Data Governance Explained")
+    note.write(doc)
+    page = concepts.create("Governanca", stance="posicao", why="motivo")
+    prop = concepts.propose("Governanca", source_slug=doc.slug,
+                            relation="confirma", claim="confirma a sequencia")
+    concepts.accept(prop.name)
+    conceitos = [{"file": str(page.relative_to(paths.VAULT))}]
+    fontes = brief.sources_linked_from(conceitos)
+    assert [f["title"] for f in fontes] == ["Data Governance Explained"]

@@ -73,6 +73,48 @@ def concepts_for(tema: str, k: int = 4) -> list[dict]:
     return out
 
 
+def _read_source(p: Path) -> dict | None:
+    if not p.exists():
+        return None
+    raw = p.read_text(encoding="utf-8", errors="replace")
+    fm, _b, _ok = split_frontmatter(raw)
+    tese = _section(raw, "## Tese central")
+    return {
+        "file": str(p.relative_to(paths.VAULT)).replace("\\", "/"),
+        "title": str(fm.get("source-title", p.stem)),
+        "author": str(fm.get("source-author", "") or ""),
+        "published": str(fm.get("source-published", "")),
+        "provenance": str(fm.get("provenance", "")),
+        "analysis": str(fm.get("analysis", "pending")),
+        "thesis": "" if "pending-analysis" in tese else tese[:400],
+    }
+
+
+def sources_linked_from(conceitos: list[dict]) -> list[dict]:
+    """Fontes que as paginas de conceito JA citam, por link.
+
+    Vem antes da busca de proposito. O link e estrutural: alguem aprovou aquela
+    fonte para aquele conceito. A busca depende de o indice estar fresco e de a
+    pergunta estar no mesmo idioma do titulo — "governanca de dados" devolvia zero
+    para uma fonte chamada "Data Governance Explained". Estrutura nao tem esse
+    problema.
+    """
+    out, vistos = [], set()
+    for c in conceitos:
+        p = paths.VAULT / c["file"]
+        if not p.exists():
+            continue
+        raw = p.read_text(encoding="utf-8", errors="replace")
+        for slug in re.findall(r"\[\[Sources/([^\]|]+)\]\]", raw):
+            if slug in vistos:
+                continue
+            vistos.add(slug)
+            d = _read_source(paths.SOURCES_DIR / (slug.split("/")[-1] + ".md"))
+            if d:
+                out.append(d)
+    return out
+
+
 def sources_for(tema: str, k: int = 6) -> list[dict]:
     from vaultindex.search import search
     out, vistos = [], set()
@@ -117,8 +159,15 @@ def questions_for(tema: str, k: int = 5) -> list[dict]:
 
 
 def build(tema: str) -> dict:
-    return {"tema": tema, "conceitos": concepts_for(tema),
-            "fontes": sources_for(tema), "perguntas": questions_for(tema)}
+    cs = concepts_for(tema)
+    fontes = sources_linked_from(cs)
+    vistos = {f["file"] for f in fontes}
+    for f in sources_for(tema):
+        if f["file"] not in vistos:
+            fontes.append(f)
+            vistos.add(f["file"])
+    return {"tema": tema, "conceitos": cs, "fontes": fontes,
+            "perguntas": questions_for(tema)}
 
 
 def render(b: dict) -> str:
