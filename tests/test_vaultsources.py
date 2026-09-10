@@ -575,3 +575,30 @@ def test_add_feed_grava_quando_o_feed_responde(monkeypatch):
     monkeypatch.setattr(feeds, "poll", lambda e, **k: [{"video_id": "abc"}])
     feeds.add_feed("PLvivo", label="X", topics=["gov"])
     assert [f["ref"] for f in feeds.load_watchlist()["feeds"]] == ["PLvivo"]
+
+
+def test_descricao_nao_casa_com_pergunta_aberta():
+    """Descricao de video e texto promocional. Deixando ela entrar no match de
+    pergunta, um video de troubleshooting do Copilot Studio foi anunciado como
+    resposta a um risco de governanca sobre dado exportado."""
+    item = {"title": "AB-620: Troubleshooting Copilot Studio State Management",
+            "description": "reuso governado de dado exportado por areas de negocio"}
+    qs = [{"text": "reuso nao governado de dado exportado por areas de negocio"}]
+    _s, reason = feeds.score(item, qs, ["ab620", "copilot studio"])
+    assert "pergunta aberta" not in reason
+    assert "topicos do feed" in reason
+
+
+def test_titulo_forte_ainda_casa_com_pergunta():
+    item = {"title": "Records management retention and disposition explained",
+            "description": ""}
+    qs = [{"text": "records management retention disposition"}]
+    s, reason = feeds.score(item, qs, [])
+    assert s > 0 and "pergunta aberta" in reason
+
+
+def test_duas_palavras_em_comum_e_declarado_como_coincidencia():
+    item = {"title": "Power BI licensing and governance basics", "description": ""}
+    qs = [{"text": "governance basics for something entirely different"}]
+    _s, reason = feeds.score(item, qs, [])
+    assert "coincidencia" in reason

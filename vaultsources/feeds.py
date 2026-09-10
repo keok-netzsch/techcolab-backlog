@@ -256,19 +256,37 @@ def score(item: dict, questions: list[dict], topics: list[str]) -> tuple[int, st
     Deterministico e explicavel: o `reason` diz qual pergunta puxou o item, para
     que uma proposta ruim seja discutivel em vez de misteriosa.
     """
-    hay = set(_norm(item.get("title", "")) + _norm(item.get("description", ""))[:200])
+    # Titulo para casar com PERGUNTA; descricao so para casar com TOPICO.
+    # Descricao de video no YouTube e texto promocional: link de curso, hashtag,
+    # nome de patrocinador. Deixando ela entrar no match de pergunta, um video de
+    # troubleshooting do Copilot Studio foi anunciado como resposta a um risco de
+    # governanca sobre dado exportado, porque as duas coisas compartilhavam
+    # palavras de marketing.
+    titulo = set(_norm(item.get("title", "")))
+    hay = titulo | set(_norm(item.get("description", ""))[:200])
     best_q, best_hits = None, 0
     for q in questions:
         qwords = set(_norm(q.get("text", "")))
-        hits = len(hay & qwords)
+        hits = len(titulo & qwords)
         if hits > best_hits:
             best_q, best_hits = q, hits
-    topic_hits = len(hay & {t for tp in topics for t in _norm(tp)})
-    total = best_hits * 2 + topic_hits
-    if best_q and best_hits >= 2:
+    topic_terms = {t for tp in topics for t in _norm(tp)}
+    topic_hits = len(hay & topic_terms)
+    total = best_hits * 2 + topic_hits * 2
+
+    # O limiar de 3 nao e cosmetico. Com 117 perguntas abertas, duas palavras em
+    # comum acontecem por acaso o tempo todo: na primeira execucao real um video
+    # chamado "Troubleshooting Copilot Studio State Management" foi anunciado como
+    # resposta a um risco sobre "reuso nao governado de dado exportado". Motivo
+    # errado e pior que motivo nenhum, porque convida a aprovar sem ler.
+    if best_q and best_hits >= 3:
         reason = "casa com a pergunta aberta: %s" % best_q["text"][:110]
     elif topic_hits:
-        reason = "bate com os topicos do feed (%d termo(s))" % topic_hits
+        reason = "bate com os topicos do feed: %s" % ", ".join(
+            sorted(hay & topic_terms)[:4])
+    elif best_q and best_hits == 2:
+        reason = ("so 2 palavras em comum com uma pergunta aberta; "
+                  "provavelmente coincidencia")
     else:
         reason = "nenhuma pergunta aberta pediu isto"
     return total, reason
@@ -298,6 +316,15 @@ def collect(*, questions: list[dict] | None = None, min_score: int = 1,
             continue
         for it in items[:limit_per_feed]:
             if it["video_id"] in known or it["video_id"] in seen:
+                skipped += 1
+                continue
+            # Ja ingerido fora da fila (por `fetch` avulso) nao volta como proposta.
+            # Sem isto o primeiro poll da playlist do Kelvin propos 3 videos que ele
+            # ja tinha no vault, e uma fila que repete o que voce ja tem ensina a
+            # ignorar a fila.
+            from vaultsources import note as _note
+            if _note.find_by_url(it["url"]) is not None:
+                seen[it["video_id"]] = today
                 skipped += 1
                 continue
             s, reason = score(it, questions, entry.get("topics", []))
