@@ -49,6 +49,15 @@ import sys
 # `transcript` tambem fica de fora, e por outro motivo: e o purpose do resumo de
 # contexto do coach (`coach._context_summary`), que dispara por IDIOMA e alcanca 1:1
 # do time. Ver tests/test_coach_context.py. O 1:1 roteado usa `oneonone`.
+#
+# 2026-09-10: `coach-weekly` entra na lista dos que ficam de fora. E o consolidado
+# semanal (`agent/english_coach.py`, tarefa de segunda 08:30), que varre `Inbox/`
+# junto com Team, Stakeholders e English-Learning — confirmado num --dry-run do dia.
+# Repare que ele NAO e o mesmo caso de `coach`: aquele le so a fala do Kelvin numa
+# call, este le pasta inteira, Inbox incluso. Nome de proposito separado justamente
+# para a diferenca ficar visivel aqui. Ate esse dia o modulo falava com o Ollama por
+# URL fixa, entao a garantia era "nao ha caminho" e nao "o caminho e recusado".
+# Travado em tests/test_english_coach_local.py.
 REMOTE_ALLOWED = {"coach", "coach-probe", "oneonone", "manager", "agenda"}
 
 GATEWAY_URL = os.environ.get(

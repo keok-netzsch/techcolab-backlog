@@ -322,7 +322,8 @@ must stay in `brand.css` (always loaded, both light and dark) — do not remove 
     pessoal dele, e o ADR `2026-08-31-sistema-de-estudo-mdm.md` (decisao 4) diz que
     conteudo da transicao nunca roda no gateway, *porque o gateway e logado pelo
     empregador*. E `transcript`, que e o resumo de contexto do coach e dispara por idioma,
-    alcancando 1:1 do time.
+    alcancando 1:1 do time. E `coach-weekly` (desde 10/09), o consolidado semanal do
+    `agent/english_coach.py`, que varre pasta inteira com o `Inbox/` dentro.
   - Ate 02/09 o `process.py` chamava o Ollama direto e **nunca passou pela allowlist** —
     o que este arquivo afirmava era falso. Agora passa por `process._generate(prompt,
     purpose)`. Travado em `tests/test_provedor_por_proposito.py`.

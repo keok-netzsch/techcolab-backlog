@@ -99,6 +99,18 @@ his divorce and alimony, plus an HR conversation about the move.
 The coach's context summary also stays local. It is triggered by language, not by
 call type, so it reaches team 1:1s that happen to be in English.
 
+**The weekly English rollup stays local too, and since 2026-09-10 it is enforced
+rather than assumed.** `agent/english_coach.py` (scheduled Monday 08:30) reads whole
+folders, `Inbox/` among them — a dry run that day listed `nota-avulsa` entries. Until
+then the guarantee rested on the module talking to Ollama through a fixed URL, so
+there simply was no route to the gateway. That is weaker than it looks: an edit that
+swapped the provider would have read as infrastructure work, not as a policy change,
+and nothing would have objected. It now runs under the purpose `coach-weekly`, which
+is deliberately outside `coach_llm.REMOTE_ALLOWED`, so the same edit raises
+`ProviderError` instead of uploading the Inbox. The alternative fix, dropping `Inbox`
+from the scan, was rejected: it would have quietly stopped grading English notes to
+solve a problem that is about where text goes, not about which text is read.
+
 What this means for anyone reading a note: a note written from a 1:1 or a
 stakeholder call was processed by a model the employer can audit. A note in the
 Inbox was not. Neither was recorded differently, and neither changed what is kept.

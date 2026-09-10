@@ -25,6 +25,10 @@ from pathlib import Path
 # ── Project path setup ────────────────────────────────────────────────────────
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
+# `coach_llm` vive no call-recorder e e o unico lugar que decide o que pode sair da
+# maquina. Importar de la, e nao copiar a regra para ca, e o que impede as duas
+# copias divergirem.
+sys.path.insert(0, str(ROOT / "call-recorder"))
 
 import requests
 
@@ -38,6 +42,9 @@ REPORTS_DIR = VAULT_ROOT / "agent-reports"
 OLLAMA_URL   = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5-coder:latest"   # better JSON + structured output
 COACH_TIMEOUT = 1200
+# Deliberadamente fora de `coach_llm.REMOTE_ALLOWED`. Ver o docstring de
+# `_ollama_generate` e tests/test_english_coach_local.py.
+COACH_PURPOSE = "coach-weekly"
 
 # Absolute paths to scan (all relative to TechColab_D&A_KO, one level above App/Personal toolkit)
 _VAULT_BASE  = VAULT_ROOT.parent.parent   # .../TechColab_D&A_KO
@@ -189,21 +196,31 @@ def _check_ollama():
 
 
 def _ollama_generate(prompt: str, use_json: bool = False) -> str:
-    payload = {
-        "model":  OLLAMA_MODEL,
-        "prompt": prompt,
-        "stream": False,
-    }
-    if use_json:
-        payload["format"] = "json"
+    """Gera pelo `coach_llm`, com um proposito que a allowlist NAO deixa sair.
+
+    Este relatorio varre `Inbox/` junto com Team, Stakeholders e English-Learning.
+    O Inbox e exatamente a pasta que `note` e `capture` mantem local, porque e onde
+    cai conteudo pessoal do Kelvin (visto, pensao, a ida para a Alemanha) e porque o
+    gateway e logado pelo empregador — ADR 2026-08-31-sistema-de-estudo-mdm.md,
+    decisao 4. Confirmado num `--dry-run` de 10/09: a varredura lista entradas
+    `nota-avulsa`.
+
+    Ate hoje isso era garantido por acidente: o modulo chamava o Ollama por URL fixa,
+    entao nao havia como sair da maquina. "Nao ha caminho" nao e a mesma coisa que
+    "o caminho e recusado" — uma troca futura para o gateway pareceria so uma
+    mudanca de provedor. Agora o proposito `coach-weekly` fica FORA de
+    `coach_llm.REMOTE_ALLOWED`, entao a mesma tentativa levanta `ProviderError` em
+    vez de vazar em silencio. Mesmo padrao do `transcript` em `coach._context_summary`.
+    """
+    import coach_llm
 
     # 300 s era menor que a propria carga do modelo. Esta tarefa roda segunda
     # 08:30 e falhou com ReadTimeout em toda execucao recente (resultado 1 no
     # Agendador). 1200 s e o mesmo numero que call-recorder/coach.py usa desde
     # 2026-05-29 para o MESMO modelo nesta CPU: modelo quente ~14 min.
-    r = requests.post(OLLAMA_URL, json=payload, timeout=COACH_TIMEOUT)
-    r.raise_for_status()
-    return r.json()["response"].strip()
+    return coach_llm.generate(prompt, purpose=COACH_PURPOSE,
+                              expect_json=use_json,
+                              timeout=COACH_TIMEOUT).strip()
 
 
 # ── Report generation ─────────────────────────────────────────────────────────
