@@ -33,6 +33,7 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 | Trabalho | O que resolve | Peças |
 |---|---|---|
 | **Memória** | nada do que acontece se perde | `call-recorder/`, `~/TeamMemoryAgent/`, vault, `~/voice-dictate/`, `vaultindex/` (busca sobre o vault) |
+| **Conhecimento externo** | o vault sabe algo que o Kelvin ainda não sabia | `vaultsources/` (cano + conceitos + QA de consistência), `Sources/` e `Concepts/` no vault |
 | **Decisão** | decido rápido, com estado único | `backlog/` (BacklogStore), `agent/` (CLI + brief + Closer), `agent/pending.py`, app Streamlit |
 | **Entrega** | produzo material com marca | skill `techcolab-deck`, `Resources/loop-export`, Timeline |
 | **Aprendizado** | aprendo com cadência | `agent/english_coach.py`, skills `cdmp`/`deutsch`/`study` |
@@ -52,6 +53,11 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 | Trackers de estudo por área (SRS, scores) | `{VAULT_ROOT}/vault/study-tools/<área>/` — `cdmp/cdmp-tracker.json`, `deutsch/deutsch-tracker.json`, `ab620/ab620-tracker.json`, … | **só** o recorder da área (`cdmp-record-answer.ps1`, `deutsch-record.ps1`, `ab620-record-answer.ps1`); o monitor `/study` lê tudo e não escreve em nenhum |
 | Roteiro de exames e cursos (datas, status, dependência) | `{VAULT_ROOT}/vault/study-tools/study/certifications.json` | editado à mão ou pela skill `/study`. **Nasceu em 2026-09-08** porque AB-100 e SC-401 só existiam dentro do prompt de `scheduled-tasks/study-diario/SKILL.md`, que é instrução e não estado. Regra anti-duplicação: quando a data já pertence ao `study-plan.json`, este arquivo aponta com `plan_deadline` em vez de repetir; score nunca mora aqui, vem do tracker da área |
 | Painel de estudo (progresso + engajamento) | derivado, não é estado: `vault/study-tools/study/study-dashboard.html`, refeito do zero por `python vault/study-tools/study/build_dashboard.py` | **só** o gerador (leitura sobre plano + trackers). O artefato publicado é a mesma saída: a URL fica em `study-dashboard.url` e **republica-se nela**, nunca num artefato novo. Quem regera: a rotina `study-diario` no fim de cada sessão (passo 6 do `SKILL.md`) |
+| Assinatura de canal/playlist e fila de candidatos | `{VAULT_ROOT}/../Sources/_watchlist.json` e `_queue.json` | **só** `python -m vaultsources` (watch/poll/queue/ingest). Nasceu em 2026-09-10. Não cabe no BacklogStore (não é ideia) nem no ledger (não é pendência dele) |
+| Proposta de revisão de conceito | `Concepts/_proposals/*.json` | `analyse --apply` e `concept propose`. Aplicar na página é **só** por ação explícita (`concept accept`); descarte vai para `_rejected/`, não some |
+| Métricas de post do LinkedIn | `Areas/LinkedIn/_metrics.json` → bloco gerado no `performance-log.md` | **só** `python -m vaultsources linkedin import`, lendo o `.xlsx` do export. O log pedia digitação manual dentro do Obsidian e ficou com 3 posts em 3 meses |
+| Relatório de consistência | derivado: `_reports/Sources-QA.md`, refeito do zero | **só** `python -m vaultsources qa`. Lido pelo perfil `sources-qa` do notify e pela rotina `fontes-semanal` |
+| CA da rede corporativa | derivado: `%LOCALAPPDATA%\techcolab\ca-bundle.pem` | **só** `scripts/build-ca-bundle.ps1`. Refazer depois de `pip install -U certifi` |
 | Índice de busca do vault | derivado, não é estado: `%LOCALAPPDATA%\techcolab\vault-index\index.sqlite`, refeito do zero por `python -m vaultindex build --full` | **só** `vaultindex build`/`embed` (um escritor, lock com PID); `search`, `briefing` e o MCP leem em `mode=ro`; `check` é o leitor independente que acusa divergência; `lint` só lê o índice e grava `_reports/Vault-Lint.md` (saída gerada) |
 
 ### O que roda sozinho
@@ -165,6 +171,25 @@ ligou o `capture_multi` como padrão — a correção nasceu no ramo que aquele 
 Este é o par de superfícies na forma mais cara: quem consertou saiu convencido de ter
 consertado.
 
+### Padrão 14 — documento que aponta caminho é código sem teste
+
+Nasceu em 2026-09-10. `/youtube`, `/research`, `/research-deep`, `/x-read` e
+`/x-pulse` mandavam rodar de um caminho sob Projects/personal que nunca existiu
+nesta máquina (escrito aqui sem crase de propósito: o próprio check `refs` cobraria
+a existência dele). O braço de pesquisa inteiro ficou meses sem
+produzir uma nota, e a suíte estava verde o tempo todo — **o código estava certo, a
+documentação é que apontava para o lugar errado.**
+
+Na mesma varredura: o `_CLAUDE.md` do vault dizia que `Daily/` estava vazia (as
+notas moram em `Daily/YYYY/MM/`, 8 só de setembro) e que `Reviews/` existia (não
+existia, e por isso nenhuma review semanal foi escrita em 17 dias).
+
+Toda afirmação de caminho, de pasta e de cadência que um documento faz é verificável
+por código. `python -m vaultsources qa` faz isso, e o perfil `sources-qa` do notify é
+quem lê. Ao escrever qualquer documento que mande alguém rodar algo de algum lugar,
+assuma que a afirmação vai envelhecer.
+
+
 ---
 
 ## Decisões — não reabrir sem perguntar
@@ -192,6 +217,8 @@ consertado.
 | 2026-09-04 | **O lint não conta link quebrado que sai de `_reports/` ou `Archive/`, e diz quantos pôs de lado.** Saída gerada e snapshot arquivado citam nome de propósito; o `Vault-Lint.md` respondia por 40 das referências que ele mesmo acusava. `index.md` deixou de ser catálogo exaustivo no mesmo dia e virou mapa curto, com a listagem delegada à busca | `vaultindex/lint.py`, `index.md`, `_CLAUDE.md`, `.claude/commands/obsidian-handoff.md` |
 | 2026-09-08 | **Deutsch v2 avalia no gateway NETZSCH, como o English Coach.** Decisão dele; fala estudando alemão não é dado de RH. Vale só para a avaliação — a captura e a transcrição continuam locais (STT nunca sai da máquina, ADR 2026-08-13). Ao implementar, entra como `purpose` novo no allowlist de `coach_llm.py`, nunca por env var | idea-088 |
 | 2026-09-08 | **O índice guarda o nome dos anexos (tabela `assets`) e o lint para de chamar `[[foto.png]]` de link quebrado.** O Obsidian resolve anexo; o índice só não indexa o conteúdo dele. Schema v4, pede `build --full` + `embed` | `vaultindex/corpus.py` (`iter_asset_paths`), `vaultindex/db.py` (`_index_assets`), `vaultindex/lint.py` |
+
+| 2026-09-10 | **Conhecimento externo entra por um cano só, com procedência escrita por código.** `Sources/` e `Concepts/` no vault, `vaultsources/` no repo. LinkedIn não tem caminho de fetch e o código diz isso. Fronteira de dado é a **origem** do payload, não o destino: provedor externo aceita `public` e `user`, nunca `vault`. TLS corporativo se resolve com CA bundle, não com `--no-check-certificates` | ADR `2026-09-10-vaultsources-conhecimento-externo.md`, `docs/vaultsources.md` |
 
 **Decisão de ciclo de pessoas não se retoma aqui.** Mérito, bônus, promoção e IDP do FY26
 estão em `Team/FY26 - Assessment Findings & Cross-Manager Calibration.md`, com a seção

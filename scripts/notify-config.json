@@ -60,6 +60,13 @@
       "_source": "novo em 2026-09-04 (pedido do Kelvin: 'essas tasks de aprovacao que sao recorrentes estejam em rotinas, com o lembrete no horario')",
       "_task": "TechColab Aprovacoes Pendentes (weekdays 08:40)",
       "_nota": "Roda 10 min depois da rotina pendencias-do-kelvin (08:30), que monta o painel clicavel dentro do Claude. O painel so existe se ele abrir o app; este lembrete e o que faz ele abrir. Silencioso quando o ledger esta limpo. Le o ledger e, como rede de seguranca, os drafts do Team Memory Agent."
+    },
+    "sources-qa": {
+      "mode": "messagebox",
+      "title": "Consistencia do segundo cerebro - achado com severidade erro",
+      "messageScript": "scripts/notify-body/sources-qa-body.ps1",
+      "_task": "TechColab Sources QA (dias uteis 08:50)",
+      "_nota": "Silencioso quando o QA nao acha erro. Roda offline: o check de rede depende da VPN no minuto do disparo e falso alarme diario de certificado ensina a ignorar o aviso. A checagem online fica na rotina semanal fontes-semanal, que tem leitor. Nasceu em 2026-09-10, quando a revisao do segundo cerebro achou 5 comandos apontando para um repo inexistente e 2 loops declarados que nunca produziram nada."
     }
   },
   "_pendentes": {

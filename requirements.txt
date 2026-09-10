@@ -12,3 +12,14 @@ numpy>=1.26
 # call-recorder/coach_grammar.py: deteccao de typo no registro escrito.
 # Puro Python, dicionario embutido, offline - sem servico externo.
 pyspellchecker>=0.8
+
+# vaultsources/ (2026-09-10): o cano de conhecimento externo.
+# yt-dlp entra como MODULO, nao como .EXE: o executavel congelado carrega o
+# certifi embutido e ignora SSL_CERT_FILE, entao nao passa pela CA da rede
+# NETZSCH (que inspeciona TLS). Ver vaultsources/net.py.
+yt-dlp>=2026.8
+# youtube-transcript-api >= 1.2: a 1.0.3 devolvia ParseError no endpoint de
+# legenda e o codigo antigo lia isso como "video sem legenda".
+youtube-transcript-api>=1.2
+# openpyxl: import do export de analytics de post do LinkedIn.
+openpyxl>=3.1

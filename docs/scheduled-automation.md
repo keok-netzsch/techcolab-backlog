@@ -32,6 +32,13 @@ unless noted. This is the "production = hardened local" record required by the A
 | `D&A Vault Central Sensitive Scan` | 08:25 + hourly | `scripts/vault-central-sensitive-scan.ps1` vs `vault-central-sensitive-baseline.json` |
 | `TechColab Vault Index` | daily 18:00 (**since 2026-09-03**) | `scripts/vault-index-nightly.ps1` → `python -m vaultindex build --embed` with the repo `.venv`: incremental index of the vault + local ONNX embeddings for the chunks that lack one, then `lint` (regenerates `_reports/Vault-Lint.md`, 2 s). Log `logs/vault-index-YYYY-MM.log`. 18:00 sits after `vault-daily-commit` (17:30). 1h limit is slack, not an estimate: the typical night takes seconds. Exit 3 = a search refresh held the lock at that instant; tomorrow catches up. Docs: `docs/vault-index.md`, governance `docs/vault-index-governanca.md`, ADR 2026-09-03 (idea-097) |
 
+## Conhecimento externo / consistencia (docs: `docs/vaultsources.md`, ADR 2026-09-10)
+
+| Task | When | Runs |
+|---|---|---|
+| `TechColab Sources QA` | weekdays 08:50 (**since 2026-09-10**) | `scripts/notify.ps1 -Profile sources-qa` -> `scripts/notify-body/sources-qa-body.ps1` — roda `python -m vaultsources qa --json --offline` e mostra **so** os achados de severidade `erro`. Silencioso quando nao ha nenhum. O horario e o do bloco de decisao: 20 min depois de `pendencias-do-kelvin` (08:30) e 10 min depois de `TechColab Aprovacoes Pendentes` (08:40), quando ele ja esta olhando o que precisa de resposta. Offline de proposito: o check de rede depende da VPN no minuto do disparo, e falso alarme diario de certificado ensina a ignorar o aviso — a checagem online fica na rotina semanal, que tem leitor. Instala com `scripts/install-sources-qa-task.ps1`. Nasceu quando a revisao do segundo cerebro achou 5 comandos apontando para um repo inexistente e 2 loops declarados que nunca produziram nada, com a suite verde o tempo todo |
+| `fontes-semanal` | Fri 16:15 (**since 2026-09-10**) | Claude scheduled routine (nao e Task Scheduler) — roda o QA online, fecha a analise das fontes pendentes, apresenta as propostas de conceito para aprovacao em uma linha e propoe candidatos novos a partir das perguntas abertas. E o consumidor humano do QA: o toast das 08:50 avisa, esta rotina resolve |
+
 ## Backlog / Toolkit 2.0
 
 | Task | When | Runs |
