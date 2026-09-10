@@ -119,6 +119,19 @@ def transcript_path(doc: SourceDoc) -> Path:
     return paths.SOURCES_DIR / "_transcripts" / (doc.slug + ".md")
 
 
+def cache_path(doc: SourceDoc) -> Path:
+    """Onde o texto bruto fica quando NAO entra no vault.
+
+    Fora do vault, fora do OneDrive, fora do indice. Existe porque `retain_raw=False`
+    sem isto tornava a nota impossivel de analisar: o frontmatter dizia
+    `analysis: pending` e o texto para escrever a analise tinha sido jogado fora no
+    mesmo instante. Pendencia que ninguem consegue resolver e pior que pendencia
+    nenhuma. Apagar o cache e seguro: perde-se a analise futura, nao a procedencia,
+    e a fonte pode ser rebuscada pela URL.
+    """
+    return paths.media_cache() / "raw" / (doc.slug + ".txt")
+
+
 def find_by_url(url: str) -> Path | None:
     """Ja ingerimos esta URL? Evita a segunda copia da mesma fonte."""
     if not paths.SOURCES_DIR.exists():
@@ -248,6 +261,12 @@ def render(doc: SourceDoc, *, analysis: dict | None = None,
     body.append("")
 
     if not retain_raw and doc.text:
+        cache = cache_path(doc)
+        try:
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            cache.write_text(doc.text, encoding="utf-8")
+        except OSError:
+            cache = None
         body += [
             "## Texto bruto", "",
             "**Nao retido.** " + str(len(doc.text)) + " caracteres foram lidos e "
@@ -256,6 +275,13 @@ def render(doc: SourceDoc, *, analysis: dict | None = None,
             "`text-sha256` no frontmatter e do texto que foi lido, entao da para "
             "rebuscar a fonte e conferir que e a mesma. O que se perde e a busca "
             "dentro da fala.",
+            "",
+            ("Para escrever a analise, o texto esta em cache local (fora do vault e "
+             "fora do indice): `" + str(cache) + "`. Apagar o cache nao afeta esta "
+             "nota; so obriga a rebuscar a fonte se a analise ainda nao tiver sido "
+             "feita.") if cache else
+            "O cache local do texto nao pode ser gravado, entao a analise so pode "
+            "ser feita rebuscando a fonte pela URL.",
             "",
         ]
     elif inline and doc.text:
@@ -348,6 +374,9 @@ def read_doc(path: Path) -> SourceDoc:
     if m:
         text = m.group(1)
     else:
+        cache = paths.media_cache() / "raw" / (path.stem + ".txt")
+        if cache.exists():
+            return cache.read_text(encoding="utf-8", errors="replace").strip()
         sidecar = paths.SOURCES_DIR / "_transcripts" / (path.stem + ".md")
         if sidecar.exists():
             sraw = sidecar.read_text(encoding="utf-8")

@@ -139,8 +139,14 @@ def import_list(path: Path, *, label: str = "watch-later", probe: int = 25,
             "sem_titulo": sem_titulo, "falhas": falhas}
 
 
-def fill_titles(limit: int = 25, pause: float = 1.0) -> dict:
-    """Busca titulo dos candidatos que entraram sem. Em lote, com pausa."""
+def fill_titles(limit: int = 25, pause: float = 1.0, save_every: int = 25) -> dict:
+    """Busca titulo dos candidatos que entraram sem. Em lote, com pausa.
+
+    Grava a fila a cada `save_every` itens. A primeira versao so gravava no fim, e
+    com 778 videos isso e um quarto de hora de trabalho que uma interrupcao apaga
+    inteiro. Trabalho longo sem ponto de gravacao intermediario nao e retomavel, e
+    o que nao e retomavel acaba nao sendo refeito.
+    """
     from vaultsources import questions
 
     q = feeds.load_queue()
@@ -163,6 +169,8 @@ def fill_titles(limit: int = 25, pause: float = 1.0) -> dict:
             falhas.append({"id": c["video_id"], "why": "%s: %s" % (type(exc).__name__, str(exc)[:90])})
         if pause:
             time.sleep(pause)
+        if save_every and (ok + len(falhas)) % save_every == 0:
+            feeds.save_queue(q)
     feeds.save_queue(q)
     restantes = sum(1 for c in q["candidates"]
                     if c["state"] == "proposed" and not c.get("title"))
