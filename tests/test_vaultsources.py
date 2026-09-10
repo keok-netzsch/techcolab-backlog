@@ -739,3 +739,39 @@ def test_media_cache_sob_pytest_nunca_e_o_caminho_real(monkeypatch):
     importlib.reload(p2)
     alvo = str(p2.media_cache())
     assert "techcolab" not in alvo or "test" in alvo.lower()
+
+
+# ── brief: o lado que USA o que entrou ────────────────────────────────────────
+
+def test_brief_le_a_secao_pelo_titulo_no_inicio_da_linha(vault_tmp):
+    """O preambulo das paginas de conceito cita `## Posicao atual` dentro de uma
+    frase. Casar por substring pegava a mencao e o brief saia vazio."""
+    from vaultsources import brief
+    raw = ("## For future Claude\n\nLeia `## Posicao atual` primeiro.\n\n"
+           "## Posicao atual\n\nA posicao de verdade.\n\n"
+           "## Contradicoes em aberto\n\n_Nenhuma._\n")
+    assert brief._section(raw, "## Posicao atual") == "A posicao de verdade."
+    assert brief._section(raw, "## Contradicoes em aberto") == "_Nenhuma._"
+    assert brief._section(raw, "## Nao existe") == ""
+
+
+def test_brief_sem_conceito_diz_o_que_fazer(vault_tmp, monkeypatch):
+    from vaultsources import brief
+    monkeypatch.setattr(brief, "concepts_for", lambda t, k=4: [])
+    monkeypatch.setattr(brief, "sources_for", lambda t, k=6: [])
+    monkeypatch.setattr(brief, "questions_for", lambda t, k=5: [])
+    saida = brief.render(brief.build("tema qualquer"))
+    assert "Nenhuma pagina de conceito" in saida
+    assert "concept new" in saida
+
+
+def test_brief_marca_fonte_sem_analise(vault_tmp, monkeypatch):
+    from vaultsources import brief
+    monkeypatch.setattr(brief, "concepts_for", lambda t, k=4: [])
+    monkeypatch.setattr(brief, "questions_for", lambda t, k=5: [])
+    monkeypatch.setattr(brief, "sources_for", lambda t, k=6: [
+        {"file": "Sources/x.md", "title": "Uma fonte", "author": "Canal",
+         "published": "2026-01-01", "provenance": "youtube-transcript-api",
+         "analysis": "pending", "thesis": ""}])
+    saida = brief.render(brief.build("tema"))
+    assert "[sem analise]" in saida

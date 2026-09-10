@@ -29,7 +29,7 @@ import json
 import sys
 from pathlib import Path
 
-from vaultsources import concepts, dossier, feeds, importlist, linkedin, note, paths, qa, questions
+from vaultsources import brief, concepts, dossier, feeds, importlist, linkedin, note, paths, qa, questions
 
 EXIT_OK, EXIT_ERROR, EXIT_QA_FAIL = 0, 1, 2
 
@@ -304,6 +304,16 @@ def cmd_dossier(args) -> int:
     return EXIT_OK
 
 
+def cmd_brief(args) -> int:
+    """O que voce ja sustenta sobre um tema, o que sustenta isso, e o que diverge."""
+    b = brief.build(" ".join(args.tema))
+    if args.json:
+        _dump(b)
+    else:
+        print(brief.render(b))
+    return EXIT_OK
+
+
 # ── qa / tester / status ──────────────────────────────────────────────────────
 
 def cmd_qa(args) -> int:
@@ -476,6 +486,11 @@ def build_parser() -> argparse.ArgumentParser:
     do.add_argument("name", nargs="+")
     do.add_argument("--json", action="store_true")
     do.set_defaults(func=cmd_dossier)
+
+    br = sub.add_parser("brief", help="antes de escrever ou decidir: o que o vault ja tem sobre o tema")
+    br.add_argument("tema", nargs="+")
+    br.add_argument("--json", action="store_true")
+    br.set_defaults(func=cmd_brief)
 
     s = sub.add_parser("status", help="estado do cano")
     s.set_defaults(func=cmd_status)
