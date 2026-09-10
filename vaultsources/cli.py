@@ -30,7 +30,7 @@ import sys
 from pathlib import Path
 
 from vaultsources import analyse as analyse_mod
-from vaultsources import brief, concepts, dossier, feeds, importlist, linkedin, note, paths, qa, questions
+from vaultsources import brief, concepts, dossier, feeds, importlist, linkedin, note, paths, profile, qa, questions
 
 EXIT_OK, EXIT_ERROR, EXIT_QA_FAIL = 0, 1, 2
 
@@ -322,6 +322,25 @@ def cmd_brief(args) -> int:
     return EXIT_OK
 
 
+def cmd_profile(args) -> int:
+    """O vocabulario do que interessa a ele, tirado do proprio vault."""
+    p = profile.load(refresh=args.refresh)
+    if args.json:
+        _dump(p)
+        return EXIT_OK
+    if args.match:
+        n, achados = profile.match(" ".join(args.match), p)
+        print("%d termo(s) do seu foco: %s" % (n, ", ".join(achados) or "nenhum"))
+        return EXIT_OK
+    itens = list(p["termos"].items())
+    print("gerado em %s a partir de %d arquivo(s) · %d termos"
+          % (p["gerado"], p["arquivos_lidos"], len(itens)))
+    print("")
+    for i in range(0, min(len(itens), args.top), 4):
+        print("  " + "  ".join("%-20s" % ("%s(%d)" % (t, v)) for t, v in itens[i:i + 4]))
+    return EXIT_OK
+
+
 # ── qa / tester / status ──────────────────────────────────────────────────────
 
 def cmd_qa(args) -> int:
@@ -502,6 +521,13 @@ def build_parser() -> argparse.ArgumentParser:
     br.add_argument("tema", nargs="+")
     br.add_argument("--json", action="store_true")
     br.set_defaults(func=cmd_brief)
+
+    pr = sub.add_parser("profile", help="o vocabulario do que interessa a voce, tirado do vault")
+    pr.add_argument("--refresh", action="store_true")
+    pr.add_argument("--json", action="store_true")
+    pr.add_argument("--top", type=int, default=40)
+    pr.add_argument("--match", nargs="*", help="testa um titulo contra o vocabulario")
+    pr.set_defaults(func=cmd_profile)
 
     s = sub.add_parser("status", help="estado do cano")
     s.set_defaults(func=cmd_status)

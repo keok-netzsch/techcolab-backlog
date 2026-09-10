@@ -146,6 +146,30 @@ para cada reunião com pessoa que o vault conhece. Tudo local — é conteúdo d
 `Team/` e `Stakeholders/`, que o `governance.py` classifica como origem `vault` e
 nunca deixa sair para provedor externo.
 
+### O que o ranking usa
+
+```bash
+python -m vaultsources profile --top 40      # o vocabulário do seu foco
+python -m vaultsources profile --refresh     # recalcula (cache de 7 dias)
+python -m vaultsources profile --match "titulo de um video"
+```
+
+O score de um candidato soma três sinais, nesta ordem de peso:
+
+| Sinal | Peso | De onde vem |
+|---|---|---|
+| pergunta aberta que o título toca | 2 por palavra, mínimo 3 | ledger, backlog, conceito fraco de estudo, risco de OKR |
+| tópico do feed | 2 por termo | o que você passou no `watch add` |
+| foco declarado no vault | 1 por termo | `kelvin-profile.md`, charters de OKR, `Projects/`, `Concepts/`, `Areas/` |
+
+O terceiro entrou em 2026-09-10 porque sem ele o ranking não sabia o que te
+interessa: com 114 perguntas abertas, duas palavras em comum acontecem por acaso, e
+"10 SUVs bons e baratos" ficou no topo da fila do Watch Later.
+
+O vocabulário exclui nome de colega e nada de `Team/` ou `Stakeholders/` entra nele.
+E ele não conhece assunto que não esteja escrito nesses arquivos: conteúdo sobre
+Alemanha, por exemplo, sempre vai ranquear por tópico do feed, nunca por foco.
+
 ## O QA
 
 ```bash

@@ -836,3 +836,44 @@ def test_show_corta_e_avisa_quanto_faltou(vault_tmp):
     p = note.write(doc)
     saida = analyse.show(p.name, max_chars=200)
     assert "cortado em 200" in saida and "faltam" in saida
+
+
+# ── profile: o ranking passa a saber o que interessa ao Kelvin ────────────────
+
+def test_perfil_ignora_palavra_de_gabarito(vault_tmp, monkeypatch):
+    from vaultsources import profile
+    monkeypatch.setattr(profile, "_PESSOAS", set())
+    assert "status" not in profile._terms("status owner overview related notes")
+    assert "governance" in profile._terms("data governance baseline")
+
+
+def test_perfil_nao_inclui_nome_de_colega(vault_tmp, monkeypatch):
+    from vaultsources import profile
+    from vaultsources import questions
+    (vault_tmp / "Stakeholders" / "Stefan-Lautenschlager").mkdir(parents=True)
+    monkeypatch.setattr(questions, "_PEOPLE_CACHE", None)
+    monkeypatch.setattr(profile, "_PESSOAS", None)
+    termos = profile._terms("reuniao com stefan sobre governance")
+    assert "stefan" not in termos and "governance" in termos
+
+
+def test_perfil_exige_termo_em_dois_grupos(vault_tmp, monkeypatch):
+    """Jargao de um arquivo so nao vira criterio."""
+    from vaultsources import profile
+    monkeypatch.setattr(profile, "_PESSOAS", set())
+    (vault_tmp / "Areas").mkdir(exist_ok=True)
+    (vault_tmp / "Projects").mkdir(exist_ok=True)
+    (vault_tmp / "Areas" / "a.md").write_text("governanca compartilhada", encoding="utf-8")
+    (vault_tmp / "Projects" / "p.md").write_text("governanca exclusiva-daqui", encoding="utf-8")
+    d = profile.compute()
+    assert "governanca" in d["termos"]
+    assert "exclusiva-daqui" not in d["termos"]
+
+
+def test_score_usa_o_perfil_e_diz_isso(vault_tmp):
+    perfil = {"termos": {"governance": 10, "data": 8, "project": 6}, "gerado": "", "arquivos_lidos": 0}
+    s, r = feeds.score({"title": "Data governance in Action: inside a real project",
+                        "description": ""}, [], [], perfil)
+    assert s >= 3 and "seu foco" in r
+    s2, r2 = feeds.score({"title": "10 SUVs bons e baratos", "description": ""}, [], [], perfil)
+    assert s2 == 0 and "nenhuma pergunta" in r2

@@ -250,7 +250,8 @@ def _norm(text: str) -> list[str]:
     return [w for w in _WORD.findall(t) if len(w) > 2 and w not in _STOP]
 
 
-def score(item: dict, questions: list[dict], topics: list[str]) -> tuple[int, str]:
+def score(item: dict, questions: list[dict], topics: list[str],
+          perfil: dict | None = None) -> tuple[int, str]:
     """Pontua um candidato contra as perguntas abertas e os topicos do feed.
 
     Deterministico e explicavel: o `reason` diz qual pergunta puxou o item, para
@@ -272,7 +273,19 @@ def score(item: dict, questions: list[dict], topics: list[str]) -> tuple[int, st
             best_q, best_hits = q, hits
     topic_terms = {t for tp in topics for t in _norm(tp)}
     topic_hits = len(hay & topic_terms)
-    total = best_hits * 2 + topic_hits * 2
+
+    # O que o proprio vault diz que interessa a ele: perfil, OKR, projetos,
+    # conceitos. Entra com peso 1, abaixo de pergunta aberta e de topico do feed,
+    # porque e o sinal mais largo dos tres. Serve principalmente para separar o que
+    # e do mundo dele do que nao e: "10 SUVs bons e baratos" da zero aqui.
+    perfil_hits, perfil_termos = 0, []
+    try:
+        from vaultsources import profile as _profile
+        perfil_hits, perfil_termos = _profile.match(item.get("title", ""), perfil)
+    except Exception:
+        pass
+
+    total = best_hits * 2 + topic_hits * 2 + perfil_hits
 
     # O limiar de 3 nao e cosmetico. Com 117 perguntas abertas, duas palavras em
     # comum acontecem por acaso o tempo todo: na primeira execucao real um video
@@ -284,6 +297,8 @@ def score(item: dict, questions: list[dict], topics: list[str]) -> tuple[int, st
     elif topic_hits:
         reason = "bate com os topicos do feed: %s" % ", ".join(
             sorted(hay & topic_terms)[:4])
+    elif perfil_hits >= 2:
+        reason = "bate com o seu foco: %s" % ", ".join(perfil_termos)
     elif best_q and best_hits == 2:
         reason = ("so 2 palavras em comum com uma pergunta aberta; "
                   "provavelmente coincidencia")
@@ -299,6 +314,11 @@ def collect(*, questions: list[dict] | None = None, min_score: int = 1,
     Nada e ingerido aqui. O que sai daqui e proposta, e proposta espera aprovacao.
     """
     questions = questions or []
+    try:
+        from vaultsources import profile as _profile
+        perfil = _profile.load()
+    except Exception:
+        perfil = None
     wl = load_watchlist()
     q = load_queue()
     known = {c["video_id"] for c in q["candidates"]}
@@ -327,7 +347,7 @@ def collect(*, questions: list[dict] | None = None, min_score: int = 1,
                 seen[it["video_id"]] = today
                 skipped += 1
                 continue
-            s, reason = score(it, questions, entry.get("topics", []))
+            s, reason = score(it, questions, entry.get("topics", []), perfil)
             if s < min_score:
                 seen[it["video_id"]] = today  # visto e descartado: nao reaparece amanha
                 skipped += 1
