@@ -29,6 +29,7 @@ import json
 import sys
 from pathlib import Path
 
+from vaultsources import analyse as analyse_mod
 from vaultsources import brief, concepts, dossier, feeds, importlist, linkedin, note, paths, qa, questions
 
 EXIT_OK, EXIT_ERROR, EXIT_QA_FAIL = 0, 1, 2
@@ -89,17 +90,24 @@ def cmd_analyse(args) -> int:
                                  confidence=imp.get("confidence", "medium"))
         print("analise aplicada em %s" % target.name)
         return EXIT_OK
-    pend = []
-    for p in sorted(paths.SOURCES_DIR.glob("*.md")) if paths.SOURCES_DIR.exists() else []:
-        head = p.read_text(encoding="utf-8", errors="replace")[:1200]
-        if "analysis: pending" in head:
-            pend.append(p)
-    if not pend:
+    if args.show:
+        try:
+            print(analyse_mod.show(args.show, max_chars=args.max_chars))
+        except (FileNotFoundError, analyse_mod.SemTexto) as exc:
+            print("ERRO: %s" % exc, file=sys.stderr)
+            return EXIT_ERROR
+        return EXIT_OK
+
+    itens = analyse_mod.summary(limit=args.next)
+    if not itens:
         print("nenhuma fonte esperando analise")
         return EXIT_OK
-    print("%d fonte(s) sem analise:" % len(pend))
-    for p in pend:
-        print(" - %s" % p.name)
+    print("%d fonte(s) sem analise%s:"
+          % (len(analyse_mod.pending()), " (as %d mais antigas)" % args.next if args.next else ""))
+    for it in itens:
+        print("  %2dd  %7d ch  %s" % (it["dias"], it["chars"], it["file"]))
+    print("")
+    print("Ler uma: python -m vaultsources analyse --show <arquivo>")
     return EXIT_OK
 
 
@@ -398,6 +406,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     a = sub.add_parser("analyse", help="fontes sem analise / aplicar analise")
     a.add_argument("--list", action="store_true")
+    a.add_argument("--next", type=int, default=0, help="so as N mais antigas")
+    a.add_argument("--show", default="", help="despeja a nota e o texto bruto para leitura")
+    a.add_argument("--max-chars", type=int, default=80000)
     a.add_argument("--apply", default="")
     a.set_defaults(func=cmd_analyse)
 

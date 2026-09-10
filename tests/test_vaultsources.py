@@ -790,3 +790,49 @@ def test_brief_pega_a_fonte_pelo_LINK_do_conceito(vault_tmp):
     conceitos = [{"file": str(page.relative_to(paths.VAULT))}]
     fontes = brief.sources_linked_from(conceitos)
     assert [f["title"] for f in fontes] == ["Data Governance Explained"]
+
+
+# ── analyse: o passo que a rotina diaria roda sozinha ─────────────────────────
+
+def test_pending_lista_da_mais_antiga_para_a_mais_nova(vault_tmp):
+    from vaultsources import analyse
+    for dia, titulo in [("2026-09-01", "nova"), ("2026-08-01", "antiga")]:
+        p = paths.SOURCES_DIR / (dia + "-" + titulo + ".md")
+        p.write_text("---\ndate: %s\ntype: source\nanalysis: pending\n"
+                     "text-chars: 10\n---\n\n# %s\n" % (dia, titulo), encoding="utf-8")
+    assert [x["file"][:10] for x in analyse.summary()] == ["2026-08-01", "2026-09-01"]
+
+
+def test_analisada_sai_da_fila(vault_tmp):
+    from vaultsources import analyse
+    doc = make_doc(text="conteudo " * 20)
+    p = note.write(doc)
+    assert len(analyse.pending()) == 1
+    note.complete(p, {"thesis": "a tese"})
+    assert analyse.pending() == []
+
+
+def test_show_tira_os_timestamps(vault_tmp):
+    from vaultsources import analyse
+    doc = make_doc(text="[000.9s] primeira fala\n[012.4s] segunda fala")
+    p = note.write(doc)
+    saida = analyse.show(p.name)
+    assert "primeira fala" in saida and "[000.9s]" not in saida
+
+
+def test_show_sem_texto_diz_como_consertar(vault_tmp, monkeypatch):
+    from vaultsources import analyse
+    doc = make_doc(text="x " * 5000)
+    p = note.write(doc, retain_raw=False)
+    for f in (paths.media_cache() / "raw").glob("*.txt"):
+        f.unlink()
+    with pytest.raises(analyse.SemTexto, match="fetch"):
+        analyse.show(p.name)
+
+
+def test_show_corta_e_avisa_quanto_faltou(vault_tmp):
+    from vaultsources import analyse
+    doc = make_doc(text="palavra " * 1000)
+    p = note.write(doc)
+    saida = analyse.show(p.name, max_chars=200)
+    assert "cortado em 200" in saida and "faltam" in saida

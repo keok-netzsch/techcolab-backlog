@@ -84,6 +84,26 @@ python -m vaultsources analyse --apply analise.json
 Formato do `analise.json` em `.claude/commands/youtube.md`. Cada `impact` com
 `concept` vira proposta em `Concepts/_proposals/`.
 
+### Fechar a análise
+
+```bash
+python -m vaultsources analyse --next 2                  # as mais antigas sem análise
+python -m vaultsources analyse --show <arquivo.md>       # a nota e o texto, sem timestamps
+python -m vaultsources analyse --apply analise.json
+```
+
+`--show` acha o texto onde quer que ele esteja: na própria nota, no sidecar de
+transcrição, ou no cache local de quem foi gravado com `--no-raw`. Ele tira os
+timestamps, que são cerca de 15% de uma legenda e não ajudam a decidir tese.
+
+Antes de escrever a análise, rode `brief` no tema. É esse passo que torna
+contradição possível: sem ele sai resumo, e resumo não muda decisão.
+
+Cada `impact` com `concept` vira proposta em `Concepts/_proposals/`. Quem aprova é
+o Kelvin, na rotina de sexta.
+
+A rotina `analise-de-fontes` (diária, 17:00) faz isso sozinha, duas por dia.
+
 ### Conceitos
 
 ```bash
