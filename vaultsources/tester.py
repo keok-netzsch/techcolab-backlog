@@ -143,9 +143,14 @@ def run(*, dry_run: bool = False, limit: int = 2, search: str = "") -> dict:
             s.detail = "dry-run: buscaria %d fonte(s)" % len(cands)
             s.data["would_fetch"] = [c["video_id"] for c in cands]
             return
-        ok, fails = [], []
+        ok, fails, skipped = [], [], []
         for c in cands:
             try:
+                url = "https://www.youtube.com/watch?v=" + c["video_id"]
+                ja = note.find_by_url(url)
+                if ja is not None:
+                    skipped.append({"id": c["video_id"], "note": ja.name})
+                    continue
                 doc = adapters.from_youtube(c["video_id"], question=c.get("reason", ""))
                 if len(doc.text) < 200:
                     fails.append({"id": c["video_id"], "why": "texto curto demais (%d chars): "
@@ -159,9 +164,10 @@ def run(*, dry_run: bool = False, limit: int = 2, search: str = "") -> dict:
                 fails.append({"id": c["video_id"], "why": "%s: %s"
                               % (type(exc).__name__, str(exc)[:200])})
         ctx["fetched"] = ok
-        s.ok = bool(ok)
-        s.data = {"ok": ok, "falhas": fails}
-        s.detail = "%d fonte(s) gravada(s), %d falha(s)" % (len(ok), len(fails))
+        s.ok = bool(ok) or bool(skipped)
+        s.data = {"ok": ok, "falhas": fails, "ja_existentes": skipped}
+        s.detail = "%d fonte(s) gravada(s), %d ja existente(s), %d falha(s)" % (
+            len(ok), len(skipped), len(fails))
     _run_stage("fetch", _fetch, stages)
 
     # 5. roundtrip

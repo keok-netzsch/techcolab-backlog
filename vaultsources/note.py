@@ -180,13 +180,21 @@ def render(doc: SourceDoc, *, analysis: dict | None = None) -> tuple[str, str | 
         body += [a["for_future_claude"], ""]
     else:
         onde = "nesta nota" if inline else "no sidecar de transcricao"
-        body += [
-            "Fonte externa (" + doc.kind + ") trazida para o vault em "
-            + now.strftime("%Y-%m-%d") + " e ainda **sem analise**. O texto bruto esta "
-            + onde + ". Enquanto `analysis: pending`, trate o conteudo como material "
-            "bruto: nada aqui foi verificado nem confrontado com o que o vault ja diz.",
-            "",
-        ]
+        if state == "pending":
+            body += [
+                "Fonte externa (" + doc.kind + ") trazida para o vault em "
+                + now.strftime("%Y-%m-%d") + " e ainda **sem analise**. O texto bruto "
+                "esta " + onde + ". Trate o conteudo como material bruto: nada aqui "
+                "foi verificado nem confrontado com o que o vault ja diz.",
+                "",
+            ]
+        else:
+            body += [
+                "Fonte externa (" + doc.kind + ") com analise em estado `" + state
+                + "` e sem resumo proprio. O texto bruto esta " + onde + ". As secoes "
+                "abaixo tem o que foi extraido; a procedencia esta na tabela.",
+                "",
+            ]
 
     body += ["## Por que isto entrou", ""]
     body += [doc.pulled_by_question
@@ -272,17 +280,43 @@ def render(doc: SourceDoc, *, analysis: dict | None = None) -> tuple[str, str | 
     return "\n".join(fm + body), sidecar_md
 
 
-def write(doc: SourceDoc, *, analysis: dict | None = None, overwrite: bool = False) -> Path:
+def write(doc: SourceDoc, *, analysis: dict | None = None, overwrite: bool = False,
+          discard_analysis: bool = False) -> Path:
+    """Grava a nota de fonte.
+
+    `overwrite=True` regrava a procedencia, mas **nao** apaga analise ja feita:
+    regravar por cima de uma nota com `analysis: proposed` derruba o estado para
+    `pending` e joga fora o trabalho de leitura. Aconteceu na primeira execucao do
+    tester, que rebuscou uma fonte ja analisada e a devolveu crua. Para apagar de
+    proposito, passe `discard_analysis=True`.
+    """
     paths.ensure_dirs()
     (paths.SOURCES_DIR / "_transcripts").mkdir(parents=True, exist_ok=True)
     target = note_path(doc)
     if target.exists() and not overwrite:
         raise FileExistsError(str(target) + " ja existe (use overwrite=True)")
+    if target.exists() and overwrite and not discard_analysis:
+        # Le o CAMPO do frontmatter, nao um trecho do texto. A primeira versao
+        # procurava a substring `analysis: pending` no inicio do arquivo e sempre
+        # achava: o proprio preambulo padrao cita o campo dentro de uma frase.
+        # Guarda que casa por substring em texto livre nao guarda nada.
+        state = _analysis_state(target)
+        if state and state != "pending":
+            raise FileExistsError(
+                str(target) + " ja tem analise feita. Regravar por cima derrubaria "
+                "para `pending`. Use discard_analysis=True se e isso mesmo que voce quer.")
     md, sidecar = render(doc, analysis=analysis)
     target.write_text(md, encoding="utf-8")
     if sidecar:
         transcript_path(doc).write_text(sidecar, encoding="utf-8")
     return target
+
+
+def _analysis_state(path: Path) -> str:
+    """O valor do campo `analysis` no frontmatter, ou "" se nao houver."""
+    raw = path.read_text(encoding="utf-8", errors="replace")
+    fm, _body, ok = split_frontmatter(raw)
+    return str(fm.get("analysis", "")) if ok else ""
 
 
 def read_doc(path: Path) -> SourceDoc:

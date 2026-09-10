@@ -485,3 +485,15 @@ def test_duplicado_nao_le_o_proprio_relatorio(vault_tmp):
     rep.mkdir(exist_ok=True)
     (rep / "Sources-QA.md").write_text("`[[Overview]]` e ambiguo", encoding="utf-8")
     assert not qa.check_duplicates()
+
+
+def test_regravar_por_cima_de_analise_feita_e_recusado():
+    """O tester rebuscou uma fonte ja analisada e a devolveu crua na primeira
+    execucao. Procedencia se regrava; leitura feita, nao."""
+    doc = make_doc()
+    p = note.write(doc)
+    note.complete(p, {"thesis": "ja analisei isto"})
+    with pytest.raises(FileExistsError, match="analise feita"):
+        note.write(doc, overwrite=True)
+    note.write(doc, overwrite=True, discard_analysis=True)
+    assert "analysis: pending" in p.read_text(encoding="utf-8")
