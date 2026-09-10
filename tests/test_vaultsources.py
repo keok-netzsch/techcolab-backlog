@@ -497,3 +497,48 @@ def test_regravar_por_cima_de_analise_feita_e_recusado():
         note.write(doc, overwrite=True)
     note.write(doc, overwrite=True, discard_analysis=True)
     assert "analysis: pending" in p.read_text(encoding="utf-8")
+
+
+# ── dossie ────────────────────────────────────────────────────────────────────
+
+def test_dossie_acha_a_pessoa_por_nome_aproximado(vault_tmp):
+    from vaultsources import dossier
+    (vault_tmp / "Stakeholders" / "Stefan-Lautenschlager").mkdir(parents=True)
+    assert dossier.person_dir("Stefan Lautenschlager") is not None
+    assert dossier.person_dir("stefan lautenschlager") is not None
+    assert dossier.person_dir("Ninguem Aqui") is None
+
+
+def test_dossie_le_o_ultimo_encontro_e_os_topicos(vault_tmp):
+    from vaultsources import dossier
+    d = vault_tmp / "Team" / "Ana-Leite" / "1on1"
+    d.mkdir(parents=True)
+    # Nome de arquivo generico de proposito: o pre-commit deste repo publico
+    # barra o padrao real de nota de 1:1, e com razao. O glob e por pasta.
+    (d / "2026-08-01-encontro.md").write_text("## antigo", encoding="utf-8")
+    (d / "2026-09-05-encontro.md").write_text(
+        "## bonus e PLR\n## licenca\n", encoding="utf-8")
+    last = dossier.last_meeting(vault_tmp / "Team" / "Ana-Leite")
+    assert last["date"] == "2026-09-05"
+    assert "bonus e PLR" in last["topics"]
+
+
+def test_dossie_lista_compromisso_aberto_com_prazo_primeiro(vault_tmp):
+    from vaultsources import dossier
+    d = vault_tmp / "Team" / "Ana-Leite"
+    d.mkdir(parents=True)
+    (d / "1on1.md").write_text(
+        "- [ ] (Ana) entregar a documentacao do pipeline @2026-09-01\n"
+        "- [ ] (Kelvin) revisar o plano de carreira\n"
+        "- [x] (Ana) ja feito e nao entra\n", encoding="utf-8")
+    acoes = dossier.open_actions(d)
+    assert len(acoes) == 2
+    assert acoes[0]["due"] == "2026-09-01"
+
+
+def test_dossie_de_pessoa_desconhecida_diz_por_que(vault_tmp):
+    from vaultsources import dossier
+    d = dossier.build("Alguem Que Nao Existe")
+    assert d["found"] is False
+    assert "Team/" in d["why"] or "Team" in d["why"]
+    assert "nao ha pasta" in dossier.render(d)

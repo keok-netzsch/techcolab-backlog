@@ -29,7 +29,7 @@ import json
 import sys
 from pathlib import Path
 
-from vaultsources import concepts, feeds, linkedin, note, paths, qa, questions
+from vaultsources import concepts, dossier, feeds, linkedin, note, paths, qa, questions
 
 EXIT_OK, EXIT_ERROR, EXIT_QA_FAIL = 0, 1, 2
 
@@ -251,6 +251,18 @@ def cmd_linkedin(args) -> int:
     return EXIT_OK
 
 
+def cmd_dossier(args) -> int:
+    """Materia-prima do dossie de uma pessoa, montada so com o que ja esta escrito."""
+    for nome in args.name:
+        d = dossier.build(nome)
+        if args.json:
+            _dump(d)
+        else:
+            print(dossier.render(d))
+            print("")
+    return EXIT_OK
+
+
 # ── qa / tester / status ──────────────────────────────────────────────────────
 
 def cmd_qa(args) -> int:
@@ -400,6 +412,11 @@ def build_parser() -> argparse.ArgumentParser:
     li.add_argument("--days", type=int, default=21)
     li.add_argument("--limit", type=int, default=6)
     li.set_defaults(func=cmd_linkedin)
+
+    do = sub.add_parser("dossier", help="dossie de uma pessoa antes da reuniao")
+    do.add_argument("name", nargs="+")
+    do.add_argument("--json", action="store_true")
+    do.set_defaults(func=cmd_dossier)
 
     s = sub.add_parser("status", help="estado do cano")
     s.set_defaults(func=cmd_status)

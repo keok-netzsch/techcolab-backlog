@@ -107,6 +107,25 @@ com 3 posts em 3 meses.
 `candidates` devolve **matéria-prima**, nunca post pronto. Texto assinado como
 Kelvin passa pelo voice-gate, e o voice-gate mora na sessão.
 
+### Dossiê antes da reunião
+
+```bash
+python -m vaultsources dossier "Stefan Lautenschlager"
+python -m vaultsources dossier "Ana Leite" --json
+```
+
+Monta a matéria-prima do dossiê só com o que já está escrito: último 1:1 e seus
+tópicos, compromissos em aberto com prazo, itens do ledger que citam a pessoa, o
+que mudou desde o último encontro, projetos onde o nome aparece.
+
+Determinístico de propósito. Nada aqui resume ou opina sobre pessoa: saída de
+modelo que descreve gente propõe, não afirma (padrão 2 do `ARCHITECTURE.md`).
+
+Consumidor: a rotina `dossie-do-dia` (dias úteis 07:45) lê a agenda e chama isto
+para cada reunião com pessoa que o vault conhece. Tudo local — é conteúdo de
+`Team/` e `Stakeholders/`, que o `governance.py` classifica como origem `vault` e
+nunca deixa sair para provedor externo.
+
 ## O QA
 
 ```bash

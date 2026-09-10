@@ -33,7 +33,7 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 | Trabalho | O que resolve | Peças |
 |---|---|---|
 | **Memória** | nada do que acontece se perde | `call-recorder/`, `~/TeamMemoryAgent/`, vault, `~/voice-dictate/`, `vaultindex/` (busca sobre o vault) |
-| **Conhecimento externo** | o vault sabe algo que o Kelvin ainda não sabia | `vaultsources/` (cano + conceitos + QA de consistência), `Sources/` e `Concepts/` no vault |
+| **Conhecimento externo** | o vault sabe algo que o Kelvin ainda não sabia, e fala antes de ser perguntado | `vaultsources/` (cano + conceitos + QA de consistência + dossiê por reunião), `Sources/` e `Concepts/` no vault |
 | **Decisão** | decido rápido, com estado único | `backlog/` (BacklogStore), `agent/` (CLI + brief + Closer), `agent/pending.py`, app Streamlit |
 | **Entrega** | produzo material com marca | skill `techcolab-deck`, `Resources/loop-export`, Timeline |
 | **Aprendizado** | aprendo com cadência | `agent/english_coach.py`, skills `cdmp`/`deutsch`/`study` |
