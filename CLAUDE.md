@@ -328,6 +328,21 @@ must stay in `brand.css` (always loaded, both light and dark) — do not remove 
     purpose)`. Travado em `tests/test_provedor_por_proposito.py`.
   - O gateway e `litellm.chatbot.netzsch.com`, chave em `NETZSCH_LLM_API_KEY`. Nunca
     hardcodar a chave — este repo e PUBLICO.
+- **O lado APP tem outro roteador, e ele e o `llm_client.build_client()`**, governado por
+  `LLM_PROVIDER` (`config.py`, default `ollama`). Sao dois mecanismos porque as perguntas
+  sao diferentes: o `coach_llm` decide por PROPOSITO o que pode sair da maquina; o
+  `llm_client` decide por CONFIGURACAO qual backend o app usa. Quem chama por ele:
+  `analysis_agent`, `daily_report`, `ingestion/extractor` e `team_agenda`.
+  - Ate 2026-09-10 o `team_agenda.py` montava o POST na mao contra `OLLAMA_BASE_URL` e
+    **ignorava o `LLM_PROVIDER`**: trocar a variavel movia quatro chamadores de cinco e a
+    pauta de 1:1 continuava saindo do modelo local, sem uma linha dizendo isso. Travado em
+    `tests/test_team_agenda.py`, que recusa `OLLAMA_BASE_URL` e `urllib` dentro do modulo.
+  - **Timeout menor que o tempo de carga do modelo nao protege nada.** Medido em 10/09:
+    `llama3.2:3b` sobe em 6,5 s, `qwen2.5-coder` em 17 s quente e 76 s frio, e com
+    `OLLAMA_KEEP_ALIVE=0` esse custo volta em TODA chamada. Os clientes desistiam em 60 s
+    e o log do Ollama registrava HTTP 499 depois de 2m52s e 15m32s, com a CPU ja gasta.
+    Inventario completo de quem usa Ollama e quanto custa: secao 11 de
+    `OneDrive - NETZSCH\Migracao-Maquina-2026-09\inventario-maquina.md`.
 - Do not hardcode the vault path — always read from `TECHCOLAB_VAULT` env var or `config.py`
 - Do not use `%USERPROFILE%\Desktop` for shortcuts — use `GetFolderPath("Desktop")`
 - Do not commit `__pycache__/`, `.venv/`, or `.pyc` files — they are in `.gitignore`

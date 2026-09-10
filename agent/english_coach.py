@@ -37,6 +37,7 @@ REPORTS_DIR = VAULT_ROOT / "agent-reports"
 
 OLLAMA_URL   = "http://localhost:11434/api/generate"
 OLLAMA_MODEL = "qwen2.5-coder:latest"   # better JSON + structured output
+COACH_TIMEOUT = 1200
 
 # Absolute paths to scan (all relative to TechColab_D&A_KO, one level above App/Personal toolkit)
 _VAULT_BASE  = VAULT_ROOT.parent.parent   # .../TechColab_D&A_KO
@@ -196,7 +197,11 @@ def _ollama_generate(prompt: str, use_json: bool = False) -> str:
     if use_json:
         payload["format"] = "json"
 
-    r = requests.post(OLLAMA_URL, json=payload, timeout=300)
+    # 300 s era menor que a propria carga do modelo. Esta tarefa roda segunda
+    # 08:30 e falhou com ReadTimeout em toda execucao recente (resultado 1 no
+    # Agendador). 1200 s e o mesmo numero que call-recorder/coach.py usa desde
+    # 2026-05-29 para o MESMO modelo nesta CPU: modelo quente ~14 min.
+    r = requests.post(OLLAMA_URL, json=payload, timeout=COACH_TIMEOUT)
     r.raise_for_status()
     return r.json()["response"].strip()
 

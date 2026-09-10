@@ -5,15 +5,24 @@ pre-generates Team/{folder}/next-agenda.md for each direct report. The Team tab
 just reads the pre-generated file (instant), with an on-demand "Regenerate" button.
 """
 
-import json
 import re
-import urllib.request
 from datetime import date
 from pathlib import Path
 
-from config import EXTRACTION_MODEL, OLLAMA_BASE_URL, TEAM_DIR
+from config import EXTRACTION_MODEL, TEAM_DIR
+from llm_client import build_client
 
 AGENDA_FILE = "next-agenda.md"
+
+# 60 s nao cobria nem a carga do modelo. Medido em 2026-09-10 nesta maquina:
+# llama3.2:3b sobe em 6,5 s com o disco quente, qwen2.5-coder em 17 s quente e
+# 76 s frio, e sob pressao de memoria a fila de carga passou de 2 min. Como
+# OLLAMA_KEEP_ALIVE=0 descarrega o modelo depois de CADA chamada, toda chamada
+# paga esse tempo antes de gerar o primeiro token. O log do Ollama registrava o
+# resultado: HTTP 499 (cliente desistiu) depois de 2m52s e de 15m32s, com a CPU
+# ja gasta. Timeout menor que o tempo de carga nao protege nada, so joga fora o
+# trabalho que ja foi feito.
+LLM_TIMEOUT = 300
 
 
 def _parse_last_1on1(path: Path):
@@ -54,8 +63,9 @@ def list_team_folders():
     ]
 
 
-def generate_agenda_text(folder: str, name: str, timeout: int = 60) -> str:
-    """Build the prompt from the person's OKR/PDI/last 1:1 and call Ollama.
+def generate_agenda_text(folder: str, name: str, timeout: int = LLM_TIMEOUT) -> str:
+    """Build the prompt from the person's OKR/PDI/last 1:1 and call the configured
+    provider (llm_client, governed by LLM_PROVIDER — Ollama by default).
     Returns the agenda markdown. Raises on connection/LLM failure."""
     fp  = Path(TEAM_DIR) / folder
     okr = (fp / "OKR.md").read_text(encoding="utf-8", errors="replace")[:700] if (fp / "OKR.md").exists() else ""
@@ -102,22 +112,21 @@ def generate_agenda_text(folder: str, name: str, timeout: int = 60) -> str:
         "with the single line: (no specific material for an agenda). "
         "Numbered list only. No preamble."
     )
-    payload = json.dumps({
-        "model": EXTRACTION_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": False,
-        "temperature": 0.4,
-    }).encode()
-    req = urllib.request.Request(
-        OLLAMA_BASE_URL + "/chat/completions",
-        data=payload, headers={"Content-Type": "application/json"}, method="POST",
+    # Passa pelo build_client, e nao por urllib no OLLAMA_BASE_URL. Este era o unico
+    # consumidor do app que ignorava o LLM_PROVIDER: trocar a variavel movia quatro
+    # chamadores de cinco, e a pauta de 1:1 continuava saindo do modelo local sem que
+    # nada dissesse isso. O par de superficies na forma classica.
+    client = build_client()
+    resp = client.chat.completions.create(
+        model=EXTRACTION_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.4,
+        timeout=timeout,
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        result = json.loads(resp.read())
-    return result["choices"][0]["message"]["content"].strip()
+    return resp.choices[0].message.content.strip()
 
 
-def write_agenda(folder: str, name: str, timeout: int = 60) -> Path:
+def write_agenda(folder: str, name: str, timeout: int = LLM_TIMEOUT) -> Path:
     """Generate and persist Team/{folder}/next-agenda.md. Returns the file path."""
     text = generate_agenda_text(folder, name, timeout=timeout)
     out  = Path(TEAM_DIR) / folder / AGENDA_FILE
@@ -145,7 +154,7 @@ def read_agenda(folder: str):
     return (gen, body)
 
 
-def generate_all(timeout: int = 60) -> dict:
+def generate_all(timeout: int = LLM_TIMEOUT) -> dict:
     """Generate agendas for every team member. Graceful: per-member failures are
     collected, not raised, so a downed Ollama doesn't break the agent run.
     Returns {'ok': [folders], 'failed': [(folder, error)]}."""

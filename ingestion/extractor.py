@@ -17,6 +17,14 @@ from config import EXTRACTION_MODEL
 from ingestion.parser import RawNote
 from llm_client import build_client  # noqa: F401 — re-exported for `from ingestion.extractor import build_client`
 
+# Sem timeout explicito o SDK da OpenAI usa 600 s por tentativa e ainda repete
+# 2 vezes, entao uma chamada travada segurava ate 30 min de um agente que roda
+# as 07:00 com limite de 2 h. Foi o que o log do Ollama registrou em 10/09:
+# HTTP 499 depois de 15m32s. 300 s cobre a carga do modelo (6,5 s a 76 s aqui,
+# paga em toda chamada porque OLLAMA_KEEP_ALIVE=0) mais a geracao, e falha alto
+# em vez de ocupar a janela inteira.
+LLM_TIMEOUT = 300
+
 _SYSTEM_PROMPT = """
 Você é um assistente de gestão de produto e inovação.
 Receberá o conteúdo bruto de uma nota de ideias e deverá extrair todas as ideias distintas presentes nela.
@@ -89,6 +97,7 @@ def extract_ideas_from_note(note: RawNote, client: OpenAI) -> list[dict[str, Any
     """
     response = client.chat.completions.create(
         model=EXTRACTION_MODEL,
+        timeout=LLM_TIMEOUT,
         max_tokens=4096,
         messages=[
             {"role": "system", "content": _SYSTEM_PROMPT},
@@ -124,6 +133,7 @@ def suggest_todos(title: str, description: str, client: OpenAI) -> list[str]:
     user_msg = f"Título: {title}\nDescrição: {description or '(sem descrição)'}"
     response = client.chat.completions.create(
         model=EXTRACTION_MODEL,
+        timeout=LLM_TIMEOUT,
         max_tokens=512,
         messages=[
             {"role": "system", "content": _TODO_PROMPT},
@@ -164,6 +174,7 @@ def suggest_claude_tips(title: str, description: str, client: OpenAI) -> list[st
     user_msg = f"Título: {title}\nDescrição: {description or '(sem descrição)'}"
     response = client.chat.completions.create(
         model=EXTRACTION_MODEL,
+        timeout=LLM_TIMEOUT,
         max_tokens=600,
         messages=[
             {"role": "system", "content": _CLAUDE_TIPS_PROMPT},
