@@ -15,9 +15,12 @@ Watch Later autenticado. Nao entra: dar a sessao logada dele a um script e um pr
 alto para economizar um export de dois minutos, e o proprio YouTube adverte que
 usar conta para automatizar leitura acaba em banimento.
 
-Titulo nao vem no csv, so o id. Sem titulo nao ha ranking, entao `import_list`
-busca os titulos em lotes, com pausa, e diz quantos ficaram sem. Buscar 300 de uma
-vez e como o IP daqui foi bloqueado hoje.
+Titulo nao vem no csv, so o id. Sem titulo nao ha ranking. Os titulos vem do
+**oEmbed** do YouTube, nao do yt-dlp: e um endpoint publico que devolve titulo e
+autor em ~1 s, sem chave e sem o custo do extrator completo. O `--dump-json` do
+yt-dlp faz o trabalho de descobrir formatos de video, que aqui nao serve para nada,
+e e o endpoint que fez o IP daqui ser bloqueado hoje. Video privado ou apagado
+responde 401 no oEmbed, e isso e registrado em vez de virar falha muda.
 """
 
 from __future__ import annotations
@@ -69,10 +72,26 @@ def parse_source(path: Path) -> list[str]:
     return out
 
 
+def oembed(video_id: str, timeout: int = 20) -> tuple[str, str] | None:
+    """Titulo e autor pelo oEmbed publico. None quando o video nao esta acessivel."""
+    from vaultsources import governance, net
+    governance.check_egress("feed-poll", "public")
+    net.apply(strict=False)
+    import requests
+    r = requests.get("https://www.youtube.com/oembed",
+                     params={"url": "https://www.youtube.com/watch?v=" + video_id,
+                             "format": "json"},
+                     timeout=timeout, headers={"User-Agent": "Mozilla/5.0 vaultsources"})
+    if r.status_code != 200:
+        return None
+    d = r.json()
+    return (str(d.get("title") or ""), str(d.get("author_name") or ""))
+
+
 def import_list(path: Path, *, label: str = "watch-later", probe: int = 25,
                 pause: float = 1.0) -> dict:
     """Poe os videos na fila de candidatos, com titulo quando der para buscar."""
-    from vaultsources import adapters, note
+    from vaultsources import note
 
     ids = parse_source(Path(path))
     q = feeds.load_queue()
@@ -91,11 +110,13 @@ def import_list(path: Path, *, label: str = "watch-later", probe: int = 25,
         titulo, canal = "", ""
         if buscados < probe:
             try:
-                meta = adapters.probe(url)
-                titulo = str(meta.get("title") or "")
-                canal = str(meta.get("uploader") or meta.get("channel") or "")
+                r = oembed(vid)
+                if r is None:
+                    falhas.append({"id": vid, "why": "indisponivel (privado ou apagado)"})
+                else:
+                    titulo, canal = r
             except Exception as exc:
-                falhas.append({"id": vid, "why": str(exc)[:120]})
+                falhas.append({"id": vid, "why": "%s: %s" % (type(exc).__name__, str(exc)[:90])})
             buscados += 1
             if pause:
                 time.sleep(pause)
@@ -120,7 +141,7 @@ def import_list(path: Path, *, label: str = "watch-later", probe: int = 25,
 
 def fill_titles(limit: int = 25, pause: float = 1.0) -> dict:
     """Busca titulo dos candidatos que entraram sem. Em lote, com pausa."""
-    from vaultsources import adapters, questions
+    from vaultsources import questions
 
     q = feeds.load_queue()
     alvos = [c for c in q["candidates"]
@@ -129,13 +150,17 @@ def fill_titles(limit: int = 25, pause: float = 1.0) -> dict:
     ok, falhas = 0, []
     for c in alvos:
         try:
-            meta = adapters.probe(c["url"])
-            c["title"] = str(meta.get("title") or "")
-            c["channel"] = str(meta.get("uploader") or meta.get("channel") or "")
-            c["score"], c["reason"] = feeds.score(c, qs, [])
-            ok += 1
+            r = oembed(c["video_id"])
+            if r is None:
+                c["state"] = "failed"
+                c["note"] = "indisponivel no YouTube (privado ou apagado)"
+                falhas.append({"id": c["video_id"], "why": "indisponivel"})
+            else:
+                c["title"], c["channel"] = r
+                c["score"], c["reason"] = feeds.score(c, qs, [])
+                ok += 1
         except Exception as exc:
-            falhas.append({"id": c["video_id"], "why": str(exc)[:120]})
+            falhas.append({"id": c["video_id"], "why": "%s: %s" % (type(exc).__name__, str(exc)[:90])})
         if pause:
             time.sleep(pause)
     feeds.save_queue(q)

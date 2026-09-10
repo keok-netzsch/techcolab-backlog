@@ -345,7 +345,12 @@ def check_notes() -> list[Finding]:
                                where=rel))
         try:
             doc = note.read_doc(p)
-            if doc.text and doc.text_sha256 != str(fm.get("text-sha256", "")):
+            # `raw-retained: false` significa que o texto foi lido e descartado de
+            # proposito. Comparar o hash contra um corpo vazio acusaria adulteracao
+            # em toda nota de podcast longo.
+            if str(fm.get("raw-retained", "true")).lower() == "false":
+                pass
+            elif doc.text and doc.text_sha256 != str(fm.get("text-sha256", "")):
                 out.append(Finding(
                     "notes", ERRO, "o texto bruto nao bate com o text-sha256",
                     "alguem editou a transcricao depois de gravada; a procedencia "

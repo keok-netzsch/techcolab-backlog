@@ -134,15 +134,23 @@ def find_by_url(url: str) -> Path | None:
     return None
 
 
-def render(doc: SourceDoc, *, analysis: dict | None = None) -> tuple[str, str | None]:
-    """Devolve (markdown da nota, markdown do sidecar de transcricao ou None)."""
+def render(doc: SourceDoc, *, analysis: dict | None = None,
+           retain_raw: bool = True) -> tuple[str, str | None]:
+    """Devolve (markdown da nota, markdown do sidecar de transcricao ou None).
+
+    `retain_raw=False` guarda a procedencia e a analise e descarta o texto bruto.
+    E para conteudo longo de baixa densidade: um podcast de 2 h vira 170 mil
+    caracteres que o indice quebra em centenas de pedacos, e nenhum pedaco isolado
+    responde nada. O hash continua gravado, entao a fonte pode ser rebuscada e
+    conferida depois; o que se perde e a busca dentro da fala.
+    """
     now = datetime.now().astimezone()
     a = analysis or {}
     state = a.get("state", "pending")
     if state not in ANALYSIS_STATES:
         raise ValueError("analysis.state %r fora de %s" % (state, ANALYSIS_STATES))
 
-    inline = len(doc.text) <= MAX_INLINE_TRANSCRIPT
+    inline = len(doc.text) <= MAX_INLINE_TRANSCRIPT and retain_raw
     # Secao vazia com a analise ja aplicada nao pode reusar a marca de pendencia:
     # o frontmatter diria `analysis: proposed` e o corpo diria pendente, e o QA
     # (com razao) leria como analise esquecida.
@@ -168,6 +176,7 @@ def render(doc: SourceDoc, *, analysis: dict | None = None) -> tuple[str, str | 
         "lang: " + (doc.lang or "unknown"),
         "duration-seconds: " + str(dur),
         "analysis: " + state,
+        "raw-retained: " + ("true" if retain_raw else "false"),
         "pulled-by-question: " + _yaml_str(doc.pulled_by_question),
         "tags: [" + ", ".join(tags) + "]",
         "ai-first: true",
@@ -238,7 +247,18 @@ def render(doc: SourceDoc, *, analysis: dict | None = None) -> tuple[str, str | 
         body.append(empty)
     body.append("")
 
-    if inline and doc.text:
+    if not retain_raw and doc.text:
+        body += [
+            "## Texto bruto", "",
+            "**Nao retido.** " + str(len(doc.text)) + " caracteres foram lidos e "
+            "descartados de proposito: conteudo longo de baixa densidade vira "
+            "centenas de pedacos no indice e nenhum deles responde nada sozinho. O "
+            "`text-sha256` no frontmatter e do texto que foi lido, entao da para "
+            "rebuscar a fonte e conferir que e a mesma. O que se perde e a busca "
+            "dentro da fala.",
+            "",
+        ]
+    elif inline and doc.text:
         body += ["## Texto bruto", "", "```text", doc.text.strip(), "```", ""]
     elif doc.text:
         body += [
@@ -281,7 +301,7 @@ def render(doc: SourceDoc, *, analysis: dict | None = None) -> tuple[str, str | 
 
 
 def write(doc: SourceDoc, *, analysis: dict | None = None, overwrite: bool = False,
-          discard_analysis: bool = False) -> Path:
+          discard_analysis: bool = False, retain_raw: bool = True) -> Path:
     """Grava a nota de fonte.
 
     `overwrite=True` regrava a procedencia, mas **nao** apaga analise ja feita:
@@ -305,7 +325,7 @@ def write(doc: SourceDoc, *, analysis: dict | None = None, overwrite: bool = Fal
             raise FileExistsError(
                 str(target) + " ja tem analise feita. Regravar por cima derrubaria "
                 "para `pending`. Use discard_analysis=True se e isso mesmo que voce quer.")
-    md, sidecar = render(doc, analysis=analysis)
+    md, sidecar = render(doc, analysis=analysis, retain_raw=retain_raw)
     target.write_text(md, encoding="utf-8")
     if sidecar:
         transcript_path(doc).write_text(sidecar, encoding="utf-8")

@@ -698,3 +698,22 @@ def test_aprovar_feed_inteiro_move_todos(vault_tmp):
     assert feeds.set_state_feed("PLx", "approved") == 2
     estados = {c["video_id"]: c["state"] for c in feeds.load_queue()["candidates"]}
     assert estados == {"a": "approved", "b": "approved", "c": "proposed"}
+
+
+def test_no_raw_guarda_procedencia_e_descarta_o_texto():
+    """Podcast de 2 h vira 170 mil caracteres que o indice quebra em centenas de
+    pedacos, e nenhum pedaco isolado responde nada."""
+    doc = make_doc(text="palavra " * 5000)
+    p = note.write(doc, retain_raw=False)
+    raw = p.read_text(encoding="utf-8")
+    assert "raw-retained: false" in raw
+    assert "text-sha256: " + doc.text_sha256 in raw
+    assert "Nao retido" in raw
+    assert "palavra palavra" not in raw
+    assert not note.transcript_path(doc).exists()
+
+
+def test_qa_nao_acusa_hash_em_nota_sem_bruto():
+    doc = make_doc(text="palavra " * 5000)
+    note.write(doc, retain_raw=False)
+    assert not [f for f in qa.check_notes() if "sha256" in f.title]

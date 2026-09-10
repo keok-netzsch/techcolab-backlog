@@ -56,7 +56,7 @@ def cmd_fetch(args) -> int:
         print("use --force para regravar")
         return EXIT_OK
     doc = adapters.fetch(args.url, question=args.question or "")
-    p = note.write(doc, overwrite=True)
+    p = note.write(doc, overwrite=True, retain_raw=not args.no_raw)
     print("fonte: %s" % doc.title)
     print("autor: %s · publicado: %s · %s caracteres · %s"
           % (doc.author or "?", doc.published or "?", len(doc.text), doc.provenance))
@@ -371,6 +371,8 @@ def build_parser() -> argparse.ArgumentParser:
     f.add_argument("url")
     f.add_argument("--question", default="")
     f.add_argument("--force", action="store_true")
+    f.add_argument("--no-raw", action="store_true",
+                   help="guarda procedencia e analise, descarta o texto bruto")
     f.set_defaults(func=cmd_fetch)
 
     c = sub.add_parser("clip", help="entra com texto lido no navegador")
@@ -411,6 +413,8 @@ def build_parser() -> argparse.ArgumentParser:
     ing = sub.add_parser("ingest", help="busca o que foi aprovado")
     ing.add_argument("--id", default="")
     ing.add_argument("--all", action="store_true")
+    ing.add_argument("--no-raw", action="store_true",
+                     help="guarda procedencia e analise, descarta o texto bruto")
     ing.set_defaults(func=cmd_ingest)
 
     im = sub.add_parser("import", help="entra com lista de video (Takeout do Watch Later, txt de URLs)")
