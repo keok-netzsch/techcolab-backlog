@@ -602,3 +602,31 @@ def test_duas_palavras_em_comum_e_declarado_como_coincidencia():
     qs = [{"text": "governance basics for something entirely different"}]
     _s, reason = feeds.score(item, qs, [])
     assert "coincidencia" in reason
+
+
+def test_bloqueio_de_ip_tem_erro_proprio_e_nao_manda_para_whisper():
+    """A acao para bloqueio de IP e esperar, nao transcrever. Misturar os dois
+    gastava 15 min de CPU e escondia a causa."""
+    from vaultsources import adapters
+
+    class RequestBlocked(Exception):
+        pass
+
+    with pytest.raises(adapters.CaptionsBlocked) as exc:
+        adapters._raise_caption_error("abc", RequestBlocked("bloqueado"))
+    assert "Whisper" in str(exc.value) and "temporario" in str(exc.value)
+
+
+def test_video_sem_legenda_nao_e_erro():
+    from vaultsources import adapters
+
+    class TranscriptsDisabled(Exception):
+        pass
+
+    assert adapters._raise_caption_error("abc", TranscriptsDisabled()) is None
+
+
+def test_falha_tecnica_de_legenda_continua_estourando():
+    from vaultsources import adapters
+    with pytest.raises(adapters.FetchError):
+        adapters._raise_caption_error("abc", ValueError("parse quebrou"))

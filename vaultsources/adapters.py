@@ -148,6 +148,36 @@ def youtube_id(url_or_id: str) -> str:
     return m.group(1)
 
 
+class CaptionsBlocked(FetchError):
+    """O YouTube barrou o IP. E temporario e nao se resolve com Whisper."""
+
+
+# "este video nao tem legenda" e uma resposta legitima e devolve None. Bloqueio de
+# IP tem classe propria porque a acao e outra: esperar, nao transcrever. Qualquer
+# outra falha estoura, porque cair no Whisper em silencio custa 15 min de CPU e
+# esconde a causa (padrao 5).
+_SEM_LEGENDA = ("NoTranscriptFound", "TranscriptsDisabled",
+                "VideoUnavailable", "NotTranslatable")
+_BLOQUEIO = ("RequestBlocked", "IpBlocked", "YouTubeRequestFailed", "AgeRestricted")
+
+
+def _raise_caption_error(video_id: str, exc: Exception):
+    name = type(exc).__name__
+    if name in _SEM_LEGENDA:
+        return None
+    if name in _BLOQUEIO:
+        raise CaptionsBlocked(
+            "o YouTube barrou a busca de legenda de %s (%s). Costuma ser volume de "
+            "requisicoes vindo do mesmo IP, e o IP aqui e o da rede da NETZSCH, "
+            "compartilhado. E temporario: tente daqui a algumas horas ou deixe a "
+            "rotina de sexta pegar. Nao adianta trocar para Whisper, porque o "
+            "bloqueio nao e da legenda, e do IP." % (video_id, name)) from exc
+    raise FetchError(
+        "a busca de legenda de %s falhou por motivo tecnico (%s: %s). Nao vou cair "
+        "no Whisper em silencio: conserte a causa ou peca --force-whisper "
+        "explicitamente." % (video_id, name, str(exc)[:200])) from exc
+
+
 def youtube_captions(video_id: str, langs=("pt", "pt-BR", "en", "de")) -> tuple[str, str] | None:
     """Legenda publicada pelo canal. Devolve (texto, idioma) ou None se não houver."""
     governance.check_egress("transcript-fetch", "public")
@@ -162,25 +192,22 @@ def youtube_captions(video_id: str, langs=("pt", "pt-BR", "en", "de")) -> tuple[
         snippets = getattr(fetched, "snippets", fetched)
         lang = getattr(fetched, "language_code", "") or ""
     except Exception as exc:
-        try:  # API antiga (<= 0.6): função de classe, lista de dicts, sem idioma
-            rows = YouTubeTranscriptApi.get_transcript(video_id, languages=list(langs))
-            snippets, lang = rows, ""
-        except Exception as exc2:
-            # "este video nao tem legenda" e uma resposta. Qualquer outra coisa e
-            # falha nossa e nao pode virar um fallback silencioso de 15 min de
-            # Whisper (padrao 5: erro tem que parecer erro). Foi o que aconteceu
-            # em 2026-09-10: a lib 1.0.3 devolvia ParseError e o codigo lia como
-            # "sem legenda".
-            name = type(exc2).__name__
-            if name in ("NoTranscriptFound", "TranscriptsDisabled",
-                        "VideoUnavailable", "NotTranslatable"):
+        # A API antiga (<= 0.6) expunha `get_transcript` como funcao de classe. Na
+        # 1.2 ela nao existe mais, e chamar assim mesmo levantava AttributeError —
+        # que virava a excecao REPORTADA, escondendo a de verdade. O diagnostico
+        # que o usuario recebia era "no attribute get_transcript" quando a causa
+        # real era o YouTube bloqueando o IP. Guarda de erro que reporta o erro
+        # errado e pior que guarda nenhuma.
+        if hasattr(YouTubeTranscriptApi, "get_transcript"):
+            try:
+                rows = YouTubeTranscriptApi.get_transcript(video_id, languages=list(langs))
+                snippets, lang = rows, ""
+            except Exception:
+                _raise_caption_error(video_id, exc)
                 return None
-            raise FetchError(
-                "a busca de legenda de %s falhou por motivo tecnico (%s: %s). "
-                "Nao vou cair no Whisper em silencio: conserte a causa ou peca "
-                "--force-whisper explicitamente."
-                % (video_id, name, str(exc2)[:200])
-            ) from exc
+        else:
+            _raise_caption_error(video_id, exc)
+            return None
     lines = []
     for s in snippets:
         start = getattr(s, "start", None)
