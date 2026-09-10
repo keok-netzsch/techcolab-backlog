@@ -31,6 +31,7 @@ def vault_tmp(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "REJECTED_DIR", tmp_path / "Concepts" / "_rejected")
     monkeypatch.setattr(paths, "REPORTS_DIR", tmp_path / "_reports")
     monkeypatch.setattr(paths, "QA_REPORT", tmp_path / "_reports" / "Sources-QA.md")
+    monkeypatch.setattr(paths, "media_cache", lambda: tmp_path / "_cache")
     monkeypatch.setattr(questions, "_PEOPLE_CACHE", None, raising=False)
     paths.ensure_dirs()
     return tmp_path
@@ -717,3 +718,24 @@ def test_qa_nao_acusa_hash_em_nota_sem_bruto():
     doc = make_doc(text="palavra " * 5000)
     note.write(doc, retain_raw=False)
     assert not [f for f in qa.check_notes() if "sha256" in f.title]
+
+
+def test_read_doc_recupera_o_texto_do_cache_local(vault_tmp):
+    """`--no-raw` sem cache legivel tornava a nota impossivel de analisar. E
+    read_doc precisa devolver SourceDoc, nao a string do cache."""
+    doc = make_doc(text="conteudo longo " * 500)
+    p = note.write(doc, retain_raw=False)
+    de_volta = note.read_doc(p)
+    assert isinstance(de_volta, note.SourceDoc)
+    assert de_volta.text_sha256 == doc.text_sha256
+    assert de_volta.title == doc.title
+
+
+def test_media_cache_sob_pytest_nunca_e_o_caminho_real(monkeypatch):
+    """Guarda na fonte: mesmo sem fixture, pytest nao escreve no cache do Kelvin."""
+    monkeypatch.delattr(paths, "media_cache", raising=False)
+    import importlib
+    from vaultsources import paths as p2
+    importlib.reload(p2)
+    alvo = str(p2.media_cache())
+    assert "techcolab" not in alvo or "test" in alvo.lower()

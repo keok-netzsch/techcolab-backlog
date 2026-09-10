@@ -374,9 +374,13 @@ def read_doc(path: Path) -> SourceDoc:
     if m:
         text = m.group(1)
     else:
+        # Cache local, para nota gravada com `raw-retained: false`. Isto ATRIBUI o
+        # texto; a primeira versao fazia `return` aqui e devolvia uma string no
+        # lugar do SourceDoc, quebrando todo chamador.
         cache = paths.media_cache() / "raw" / (path.stem + ".txt")
         if cache.exists():
-            return cache.read_text(encoding="utf-8", errors="replace").strip()
+            return _doc_from(fm, path,
+                             cache.read_text(encoding="utf-8", errors="replace").strip())
         sidecar = paths.SOURCES_DIR / "_transcripts" / (path.stem + ".md")
         if sidecar.exists():
             sraw = sidecar.read_text(encoding="utf-8")
@@ -384,6 +388,11 @@ def read_doc(path: Path) -> SourceDoc:
                 text = sraw.split(TRANSCRIPT_MARK, 1)[1].strip()
             else:
                 text = ""  # sidecar antigo, sem sentinela: nao adivinhe onde comeca
+    return _doc_from(fm, path, text)
+
+
+def _doc_from(fm: dict, path: Path, text: str) -> SourceDoc:
+    """Monta o SourceDoc a partir do frontmatter mais o texto que o chamador achou."""
     dur = fm.get("duration-seconds")
     published = str(fm.get("source-published", "") or "")
     lang = str(fm.get("lang", "") or "")
@@ -399,7 +408,7 @@ def read_doc(path: Path) -> SourceDoc:
         text=text,
         external_id=str(fm.get("source-id", "") or ""),
         pulled_by_question=str(fm.get("pulled-by-question", "") or ""),
-        tags=[t for t in (fm.get("tags") or []) if t != "source"],
+        tags=[x for x in (fm.get("tags") or []) if x != "source"],
     )
 
 

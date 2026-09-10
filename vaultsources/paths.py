@@ -38,7 +38,17 @@ QA_REPORT = REPORTS_DIR / "Sources-QA.md"
 # Cache de mídia baixada. Fora do OneDrive e fora do vault: é lixo reproduzível
 # e áudio de vídeo não precisa sincronizar.
 def media_cache() -> Path:
+    """Cache de midia e de texto bruto. Fora do vault, fora do OneDrive.
+
+    Guarda na FONTE, nao so na fixture (padrao 10 do ARCHITECTURE.md): sob pytest,
+    apontar para o cache real deixa lixo na maquina do Kelvin e, pior, um teste
+    passa a enxergar o arquivo que outro escreveu. Foi assim que o teste do sidecar
+    quebrou: outro teste tinha gravado um cache com o mesmo slug.
+    """
     import os
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        import tempfile
+        return Path(tempfile.gettempdir()) / "vaultsources-test-cache"
     base = os.environ.get("LOCALAPPDATA")
     root = Path(base) / "techcolab" if base else Path.home() / ".local" / "share" / "techcolab"
     return root / "sources-media"
