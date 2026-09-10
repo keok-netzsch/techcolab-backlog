@@ -630,3 +630,71 @@ def test_falha_tecnica_de_legenda_continua_estourando():
     from vaultsources import adapters
     with pytest.raises(adapters.FetchError):
         adapters._raise_caption_error("abc", ValueError("parse quebrou"))
+
+
+# ── import de lista (Watch Later via Takeout) ─────────────────────────────────
+
+def test_csv_do_takeout_devolve_os_ids(tmp_path):
+    from vaultsources import importlist
+    f = tmp_path / "wl.csv"
+    f.write_text("Video ID,Playlist Video Creation Timestamp\n"
+                 "dQw4w9WgXcQ,2026-01-01\nTygN-nIFP7Y,2026-01-02\n", encoding="utf-8")
+    assert importlist.parse_source(f) == ["dQw4w9WgXcQ", "TygN-nIFP7Y"]
+
+
+def test_txt_de_urls_tambem_serve(tmp_path):
+    from vaultsources import importlist
+    f = tmp_path / "lista.txt"
+    f.write_text("https://www.youtube.com/watch?v=dQw4w9WgXcQ\n"
+                 "# comentario\nTygN-nIFP7Y\nhttps://youtu.be/mcqnvM550yU?t=5\n",
+                 encoding="utf-8")
+    assert importlist.parse_source(f) == ["dQw4w9WgXcQ", "TygN-nIFP7Y", "mcqnvM550yU"]
+
+
+def test_id_com_tamanho_errado_nao_entra(tmp_path):
+    from vaultsources import importlist
+    f = tmp_path / "wl.csv"
+    f.write_text("Video ID\ndddddddddddd\ndQw4w9WgXcQ\n", encoding="utf-8")
+    assert importlist.parse_source(f) == ["dQw4w9WgXcQ"]
+
+
+def test_import_nao_repropoe_o_que_ja_esta_no_vault(tmp_path, monkeypatch):
+    from vaultsources import importlist
+    f = tmp_path / "lista.txt"
+    f.write_text("dQw4w9WgXcQ\nTygN-nIFP7Y\n", encoding="utf-8")
+    monkeypatch.setattr(note, "find_by_url",
+                        lambda u: object() if "dQw4w9WgXcQ" in u else None)
+    res = importlist.import_list(f, probe=0, pause=0)
+    assert res["ja_no_vault"] == 1 and res["novos"] == 1
+    assert res["sem_titulo"] == 1
+
+
+def test_fila_agrupa_por_feed(vault_tmp):
+    """Oito partes do mesmo curso sao UMA decisao, nao oito."""
+    q = feeds.load_queue()
+    for i in range(1, 9):
+        q["candidates"].append({
+            "video_id": "v%d" % i, "title": "Part %d" % i, "state": "proposed",
+            "score": 10 - i, "feed": "PLcurso", "feed_label": "Curso de Azure",
+            "reason": "bate com os topicos do feed"})
+    q["candidates"].append({
+        "video_id": "z", "title": "outro", "state": "proposed", "score": 3,
+        "feed": "PLoutro", "feed_label": "Outro", "reason": "x"})
+    feeds.save_queue(q)
+    grupos = feeds.pending_by_feed()
+    assert [g["feed"] for g in grupos] == ["PLcurso", "PLoutro"]
+    assert len(grupos[0]["itens"]) == 8
+    assert grupos[0]["score"] == 9
+
+
+def test_aprovar_feed_inteiro_move_todos(vault_tmp):
+    q = feeds.load_queue()
+    q["candidates"] += [
+        {"video_id": "a", "title": "a", "state": "proposed", "feed": "PLx", "score": 1},
+        {"video_id": "b", "title": "b", "state": "proposed", "feed": "PLx", "score": 1},
+        {"video_id": "c", "title": "c", "state": "proposed", "feed": "PLy", "score": 1},
+    ]
+    feeds.save_queue(q)
+    assert feeds.set_state_feed("PLx", "approved") == 2
+    estados = {c["video_id"]: c["state"] for c in feeds.load_queue()["candidates"]}
+    assert estados == {"a": "approved", "b": "approved", "c": "proposed"}

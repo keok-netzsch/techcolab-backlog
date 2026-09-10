@@ -29,7 +29,7 @@ import json
 import sys
 from pathlib import Path
 
-from vaultsources import concepts, dossier, feeds, linkedin, note, paths, qa, questions
+from vaultsources import concepts, dossier, feeds, importlist, linkedin, note, paths, qa, questions
 
 EXIT_OK, EXIT_ERROR, EXIT_QA_FAIL = 0, 1, 2
 
@@ -151,14 +151,34 @@ def cmd_queue(args) -> int:
         c = feeds.set_state(args.reject, "rejected", note=args.why or "")
         print("rejeitado: %s" % c["title"])
         return EXIT_OK
-    pend = feeds.pending_candidates()
-    if not pend:
+    if args.approve_feed:
+        n = feeds.set_state_feed(args.approve_feed, "approved")
+        print("aprovados %d candidato(s) do feed %s" % (n, args.approve_feed))
+        return EXIT_OK
+    if args.reject_feed:
+        n = feeds.set_state_feed(args.reject_feed, "rejected", note=args.why or "")
+        print("rejeitados %d candidato(s) do feed %s" % (n, args.reject_feed))
+        return EXIT_OK
+
+    grupos = feeds.pending_by_feed()
+    if not grupos:
         print("fila vazia")
         return EXIT_OK
-    for c in pend:
-        print("[%d] %s" % (c.get("score", 0), c["title"][:85]))
-        print("     %s · %s · %s" % (c["channel"], c.get("published", "?"), c["video_id"]))
-        print("     %s" % c["reason"][:110])
+    total = sum(len(g["itens"]) for g in grupos)
+    print("%d candidato(s) em %d feed(s). Decida por feed, nao item a item."
+          % (total, len(grupos)))
+    print("")
+    for g in grupos:
+        print("[%d] %s — %d item(ns)   (ref: %s)"
+              % (g["score"], g["label"][:52], len(g["itens"]), g["feed"]))
+        for c in g["itens"][:3]:
+            print("     · %s" % (c["title"] or c["video_id"])[:88])
+        if len(g["itens"]) > 3:
+            print("     · … e mais %d" % (len(g["itens"]) - 3))
+        print("     %s" % g["itens"][0]["reason"][:100])
+    print("")
+    print("Aprovar um feed inteiro: queue --approve-feed <ref>")
+    print("Aprovar um item so:     queue --approve <video_id>")
     return EXIT_OK
 
 
@@ -183,6 +203,27 @@ def cmd_ingest(args) -> int:
             print("FALHOU: %s — %s: %s" % (c["title"][:50], type(exc).__name__, str(exc)[:160]))
     print("ingeridos: %d/%d" % (ok, len(targets)))
     return EXIT_OK if ok == len(targets) else EXIT_ERROR
+
+
+def cmd_import(args) -> int:
+    res = importlist.import_list(Path(args.file), label=args.label,
+                                 probe=args.probe, pause=args.pause)
+    print("lidos: %(lidos)d · novos na fila: %(novos)d · ja no vault: %(ja_no_vault)d "
+          "· sem titulo: %(sem_titulo)d" % res)
+    for f in res["falhas"][:5]:
+        print("  falha %s: %s" % (f["id"], f["why"]))
+    if res["sem_titulo"]:
+        print("Sem titulo nao da para ranquear. Rode: "
+              "python -m vaultsources fill-titles --limit 25")
+    return EXIT_OK
+
+
+def cmd_fill_titles(args) -> int:
+    res = importlist.fill_titles(limit=args.limit, pause=args.pause)
+    print("titulos preenchidos: %(preenchidos)d · ainda sem: %(restantes)d" % res)
+    for f in res["falhas"][:5]:
+        print("  falha %s: %s" % (f["id"], f["why"]))
+    return EXIT_OK
 
 
 # ── perguntas / conceitos ─────────────────────────────────────────────────────
@@ -362,6 +403,8 @@ def build_parser() -> argparse.ArgumentParser:
     qu = sub.add_parser("queue", help="fila de candidatos")
     qu.add_argument("--approve", default="")
     qu.add_argument("--reject", default="")
+    qu.add_argument("--approve-feed", default="")
+    qu.add_argument("--reject-feed", default="")
     qu.add_argument("--why", default="")
     qu.set_defaults(func=cmd_queue)
 
@@ -369,6 +412,18 @@ def build_parser() -> argparse.ArgumentParser:
     ing.add_argument("--id", default="")
     ing.add_argument("--all", action="store_true")
     ing.set_defaults(func=cmd_ingest)
+
+    im = sub.add_parser("import", help="entra com lista de video (Takeout do Watch Later, txt de URLs)")
+    im.add_argument("file")
+    im.add_argument("--label", default="watch-later")
+    im.add_argument("--probe", type=int, default=25, help="quantos titulos buscar agora")
+    im.add_argument("--pause", type=float, default=1.0)
+    im.set_defaults(func=cmd_import)
+
+    ft = sub.add_parser("fill-titles", help="busca titulo dos candidatos importados sem titulo")
+    ft.add_argument("--limit", type=int, default=25)
+    ft.add_argument("--pause", type=float, default=1.0)
+    ft.set_defaults(func=cmd_fill_titles)
 
     qn = sub.add_parser("questions", help="perguntas abertas")
     qn.add_argument("--json", action="store_true")

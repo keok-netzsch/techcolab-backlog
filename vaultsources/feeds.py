@@ -366,3 +366,41 @@ def pending_candidates() -> list[dict]:
     out = [c for c in q["candidates"] if c["state"] == "proposed"]
     out.sort(key=lambda c: (-c.get("score", 0), c.get("published", "")))
     return out
+
+
+def pending_by_feed() -> list[dict]:
+    """Candidatos agrupados por feed, do mais relevante para o menos.
+
+    Assinar 10 feeds de uma vez produziu 57 propostas na primeira varredura, e 8
+    delas eram as 8 partes do MESMO curso de Azure. Isso nao e uma fila de decisao,
+    e outro backlog. Oito partes de um curso sao UMA decisao ("quero fazer este
+    curso?"), nao oito.
+    """
+    grupos: dict[str, dict] = {}
+    for c in pending_candidates():
+        g = grupos.setdefault(c.get("feed", "?"), {
+            "feed": c.get("feed", "?"), "label": c.get("feed_label", "?"),
+            "itens": [], "score": 0})
+        g["itens"].append(c)
+        g["score"] = max(g["score"], c.get("score", 0))
+    out = list(grupos.values())
+    out.sort(key=lambda g: (-g["score"], -len(g["itens"])))
+    return out
+
+
+def set_state_feed(feed_ref: str, state: str, *, note: str = "") -> int:
+    """Aplica o estado a todos os candidatos propostos de um feed."""
+    if state not in STATES:
+        raise ValueError("state %r fora de %s" % (state, STATES))
+    q = load_queue()
+    n = 0
+    hoje = datetime.now().strftime("%Y-%m-%d")
+    for c in q["candidates"]:
+        if c.get("feed") == feed_ref and c["state"] == "proposed":
+            c["state"], c["state_at"] = state, hoje
+            if note:
+                c["note"] = note
+            n += 1
+    if n:
+        save_queue(q)
+    return n
