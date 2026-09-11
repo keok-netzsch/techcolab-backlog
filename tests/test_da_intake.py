@@ -60,6 +60,19 @@ def test_submit_creates_immutable_submission(tmp_path, central):
     assert "target_exists: true" in text
 
 
+def test_submit_keeps_long_titles_distinct_in_one_second(tmp_path, central, monkeypatch):
+    fixed_now = da_intake.datetime(2026, 9, 11, 19, 43, 57, tzinfo=da_intake.timezone.utc)
+    monkeypatch.setattr(da_intake, "_now", lambda: fixed_now)
+    shared_prefix = "Canonical project record synchronization for a long project name " * 2
+
+    first = da_intake.submit(_payload(tmp_path, title=shared_prefix + "Overview"))
+    second = da_intake.submit(_payload(tmp_path, title=shared_prefix + "Charter"))
+
+    assert first != second
+    assert first.is_file()
+    assert second.is_file()
+
+
 def test_submit_refuses_to_guess_shared_path(tmp_path, monkeypatch):
     monkeypatch.delenv("DA_CENTRAL_VAULT", raising=False)
 

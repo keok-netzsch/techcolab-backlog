@@ -310,7 +310,7 @@ def submit(payload_path: str) -> Path:
     digest = hashlib.sha256(f"{author}|{title}|{now.isoformat()}".encode()).hexdigest()[:10]
     submission_id = f"DAI-{stamp}-{digest}"
     content = _submission_markdown(payload, submission_id, now, (root / target).is_dir())
-    path = root / "Intake" / now.strftime("%Y-%m") / f"{stamp}-{_slug(author)}-{_slug(title)}.md"
+    path = root / "Intake" / now.strftime("%Y-%m") / f"{stamp}-{_slug(author)}-{_slug(title)}-{digest}.md"
     _exclusive_write(path, content)
     return path
 

@@ -40,6 +40,8 @@ Nada e movido, editado ou apagado, nunca.
 Cada recibo usa tambem o identificador da submissao, alem do horario. Assim, duas notas com
 o mesmo nome (por exemplo, `Status.md` em projetos distintos) publicadas no mesmo segundo
 continuam com recibos independentes e auditaveis.
+A submissao tambem inclui um digest no nome imutavel. Isso evita colisao quando titulos longos
+compartilham o mesmo prefixo e chegam no mesmo segundo.
 
 ## A fronteira de escrita
 
