@@ -66,6 +66,7 @@ lista listas nome nomes status owner overview related source sources content
 
 CACHE_DIAS = 7
 TOP_N = 120
+COTA_GRUPO = 30   # termos garantidos por grupo de fonte
 
 
 def _flat(text: str) -> str:
@@ -111,7 +112,23 @@ def _fontes() -> list[tuple[str, list[Path], int]]:
          + sorted((V / "Projects").glob("*/*.md"))[:60]
          if (V / "Projects").exists() else [], 2),
         ("areas", sorted((V / "Areas").glob("*.md")) if (V / "Areas").exists() else [], 1),
+        # Prioridade de estudo e prioridade declarada, e muda mais rapido que
+        # projeto. Sem esta fonte o vocabulario nao conhecia SC-401, Purview,
+        # Copilot Studio nem alemao, e conteudo desses assuntos so ranqueava por
+        # topico do feed. Entrou em 2026-09-10, quando o Kelvin trocou a ordem das
+        # provas e pediu canais de SAP MM, MDG, SC-401, alemao e ingles.
+        ("estudo", _arquivos_de_estudo(), 3),
     ]
+
+
+def _arquivos_de_estudo() -> list[Path]:
+    """Roteiro de exames e conceitos fracos. Score nunca entra aqui, so vocabulario."""
+    raiz = paths.VAULT / "vault" / "study-tools"
+    if not raiz.exists():
+        return []
+    out = [raiz / "study" / "certifications.json"]
+    out += sorted(raiz.glob("*/*-weak-concepts.json"))
+    return [p for p in out if p.exists()]
 
 
 _FRONTMATTER = re.compile(r"\A---\n.*?\n---\n", re.S)
@@ -170,8 +187,38 @@ def compute() -> dict:
             grupos[t] += 1
 
     teto = max(2, int(lidos * DF_MAX))
-    termos = {t: v for t, v in total.items() if grupos[t] >= 2 and df[t] <= teto}
-    top = dict(Counter(termos).most_common(TOP_N))
+    # A regra dos dois grupos protege contra jargao de um arquivo so, mas mata
+    # termo que legitimamente mora num lugar unico. `sc-401` aparece so no roteiro
+    # de exames e `goethe` so ali tambem, e os dois sao prioridade declarada, nao
+    # jargao. Entao perfil, OKR e estudo passam por cima da regra: sao os lugares
+    # onde ele DIZ o que importa, e dizer uma vez ja basta.
+    autoritativos = {"perfil", "okr", "estudo"}
+    isentos = {t2 for rot in autoritativos for t2 in por_fonte.get(rot, {})}
+    termos = {t: v for t, v in total.items()
+              if df[t] <= teto and (grupos[t] >= 2 or t in isentos)}
+
+    # Cota por grupo. Um top-N global e dominado por quem tem mais arquivos: com
+    # 60 notas de projeto contra 4 de estudo, `purview`, `sc-401` e `goethe` nao
+    # chegavam nem perto do corte, e prioridade de estudo e das coisas que mais
+    # mudam. A cota garante que cada grupo apareca, e o resto do espaco vai para os
+    # de maior peso.
+    # Grupo pequeno e autoritativo entra INTEIRO. `perfil` e `estudo` tem um ou dois
+    # arquivos, entao todos os termos deles empatam no mesmo peso e um
+    # `most_common(30)` escolhe 30 quaisquer entre duzentos empatados — foi assim
+    # que `sc-401` e `goethe` ficaram de fora mesmo estando escritos no roteiro de
+    # exames. Desempate arbitrario em fonte de prioridade e pior que nao filtrar.
+    top: dict[str, int] = {}
+    for rotulo, c in por_fonte.items():
+        elegiveis = {k: v for k, v in c.items() if k in termos}
+        cota = len(elegiveis) if rotulo in ("perfil", "estudo") else COTA_GRUPO
+        for t2, _v in Counter(elegiveis).most_common(cota):
+            top[t2] = termos[t2]
+    limite = TOP_N + COTA_GRUPO * 2 + len(top)
+    for t2, v in Counter(termos).most_common(TOP_N):
+        if len(top) >= limite:
+            break
+        top.setdefault(t2, v)
+    top = dict(sorted(top.items(), key=lambda kv: -kv[1]))
     return {"gerado": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "arquivos_lidos": lidos, "df_teto": teto, "termos": top}
 
