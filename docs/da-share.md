@@ -37,6 +37,10 @@ fila so cresce: a primeira versao tinha apenas `publish`, entao uma submissao de
 
 Nada e movido, editado ou apagado, nunca.
 
+Cada recibo usa tambem o identificador da submissao, alem do horario. Assim, duas notas com
+o mesmo nome (por exemplo, `Status.md` em projetos distintos) publicadas no mesmo segundo
+continuam com recibos independentes e auditaveis.
+
 ## A fronteira de escrita
 
 `scripts/da_intake.py` e a unica coisa que grava. Ele recusa em tres situacoes.

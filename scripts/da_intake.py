@@ -362,7 +362,10 @@ def publish(payload_path: str) -> tuple[Path, Path]:
     author = fields.get("author", "unknown")
     published_rel = final_path.relative_to(root).as_posix()
     stamp = now.strftime("%Y%m%dT%H%M%SZ")
-    receipt = root / "Intake" / "Receipts" / f"{stamp}-{Path(filename).stem}.md"
+    # The target filename is not a publication identity: two projects can both
+    # publish (for example) ``Status.md`` in the same second. Receipts must
+    # remain add-only, so tie their name to the immutable submission as well.
+    receipt = root / "Intake" / "Receipts" / f"{stamp}-{submission_rel.stem}.md"
     _exclusive_write(receipt, f"""---
 date: {now.date().isoformat()}
 type: da-publication-receipt

@@ -78,6 +78,30 @@ def test_publish_creates_final_note_and_receipt_without_mutating_submission(tmp_
     assert submission.read_text(encoding="utf-8") == original
 
 
+def test_publish_keeps_receipts_distinct_for_same_filename_in_one_second(tmp_path, central,
+                                                                           monkeypatch):
+    """A common ``Status.md`` name must not make the second receipt collide."""
+    fixed_now = da_intake.datetime(2026, 9, 11, 19, 15, 0, tzinfo=da_intake.timezone.utc)
+    monkeypatch.setattr(da_intake, "_now", lambda: fixed_now)
+    (central / "Projects" / "Second project").mkdir()
+
+    first = da_intake.submit(_payload(tmp_path, title="First project update"))
+    da_intake.publish(_publish_payload(
+        tmp_path, central, first, filename="Status.md",
+        published_content="# First status\n",
+    ))
+
+    second = da_intake.submit(_payload(tmp_path, title="Second project update"))
+    _final, second_receipt = da_intake.publish(_publish_payload(
+        tmp_path, central, second, target="Projects/Second project", filename="Status.md",
+        published_content="# Second status\n",
+    ))
+
+    receipts = list((central / "Intake" / "Receipts").glob("*.md"))
+    assert len(receipts) == 2
+    assert second_receipt.is_file()
+
+
 def test_publish_refuses_path_escape(tmp_path, central):
     submission = da_intake.submit(_payload(tmp_path))
     payload = _publish_payload(tmp_path, central, submission, target="../outside")
