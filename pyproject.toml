@@ -19,5 +19,13 @@ ignore = [
     "E402",  # module import not at top — agent scripts adjust sys.path first (intentional)
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# scripts/da_intake.py is handed to teammates as a zip and runs on whatever Python
+# their machine has. UP017 rewrites `timezone.utc` to `datetime.UTC`, which needs
+# 3.11; the first version of this file shipped with that and would have failed on
+# any older interpreter. `ruff --fix` put it back on 2026-09-11 and the tests, run
+# on 3.13, said nothing. tests/test_da_intake.py now guards the floor mechanically.
+"scripts/da_intake.py" = ["UP017"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

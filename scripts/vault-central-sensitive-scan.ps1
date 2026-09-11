@@ -45,9 +45,17 @@ $textExtensions = @(".md", ".txt", ".html", ".htm", ".json", ".js", ".css", ".cs
 # Pattern groups. SkipLongLines avoids base64 blobs in HTML build artifacts
 # triggering fuzzy word matches; secret patterns always scan every line.
 $patternGroups = @(
-    @{ Name = "comp";    SkipLongLines = $true;  Regex = 'sal(a|\u00e1)rio|salar(y|ies)|remunera|compensation|b(o|\u00f4)nus|\bbonus\b|\bmerit\b|m(e|\u00e9)rito' },
+    # 'salarial' and 'salariais' did not match 'sal(a|\u00e1)rio' and are how the
+    # subject is actually written in Portuguese ("banda salarial"). Found on
+    # 2026-09-11 by testing the write-time gate in scripts/da_intake.py, which
+    # carries the same list. Widening added 0 findings to the 182 existing notes.
+    @{ Name = "comp";    SkipLongLines = $true;  Regex = 'sal[a\u00e1]ri|salar(y|ies)|remunera|compensation|b(o|\u00f4)nus|\bbonus\b|\bmerit\b|m(e|\u00e9)rito|\bPLR\b|reajuste|stock option|\bequity\b' },
     @{ Name = "money";   SkipLongLines = $true;  Regex = 'R\$ ?\d|\u20ac ?\d|\bEUR ?\d{3}' },
-    @{ Name = "hr";      SkipLongLines = $true;  Regex = 'avalia(c|\u00e7)(a|\u00e3)o de desempenho|performance review|performance evaluation|devolutiva|\bPDI\b|\b9[ -]?box\b|promo(c|\u00e7)(a|\u00e3)o\b|\bpromotion\b|headcount|demiss|dismissal|\btermination\b' },
+    @{ Name = "hr";      SkipLongLines = $true;  Regex = 'avalia(c|\u00e7)(a|\u00e3)o de desempenho|performance review|performance evaluation|devolutiva|\bPDI\b|\b9[ -]?box\b|promo(c|\u00e7)(a|\u00e3)o\b|\bpromotion\b|headcount|demiss|dismissal|\btermination\b|desligamento|advert(e|\u00ea)ncia|senioridade|plano de carreira' },
+    # The subjects that piled up in the Inbox triage of 2026-09-10: medical leave,
+    # citizenship, legal matters. A teammate pastes these in by accident, not by
+    # intent, which is exactly why a pattern has to catch them.
+    @{ Name = "personal"; SkipLongLines = $true; Regex = 'atestado|consulta m(e|\u00e9)dica|licen(c|\u00e7)a m(e|\u00e9)dica|afastamento|\bCPF\b|\bcidadania\b|processo judicial' },
     @{ Name = "secret";  SkipLongLines = $false; Regex = 'api[_ -]?key\s*[:=]|password\s*[:=]|senha\s*[:=]|\bsk-[A-Za-z0-9]{10,}|ghp_[A-Za-z0-9]{10,}|xoxb-[A-Za-z0-9-]{10,}|Bearer [A-Za-z0-9._\-]{15,}|AKIA[0-9A-Z]{16}' },
     # Split on 2026-09-04 (P-072). The old single 'confid' group matched the bare word
     # "confidential" anywhere on a line, so it could not tell a document that IS marked
