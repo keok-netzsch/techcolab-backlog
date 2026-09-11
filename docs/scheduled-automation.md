@@ -60,7 +60,7 @@ unless noted. This is the "production = hardened local" record required by the A
 | `TechColab English Coach` | Mon 08:30 | `run_english_coach.bat` → `agent/english_coach.py` |
 | `CDMP Daily Study Reminder` | weekdays 15:30 | vault `study-tools/cdmp/cdmp-notify.ps1` (a ação da tarefa foi repontada em 2026-09-02, quando o estado de estudo saiu de `vault/` para `vault/study-tools/<área>/`) |
 | `study-diario` | daily 15:40 | Claude scheduled routine (not Task Scheduler) — the **single** study routine: `/study` status + day menu, and when the focus is CDMP it already delivers the ready question. **Absorbed `cdmp-diario` on 2026-08-31** (it fired 3 min earlier for the same purpose). Pairs with the `study-reminder` toast. Since 2026-09-08 it also regenerates the study dashboard (`build_dashboard.py`) and republishes it to the URL in `study-dashboard.url` after logging the session |
-| `study-notify-diario` | daily 15:40 | `scripts/notify.ps1 -Profile study-reminder` → body from `scripts/notify-body/study-body.ps1` (reads `study-tools/study/study-plan.json` + area trackers, zero LLM; silent when every active area already studied today); pairs with the `/study` skill. Migrated to the engine 2026-08-30 as messagebox (was balloon — Focus Assist rationale); old `vault/study-notify.ps1` retired |
+| `study-notify-diario` | daily 15:40 | `scripts/notify.ps1 -Profile study-reminder` → body from `scripts/notify-body/study-body.ps1` (reads `study-tools/study/study-plan.json` + area trackers, zero LLM; silent when every active area already studied today); pairs with the `/study` skill. Migrated to the engine 2026-08-30 as messagebox (was balloon — Focus Assist rationale); old `vault/study-tools/study/study-notify.ps1` retired |
 | `NETZSCH-AI-Usage-Capture` | daily 09:00 | `~/NETZSCH-AI-Usage/Capture-Usage.ps1` |
 
 
@@ -88,6 +88,7 @@ rule at the bottom exists to prevent.
 | `timesheet-check-sexta` | `40 16 * * 5` | Fri 16:40 | Weekly ServiceNow timesheet check for the team (coverage + quality) |
 | `organize-downloads-semanal` | `0 20 * * 0` | Sun 20:00 | Reorganises the Downloads folder, reversible, deletes nothing |
 | `lembrete-fechamento-fatura` | `0 9 28 * *` | day 28, 09:00 | Monthly reminder to update bank balance and card statements, with the previous month's closing report |
+| `auditoria-tokens-semanal` | `15 7 * * 1` | Mon 07:15 (**since 2026-09-11**) | Roda `scripts/audit_tokens.py` (medição determinística: contexto fixo, MEMORY.md, skills, plugins, transcripts) e compara com a semana anterior via `_reports/token-audit-history.jsonl`. **Silenciosa quando nada cresceu >10%.** Quando cresceu, propõe corte com botão; nunca remove nada sozinha. Existe porque a auditoria manual de 31/08 recuperou ~5k tokens/sessão e 9 dias depois ~2k tinham voltado |
 
 Personal, not work: `linkedin-engagement-reminder`, `organize-downloads-semanal` and
 `lembrete-fechamento-fatura`.

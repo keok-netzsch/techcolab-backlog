@@ -59,6 +59,7 @@ Não são vinte ferramentas soltas. São **quatro trabalhos**, e quase toda peç
 | Relatório de consistência | derivado: `_reports/Sources-QA.md`, refeito do zero | **só** `python -m vaultsources qa`. Lido pelo perfil `sources-qa` do notify e pela rotina `fontes-semanal` |
 | CA da rede corporativa | derivado: `%LOCALAPPDATA%\techcolab\ca-bundle.pem` | **só** `scripts/build-ca-bundle.ps1`. Refazer depois de `pip install -U certifi` |
 | Índice de busca do vault | derivado, não é estado: `%LOCALAPPDATA%\techcolab\vault-index\index.sqlite`, refeito do zero por `python -m vaultindex build --full` | **só** `vaultindex build`/`embed` (um escritor, lock com PID); `search`, `briefing` e o MCP leem em `mode=ro`; `check` é o leitor independente que acusa divergência; `lint` só lê o índice e grava `_reports/Vault-Lint.md` (saída gerada) |
+| Auditoria de custo de contexto | derivado, refeito do zero: `_reports/Token-Audit.md`; histórico em `_reports/token-audit-history.jsonl` (append, 1 linha por rodada) | **só** `scripts/audit_tokens.py`. A rotina `auditoria-tokens-semanal` lê o delta e propõe; nunca corta. Nasceu em 2026-09-11 porque a auditoria manual custou 15 chamadas, errou 3 números e generalizou 1 sessão como conjunto |
 
 ### O que roda sozinho
 
@@ -210,7 +211,7 @@ assuma que a afirmação vai envelhecer.
 | 2026-08-31 | **O app Streamlit fica.** O problema é utilidade, não existência | `2026-08-31-app-streamlit-diagnostico.md` |
 | 2026-08-31 | O vault é registro; a interação é no chat | `~/.claude/CLAUDE.md` (global) |
 | 2026-08-31 | PDI/OKR/Overview só recebem texto de modelo via gate | `call-recorder/GOVERNANCE.md` |
-| 2026-08-31 | **Uma sessão por vez tocando o repo e o vault.** Rotinas fundidas para reduzir sessão automática | `vault/auditoria-tokens-2026-08-31.md` |
+| 2026-08-31 | **Uma sessão por vez tocando o repo e o vault.** Rotinas fundidas para reduzir sessão automática | `vault/working-notes/auditoria-tokens-2026-08-31.md` |
 | 2026-08-31 | Sistema de estudo MDM: estado no vault com 1 escritor por arquivo; monitor `/study` read-only sobre trackers; conteúdo da transição (não anunciada) nunca roda no gateway — só na conta Max; áudio de alemão é o P6 (deutsch v2), não uma 2ª solução | ADR `2026-08-31-sistema-de-estudo-mdm.md` |
 | 2026-09-03 | **Busca sobre o vault é índice derivado, local, sem LLM.** FTS5 hoje, embeddings ONNX na F2; sensível (`Team/`, `Stakeholders/`, tipos de 1:1) fora por padrão, com opt-in por chamada; índice fora do OneDrive e do repo. Palavras dele: *"segue sim. bora."* | ADR `2026-09-03-vault-index-busca-hibrida-local.md`, idea-097, `docs/vault-index.md` + `docs/vault-index-governanca.md` |
 | 2026-09-04 | **Nota de pessoa declara `aliases:` no frontmatter e o indexador resolve `[[Nome Completo]]` por eles.** Nome de arquivo real ganha de alias, como no Obsidian. Índice vai para schema v3, então pede `build --full` + `embed`. Sem isso, `[[Stefan Lautenschlager]]` contava como link quebrado só porque o arquivo é `Stakeholders/Stefan-Lautenschlager/Overview.md` | `vaultindex/corpus.py`, `vaultindex/db.py`, `tests/test_vaultindex.py` |
