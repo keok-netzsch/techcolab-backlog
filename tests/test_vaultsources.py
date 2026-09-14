@@ -173,6 +173,20 @@ def test_aceitar_aplica_e_conta_contradicao():
     assert not (paths.PROPOSALS_DIR / prop.name).exists()
 
 
+def test_contradicao_vai_para_a_secao_e_nao_para_a_citacao():
+    # O `For future Claude` cita `## Contradicoes em aberto` dentro de uma frase.
+    # Ate 2026-09-14 o append casava com essa citacao e a contradicao aceita ia
+    # parar no meio do paragrafo, com a secao real ainda dizendo "_Nenhuma._".
+    page = concepts.create("Tema", stance="posicao", why="motivo")
+    prop = concepts.propose("Tema", source_slug="fonte-x", relation="contradiz",
+                            claim="a fonte discorda")
+    concepts.accept(prop.name)
+    raw = page.read_text(encoding="utf-8")
+    secao = raw.split("\n## Contradicoes em aberto\n", 1)[1]
+    assert "a fonte discorda" in secao.split("\n## ", 1)[0]
+    assert "_Nenhuma._" not in raw
+
+
 def test_descartar_guarda_e_nao_apaga():
     concepts.create("Tema", stance="p", why="m")
     prop = concepts.propose("Tema", source_slug="f", relation="acrescenta", claim="c")

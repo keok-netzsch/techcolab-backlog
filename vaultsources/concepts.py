@@ -203,10 +203,14 @@ def _archive(src: Path) -> Path:
 
 
 def _append_to_section(raw: str, heading: str, line: str) -> str:
-    idx = raw.find(heading)
-    if idx == -1:
+    # O titulo tem de estar sozinho na linha. O bloco `For future Claude` cita
+    # `## Contradicoes em aberto` no meio de uma frase, e o find() solto casava
+    # com a citacao: em 2026-09-14 a primeira contradicao aceita foi parar
+    # dentro daquele paragrafo, com a secao real ainda dizendo "_Nenhuma._".
+    m = re.search(r"^" + re.escape(heading) + r"[ \t]*$", raw, re.M)
+    if m is None:
         return raw.rstrip() + "\n\n" + heading + "\n\n" + line + "\n"
-    start = raw.find("\n", idx) + 1
+    start = raw.find("\n", m.start()) + 1
     nxt = raw.find("\n## ", start)
     end = nxt if nxt != -1 else len(raw)
     block = raw[start:end]
