@@ -36,7 +36,7 @@ _INTERESTING_FIELDS = (
 
 # The gateway API returns null for these — values as communicated by the NBS
 # team / the AI Gateway Developer Handbook, not sourced from the API itself.
-MONTHLY_BUDGET = 100.0
+MONTHLY_BUDGET = 500.0
 GATEWAY_RPM_LIMIT = 100
 GATEWAY_TPM_LIMIT = 500_000
 
