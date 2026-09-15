@@ -481,7 +481,7 @@ Key packages: `faster-whisper`, `sounddevice`, `soundfile`, `numpy`, `requests`
 
 ## Coordenacao PM review 2026-08-29 (aprovado pelo Kelvin)
 
-Plano completo: vault/pm-review-toolkit-2026-08-29.md + ADR 2026-08-29-doc-triad-e-producao.md.
+Plano completo: vault/working-notes/pm-review-toolkit-2026-08-29.md + ADR 2026-08-29-doc-triad-e-producao.md.
 Impactos aqui:
 
 - **Triade de docs e obrigatoria**: mudanca no call-recorder atualiza CLAUDE.md +

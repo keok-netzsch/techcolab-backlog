@@ -14,7 +14,8 @@ fundidos por RRF. Nenhum LLM em nenhum passo. Nada sai da máquina: a única cha
 download único dos arquivos do modelo, com sha256 fixo.
 
 Fases entregues em 2026-09-03: F1 (FTS), F2 (vetores, bench, tools no MCP, tarefa noturna) e F3
-(lint, `--as-of`, corpus da memória do Claude Code). Fora: tela Streamlit (freeze até 25/09).
+(lint, `--as-of`, corpus da memória do Claude Code). Fora: tela Streamlit (freeze até o retake
+do CDMP ser feito — gate de evento desde 14/09, ver `CLAUDE.md` raiz).
 
 ## Onde vive
 

@@ -2,7 +2,7 @@
 
 Estes 3 scripts foram substituídos pelo motor único `scripts/notify.ps1` + os perfis em
 `scripts/notify-config.json` (decisão P3 do PM review de 2026-08-29,
-`vault/pm-review-toolkit-2026-08-29.md`).
+`vault/working-notes/pm-review-toolkit-2026-08-29.md`).
 
 | Script | Virou o perfil |
 |---|---|

@@ -56,8 +56,24 @@ ALLOWED_DECISIONS = {"return", "reject"}
 #
 # The .ps1 carries the same widening; the two lists are meant to stay in step.
 SENSITIVE_PATTERNS = [
+    # `VR - DL` and OKR weights added 2026-09-15 on Kelvin's instruction, after the
+    # OKR 08 note was published and quarantined twice in one day (P-139). Neither
+    # shape was matched by the words above: the variable-pay spreadsheet is cited by
+    # filename, not by the word "remuneração", and a weight reaches the vault as a
+    # bare percentage in a table column. A weight IS the split of someone's bonus,
+    # which is why it sits in `comp` (HARD, no override) rather than in a soft group.
+    #
+    # The weight-in-a-table-column case requires OKR anchor vocabulary (KR / Piso /
+    # Superação) on the same line. A first version matched a bare `| Peso |` header
+    # and pulled both design-system notes out of the shared vault: "Peso" is also
+    # the font-weight column of a typography table.
     ("comp", r"sal[aá]ri|salar(y|ies)|remunera|compensation|b(o|ô)nus|\bbonus\b|\bmerit\b|"
-             r"m(e|é)rito|\bPLR\b|reajuste|stock option|\bequity\b"),
+             r"m(e|é)rito|\bPLR\b|reajuste|stock option|\bequity\b|"
+             r"\bVR\s*[-–]\s*[A-Z]{2}\b|"
+             r"(peso|pesos|weight|weighting)\b[^\n]{0,40}?\d{1,3}\s*%|"
+             r"\d{1,3}\s*%[^\n]{0,20}?\bde\s+peso\b|"
+             r"(\bKR\b|piso|supera(c|ç)(a|ã)o)[^\n]{0,160}\b(peso|weight)\b|"
+             r"\b(peso|weight)\b[^\n]{0,160}(\bKR\b|piso|supera(c|ç)(a|ã)o)"),
     ("money", r"R\$ ?\d|€ ?\d|\bEUR ?\d{3}"),
     ("hr", r"avalia(c|ç)(a|ã)o de desempenho|performance review|performance evaluation|"
            r"devolutiva|\bPDI\b|\b9[ -]?box\b|promo(c|ç)(a|ã)o\b|\bpromotion\b|headcount|"

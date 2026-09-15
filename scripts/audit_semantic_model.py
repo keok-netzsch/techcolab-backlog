@@ -1,6 +1,6 @@
 """
 audit_semantic_model.py — PoC: automated first pass of the Semantic Model Curation Checklist
-(vault/guia-curadoria-modelo-semantico.md) against a real .pbix file.
+(vault/working-notes/guia-curadoria-modelo-semantico.md) against a real .pbix file.
 
 Usage:
     python scripts/audit_semantic_model.py "path/to/model.pbix" [--json]

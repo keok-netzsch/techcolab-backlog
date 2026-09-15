@@ -39,7 +39,21 @@ if (Test-Path $rejected) {
 # que existiu e o parser nao conseguiu ler.
 $semRegistro = @()
 
-if ($falhas.Count -eq 0) { exit 0 }   # silencio proposital
+# --- 2. tarefa agendada que terminou com erro ----------------------------------------
+# Em 11/09 a TeamMemoryAgent-Weekly saiu com codigo 1 sete vezes seguidas (um flag gravado
+# como texto onde o consolidador esperava dicionario). O log tinha "run start" sem "run done",
+# e ninguem le o log. O Agendador guarda o ultimo codigo de saida; e isso que se consulta.
+$tarefasComErro = @()
+foreach ($nome in 'TeamMemoryAgent-Capture', 'TeamMemoryAgent-Weekly') {
+    $info = Get-ScheduledTaskInfo -TaskName $nome -ErrorAction SilentlyContinue
+    if ($null -eq $info) { continue }
+    # 0 = ok; 267009 = ainda em execucao; 267011 = nunca rodou. Qualquer outro e falha.
+    if ($info.LastTaskResult -notin 0, 267009, 267011) {
+        $tarefasComErro += "  - $nome  (codigo $($info.LastTaskResult), ultima execucao $($info.LastRunTime))"
+    }
+}
+
+if ($falhas.Count -eq 0 -and $tarefasComErro.Count -eq 0) { exit 0 }   # silencio proposital
 
 $partes = @()
 
@@ -54,6 +68,18 @@ O Facilitator mudou a estrutura do documento. Os arquivos estao guardados em
 _rejected\ (nada foi apagado). Peca ao Claude:
 
   "o TMA rejeitou documento, ve o que mudou"
+"@
+}
+
+if ($tarefasComErro.Count -gt 0) {
+    $partes += @"
+$($tarefasComErro.Count) tarefa(s) agendada(s) terminaram com erro:
+
+$($tarefasComErro -join "`n")
+
+Rode o script da tarefa no terminal para ver o traceback, ou peca ao Claude:
+
+  "a tarefa do TMA esta falhando, ve o traceback"
 "@
 }
 

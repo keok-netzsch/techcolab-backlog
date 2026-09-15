@@ -49,7 +49,15 @@ $patternGroups = @(
     # subject is actually written in Portuguese ("banda salarial"). Found on
     # 2026-09-11 by testing the write-time gate in scripts/da_intake.py, which
     # carries the same list. Widening added 0 findings to the 182 existing notes.
-    @{ Name = "comp";    SkipLongLines = $true;  Regex = 'sal[a\u00e1]ri|salar(y|ies)|remunera|compensation|b(o|\u00f4)nus|\bbonus\b|\bmerit\b|m(e|\u00e9)rito|\bPLR\b|reajuste|stock option|\bequity\b' },
+    # `VR - DL` and OKR weights added 2026-09-15 on Kelvin's instruction, after the
+    # OKR 08 note was published and quarantined twice in one day (P-139). The
+    # variable-pay spreadsheet is cited by filename, not by the word "remunera",
+    # and a weight reaches the vault as a bare percentage in a table column.
+    # The table-column case requires OKR anchor vocabulary (KR / Piso / Superacao)
+    # on the same line: a first version matched a bare '| Peso |' header and pulled
+    # both design-system notes out of the vault, where Peso is the font-weight column.
+    # scripts/da_intake.py carries the same widening - keep the two in step.
+    @{ Name = "comp";    SkipLongLines = $true;  Regex = 'sal[a\u00e1]ri|salar(y|ies)|remunera|compensation|b(o|\u00f4)nus|\bbonus\b|\bmerit\b|m(e|\u00e9)rito|\bPLR\b|reajuste|stock option|\bequity\b|\bVR\s*[-\u2013]\s*[A-Z]{2}\b|(peso|pesos|weight|weighting)\b[^\n]{0,40}?\d{1,3}\s*%|\d{1,3}\s*%[^\n]{0,20}?\bde\s+peso\b|(\bKR\b|piso|supera(c|\u00e7)(a|\u00e3)o)[^\n]{0,160}\b(peso|weight)\b|\b(peso|weight)\b[^\n]{0,160}(\bKR\b|piso|supera(c|\u00e7)(a|\u00e3)o)' },
     @{ Name = "money";   SkipLongLines = $true;  Regex = 'R\$ ?\d|\u20ac ?\d|\bEUR ?\d{3}' },
     @{ Name = "hr";      SkipLongLines = $true;  Regex = 'avalia(c|\u00e7)(a|\u00e3)o de desempenho|performance review|performance evaluation|devolutiva|\bPDI\b|\b9[ -]?box\b|promo(c|\u00e7)(a|\u00e3)o\b|\bpromotion\b|headcount|demiss|dismissal|\btermination\b|desligamento|advert(e|\u00ea)ncia|senioridade|plano de carreira' },
     # The subjects that piled up in the Inbox triage of 2026-09-10: medical leave,

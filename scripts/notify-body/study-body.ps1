@@ -1,5 +1,5 @@
 # Gerador de corpo do lembrete de estudo (perfil study-reminder do notify.ps1).
-# Migrado 1:1 do antigo vault/study-notify.ps1 (2026-08-30, P3) — a lógica é a mesma:
+# Migrado 1:1 do antigo vault/study-tools/study/study-notify.ps1 (2026-08-30, P3) — a lógica é a mesma:
 # lê study-plan.json + trackers de área no vault e monta o resumo do dia.
 # Contrato do motor: só o stdout vira corpo; sem stdout = lembrete não abre.
 # Silêncio proposital: se toda área ativa já teve sessão HOJE, não há o que lembrar.

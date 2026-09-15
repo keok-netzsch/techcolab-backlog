@@ -178,6 +178,39 @@ def test_publish_scans_the_final_note_not_only_the_submission(tmp_path, central)
         da_intake.publish(payload)
 
 
+# --- P-139: the two shapes that reached the shared vault on 2026-09-14 ---------
+#
+# Neither is caught by the compensation VOCABULARY: the variable-pay spreadsheet
+# is cited by filename, and a weight arrives as a bare percentage in a table.
+
+@pytest.mark.parametrize("content", [
+    "A planilha `VR - DL` (linha do OKR 08, peso 35%) e a fonte da meta.",
+    "Este OKR carrega peso real (35% do bonus do Daniel).",
+    "| KR | Dono | Piso | Peso |",
+    "O KR2 responde por 30% de peso no scorecard.",
+])
+def test_publish_refuses_variable_pay_and_okr_weights(tmp_path, central, content):
+    submission = da_intake.submit(_payload(tmp_path))
+    payload = _publish_payload(tmp_path, central, submission, published_content=content)
+
+    with pytest.raises(da_intake.IntakeError, match="comp"):
+        da_intake.publish(payload)
+
+
+@pytest.mark.parametrize("content", [
+    "Cobertura de 100% das entregas elegiveis.",
+    # Font weight, not bonus weight. The first version of this gate matched a bare
+    # `| Peso |` header and pulled both design-system notes out of the shared vault.
+    "| Elemento | Tamanho (pt / rem) | Peso | Cor | Notas |",
+])
+def test_the_gate_catches_weights_not_every_percentage_or_column(tmp_path, central, content):
+    submission = da_intake.submit(_payload(tmp_path))
+    payload = _publish_payload(tmp_path, central, submission, published_content=content)
+
+    final, _receipt = da_intake.publish(payload)
+    assert final.is_file()
+
+
 # --- a typo must not grow a folder -------------------------------------------
 
 def test_publish_refuses_unknown_folder_and_suggests_the_real_one(tmp_path, central):
